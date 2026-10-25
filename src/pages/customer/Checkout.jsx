@@ -9,15 +9,8 @@ import { useCart } from '../../lib/cart-context.js'
 import { fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
 import { currentPosition, deliveryQuote, feeRuleText, validPoint } from '../../lib/delivery.js'
+import { getSavedDetails, getSavedLocation, placeName, saveDetails, saveLocation } from '../../lib/customerLocation.js'
 
-const SAVED_KEY = 'dergaonhub-checkout'
-const loadSaved = () => {
-  try {
-    return JSON.parse(localStorage.getItem(SAVED_KEY)) ?? {}
-  } catch {
-    return {}
-  }
-}
 
 function InputRow({ icon: Icon, label, children }) {
   return (
@@ -41,11 +34,17 @@ export default function Checkout() {
   const { clear } = useCart()
   const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
   const [form, setForm] = useState(() => {
-    const saved = loadSaved()
+    const saved = getSavedDetails()
     const me = currentCustomer()
     return { name: me?.name || saved.name || '', phone: me?.phone || saved.phone || '', address: saved.address ?? '', area: saved.area ?? '' }
   })
-  const [location, setLocation] = useState(() => (validPoint(loadSaved().location) ? loadSaved().location : null))
+  const [location, setLocationState] = useState(() => getSavedLocation() ?? (validPoint(getSavedDetails().location) ? getSavedDetails().location : null))
+  // The pin chosen here is remembered for the header and My account too.
+  const setLocation = (p) => {
+    setLocationState(p)
+    saveLocation(p, getSavedLocation()?.label ?? '')
+    placeName(p).then((label) => label && saveLocation(p, label))
+  }
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
   const [payment, setPayment] = useState('cash')
@@ -94,11 +93,7 @@ export default function Checkout() {
         payment_method: payment,
         allow_substitute: substitute,
       })
-      try {
-        localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, location }))
-      } catch {
-        // not saved: customer types details again next time
-      }
+      saveDetails(form)
       // The phone used for the order becomes the customer's login, so "My orders" works right away.
       await customerSignIn(order.customer_phone, order.customer_name)
       setPlaced(order.order_number)

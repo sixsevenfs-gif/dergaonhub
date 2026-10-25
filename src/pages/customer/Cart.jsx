@@ -5,7 +5,8 @@ import Stepper from '../../components/Stepper.jsx'
 import ProductThumb from '../../components/ProductThumb.jsx'
 import { btnAccent, card } from '../../components/ui.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
-import { feeRuleText } from '../../lib/delivery.js'
+import { deliveryQuote, feeRuleText } from '../../lib/delivery.js'
+import { useSavedDelivery } from '../../lib/customerLocation.js'
 import { useCart } from '../../lib/cart-context.js'
 import { rupee, slotDate, slotText } from '../../lib/format.js'
 
@@ -13,6 +14,7 @@ export default function Cart() {
   const navigate = useNavigate()
   const { setQty, setLineNote, setNote } = useCart()
   const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
+  const { location } = useSavedDelivery()
 
   if (!ready) return null
   if (!lines.length) {
@@ -30,6 +32,9 @@ export default function Cart() {
   }
 
   const shortBy = store.min_order - subtotal
+  // Fee from the location saved in the header / My account; exact fee is confirmed at checkout.
+  const quote = deliveryQuote(store, location)
+  const fee = quote && !quote.tooFar ? quote.fee : null
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pb-10 pt-4">
@@ -104,9 +109,12 @@ export default function Cart() {
 
       <div className={`${card} mt-3 p-4`}>
         <div className="flex justify-between text-muted"><span>Subtotal ({lines.reduce((s, l) => s + l.qty, 0)} items)</span><span>{rupee(subtotal)}</span></div>
-        <div className="mt-1 flex justify-between text-muted"><span>Delivery fee</span><span>Checkout pe</span></div>
+        <div className="mt-1 flex justify-between text-muted">
+          <span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span>
+          <span>{fee === null ? 'Checkout pe' : rupee(fee)}</span>
+        </div>
         <p className="mt-1 text-xs text-muted">Ghar ki doori se: {feeRuleText(store)}</p>
-        <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Items total</span><span>{rupee(subtotal)}</span></div>
+        <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>{fee === null ? 'Items total' : 'Total'}</span><span>{rupee(subtotal + (fee ?? 0))}</span></div>
         <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout
         </button>

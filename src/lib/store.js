@@ -242,6 +242,22 @@ export async function customerSignIn(phone, name = '') {
   return session
 }
 
+// Customer changes their name on My account; past orders keep the name they were placed with.
+export async function updateMyName(name) {
+  const me = currentCustomer() ?? fail('Pehle login karo.')
+  if (!name.trim()) fail('Naam daalo.')
+  const session = { ...me, name: name.trim() }
+  try {
+    localStorage.setItem(CUSTOMER_KEY, JSON.stringify(session))
+  } catch {
+    fail('Is browser mein naam save nahi ho pa raha.')
+  }
+  const c = db.customers.find((x) => x.phone === me.phone)
+  if (c) c.name = session.name
+  commit()
+  return session
+}
+
 export async function customerSignOut() {
   try {
     localStorage.removeItem(CUSTOMER_KEY)
@@ -357,7 +373,7 @@ export async function ordersByPhone(phone) {
     db.orders
       .filter((o) => o.customer_phone === ph)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .map((o) => ({ ...o, item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
+      .map((o) => ({ ...o, items: itemsOf(o.id), item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
   )
 }
 
