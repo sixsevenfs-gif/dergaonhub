@@ -40,7 +40,7 @@ export default function TopBar() {
         </div>
       </header>
 
-      <button type="button" onClick={() => setOpen(true)} className="mt-1 flex w-full items-center gap-1.5 text-left text-xs text-muted">
+      <button type="button" onClick={() => setOpen(true)} className="font-ui mt-1 flex w-full items-center gap-1.5 text-left text-xs text-muted">
         <MapPin size={13} className="shrink-0 text-accent" />
         {location ? (
           <span className="truncate">

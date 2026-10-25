@@ -29,7 +29,7 @@ function ProductCard({ p, qty, onQty, disabled }) {
       <div className="flex flex-1 flex-col p-3">
         <h3 className="line-clamp-2 text-[19px] leading-[1.1]">{p.name}</h3>
         <p className="mt-1 font-tagline text-[10px] font-medium uppercase tracking-[0.18em] text-muted">{p.size}</p>
-        <p className="mt-1.5 text-[26px] leading-none">{rupee(p.price)}</p>
+        <p className="mt-2 font-tagline text-[21px] font-semibold leading-none tracking-tight">{rupee(p.price)}</p>
         <div className="mt-auto pt-2">
           {!p.available ? (
             <div className="flex h-10 items-center justify-center rounded-xl bg-white/10 text-sm text-muted">Out of stock</div>
@@ -109,7 +109,7 @@ export default function Home() {
             setCat('') // search always looks in every category
           }}
           placeholder="Search groceries, staples, household..."
-          className={`${field} h-14 bg-transparent pl-12`}
+          className={`${field} font-ui h-14 bg-transparent pl-12`}
         />
       </div>
 
@@ -128,12 +128,17 @@ export default function Home() {
           {store.paused ? (
             <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">The store is closed right now. Please order a little later.</p>
           ) : (
-            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
+            <div className="font-ui mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
               <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold leading-tight">Same-day delivery on eligible orders</span>
-                <span className="mt-0.5 flex items-center gap-1 text-sm text-muted">
-                  <MapPin size={14} className="shrink-0 text-accent" /> {store.delivery_area.join(' • ')}
+                {/* The radius comes from Admin → Settings → Max km, so it grows with the delivery zone. */}
+                <span className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                  </span>
+                  Now delivering within <b className="font-semibold text-accent">{store.max_delivery_km} km</b> of Dergaon
                 </span>
               </span>
             </div>
