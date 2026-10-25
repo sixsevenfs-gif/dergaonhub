@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, Banknote, ChevronDown, Clock, LocateFixed, Map, MapPin, Phone, Repeat, Smartphone, User } from 'lucide-react'
+import { ArrowLeft, Banknote, BookUser, ChevronDown, Clock, Gift, LocateFixed, Map, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
+import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
-import { currentCustomer, customerSignIn, placeOrder } from '../../lib/store.js'
+import { currentCustomer, customerSignIn, placeOrder, sendAutoMessage } from '../../lib/store.js'
 import { useCart } from '../../lib/cart-context.js'
-import { fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
+import { cleanPhone, fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
 import { currentPosition, deliveryQuote, packagingFee, validPoint } from '../../lib/delivery.js'
-import { getSavedDetails, getSavedLocation, placeName, saveDetails, saveLocation } from '../../lib/customerLocation.js'
+import { getSavedDetails, getSavedLocation, getSavedReceiver, placeName, saveDetails, saveLocation, saveReceiver } from '../../lib/customerLocation.js'
 
-
-function InputRow({ icon: Icon, label, children }) {
+function InputRow({ icon: Icon, label, children, action }) {
   return (
     <label className="flex items-center gap-3 rounded-xl border border-line px-3 py-2 focus-within:border-accent">
       <Icon size={20} className="shrink-0 text-muted" />
@@ -21,6 +21,7 @@ function InputRow({ icon: Icon, label, children }) {
         <span className="block text-xs text-muted">{label}</span>
         {children}
       </span>
+      {action}
     </label>
   )
 }
@@ -31,21 +32,48 @@ const Radio = ({ on }) => (
 
 const inputCls = 'w-full bg-transparent text-white placeholder:text-muted/60 focus:outline-none'
 
+// Android Chrome can open the phone's contacts; elsewhere the button is hidden.
+const canPickContact = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof window !== 'undefined' && 'ContactsManager' in window
+
+async function pickContact() {
+  const [c] = await navigator.contacts.select(['name', 'tel'], { multiple: false })
+  if (!c) return null
+  return { name: c.name?.[0] ?? '', phone: cleanPhone(c.tel?.[0] ?? '').slice(-10) }
+}
+
+const FOR_OPTIONS = [
+  { value: 'me', label: 'For me', icon: User },
+  { value: 'other', label: 'For someone else', icon: Gift },
+]
+
 export default function Checkout() {
   const { clear } = useCart()
   const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
+  const [forWho, setForWho] = useState('me')
+  const other = forWho === 'other'
+  // The customer (the person ordering).
   const [form, setForm] = useState(() => {
     const saved = getSavedDetails()
     const me = currentCustomer()
     return { name: me?.name || saved.name || '', phone: me?.phone || saved.phone || '', address: saved.address ?? '', area: saved.area ?? '' }
   })
-  const [location, setLocationState] = useState(() => getSavedLocation() ?? (validPoint(getSavedDetails().location) ? getSavedDetails().location : null))
-  // The pin chosen here is remembered for the header and My account too.
-  const setLocation = (p) => {
-    setLocationState(p)
+  // The receiver, when ordering for someone else (last one is remembered).
+  const [receiver, setReceiver] = useState(() => {
+    const r = getSavedReceiver()
+    return { name: r.name ?? '', phone: r.phone ?? '', address: r.address ?? '', area: r.area ?? '' }
+  })
+  const [myLocation, setMyLocationState] = useState(() => getSavedLocation() ?? (validPoint(getSavedDetails().location) ? getSavedDetails().location : null))
+  const [theirLocation, setTheirLocation] = useState(() => (validPoint(getSavedReceiver().location) ? getSavedReceiver().location : null))
+  const location = other ? theirLocation : myLocation
+  const [here, setHere] = useState(null)
+  const [focus, setFocus] = useState(0)
+  // My own pin is remembered for the header and My account too; the receiver's is not.
+  const setMyLocation = (p) => {
+    setMyLocationState(p)
     saveLocation(p, getSavedLocation()?.label ?? '')
     placeName(p).then((label) => label && saveLocation(p, label))
   }
+  const setLocation = (p) => (other ? setTheirLocation(p) : setMyLocation(p))
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
   const [payment, setPayment] = useState('cash')
@@ -58,16 +86,19 @@ export default function Checkout() {
     setLocating(true)
     setLocError('')
     try {
-      setLocation(await currentPosition())
+      const p = await currentPosition()
+      setHere(p)
+      setLocation({ lat: p.lat, lng: p.lng })
+      setFocus((n) => n + 1)
     } catch (err) {
-      setLocError(err.message)
+      setLocError(err.denied ? 'Location is off for this site. Move the map to put the pin on the home.' : 'Could not find your location. Move the map to put the pin on the home.')
     }
     setLocating(false)
   }
 
   // Ask for the phone's location as soon as checkout opens (unless one was saved last time).
   useEffect(() => {
-    if (!location) locate()
+    if (!myLocation) locate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -77,27 +108,52 @@ export default function Checkout() {
   if (!lines.length || problems.length || subtotal < store.min_order) return <Navigate to="/cart" replace />
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+  const setR = (k) => (e) => setReceiver({ ...receiver, [k]: e.target.value })
+  // Address fields belong to whoever receives the order.
+  const addr = other ? receiver : form
+  const setAddr = other ? setR : set
   const quote = deliveryQuote(store, location)
   const fee = quote && !quote.tooFar ? quote.fee : null
   const packaging = packagingFee(store, subtotal)
   const total = subtotal + (fee ?? 0) + packaging
+  const firstName = receiver.name.trim().split(' ')[0]
+
+  const fromContacts = async () => {
+    try {
+      const c = await pickContact()
+      if (c) setReceiver({ ...receiver, name: c.name || receiver.name, phone: c.phone || receiver.phone })
+    } catch {
+      // closed the contact list
+    }
+  }
 
   const submit = async (e) => {
     e.preventDefault()
     setError('')
+    if (other && cleanPhone(receiver.phone) === cleanPhone(form.phone)) {
+      setError("The receiver's number is the same as yours. Choose \"For me\", or enter their number.")
+      return
+    }
     setBusy(true)
     try {
       const order = await placeOrder({
         lines: lines.map((l) => ({ productId: l.id, qty: l.qty, note: l.note })),
-        ...form,
+        ...(other ? { ...receiver, orderer: { name: form.name, phone: form.phone } } : form),
         location,
         note: cart.note,
         payment_method: payment,
         allow_substitute: substitute,
       })
-      saveDetails(form)
-      // The phone used for the order becomes the customer's login, so "My orders" works right away.
-      await customerSignIn(order.customer_phone, order.customer_name)
+      if (other) {
+        saveDetails({ name: form.name, phone: form.phone })
+        saveReceiver({ ...receiver, location })
+      } else {
+        saveDetails(form)
+      }
+      // "Order placed" on WhatsApp, if the admin has switched on automatic messages. It never blocks the order.
+      if (store.whatsapp_auto) sendAutoMessage({ orderNumber: order.order_number, kind: 'placed' })
+      // The phone of the person ordering becomes the login, so "My orders" works right away.
+      await customerSignIn(form.phone, form.name)
       setPlaced(order.order_number)
       clear()
     } catch (err) {
@@ -113,22 +169,56 @@ export default function Checkout() {
         <Link to="/cart" className="flex items-center gap-2 text-muted"><ArrowLeft size={20} /> Back</Link>
       </header>
       <h1 className="mt-5 text-3xl font-black">Checkout</h1>
-      <p className="text-muted">Fill in your details and place your order</p>
+      <p className="text-muted">{other ? 'Send groceries to your family or friends in Dergaon' : 'Fill in your details and place your order'}</p>
 
-      <form onSubmit={submit} className="mt-4 space-y-3">
+      <GlassTabs options={FOR_OPTIONS} value={forWho} onChange={setForWho} className="mt-4" />
+
+      <form onSubmit={submit} className="mt-3 space-y-3">
+        {other && (
+          <p className="flex gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] p-3 text-sm leading-snug">
+            <Gift size={20} className="mt-0.5 shrink-0 text-accent" />
+            <span>Living outside Dergaon? Order here and we deliver to them. <span className="text-muted">You get the order updates; our rider calls them at delivery.</span></span>
+          </p>
+        )}
+
         <section className={`${card} space-y-3 p-3`}>
-          <InputRow icon={User} label="Name">
+          <h2 className="px-1 pt-1 font-bold">Your details</h2>
+          <InputRow icon={User} label={other ? 'Your name' : 'Name'}>
             <input required value={form.name} onChange={set('name')} placeholder="Your name" autoComplete="name" className={inputCls} />
           </InputRow>
-          <InputRow icon={Phone} label="Phone">
+          <InputRow icon={Phone} label={other ? 'Your phone (for order updates)' : 'Phone'}>
             <input required value={form.phone} onChange={set('phone')} placeholder="10 digit mobile number" inputMode="numeric" autoComplete="tel" className={inputCls} />
           </InputRow>
+        </section>
+
+        {other && (
+          <section className={`${card} space-y-3 p-3`}>
+            <h2 className="px-1 pt-1 font-bold">Who will receive it?</h2>
+            <InputRow
+              icon={UserRound}
+              label="Their name"
+              action={canPickContact && (
+                <button type="button" onClick={fromContacts} className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/50 px-3 text-xs font-semibold text-accent">
+                  <BookUser size={15} /> Contacts
+                </button>
+              )}
+            >
+              <input required value={receiver.name} onChange={setR('name')} placeholder="e.g. Maa, Ritu Das" autoComplete="off" className={inputCls} />
+            </InputRow>
+            <InputRow icon={Phone} label="Their phone (rider will call)">
+              <input required value={receiver.phone} onChange={setR('phone')} placeholder="10 digit mobile number" inputMode="numeric" autoComplete="off" className={inputCls} />
+            </InputRow>
+          </section>
+        )}
+
+        <section className={`${card} space-y-3 p-3`}>
+          <h2 className="px-1 pt-1 font-bold">{other ? 'Their address' : 'Delivery address'}</h2>
           <InputRow icon={MapPin} label="Address / Landmark">
-            <input required value={form.address} onChange={set('address')} placeholder="House no., area, landmark..." autoComplete="street-address" className={inputCls} />
+            <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
           </InputRow>
           <InputRow icon={Map} label="Area">
             <span className="relative block">
-              <select required value={form.area} onChange={set('area')} className={`${inputCls} appearance-none pr-6`}>
+              <select required value={addr.area} onChange={setAddr('area')} className={`${inputCls} appearance-none pr-6`}>
                 <option value="" className="bg-card">Select area</option>
                 {store.delivery_area.map((a) => <option key={a} value={a} className="bg-card">{a}</option>)}
               </select>
@@ -136,25 +226,42 @@ export default function Checkout() {
             </span>
           </InputRow>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">Delivery location</span>
-              <button type="button" onClick={locate} disabled={locating} className="flex h-9 items-center gap-1.5 rounded-full border border-accent/60 px-3 text-xs font-semibold text-accent disabled:opacity-50">
-                <LocateFixed size={15} /> {locating ? 'Finding...' : 'My location'}
-              </button>
+          <div className="relative overflow-hidden rounded-2xl border border-line">
+            {/* A new map when switching between me and them, so each starts at its own pin. */}
+            <LocationPicker key={forWho} value={location} onChange={setLocation} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-60 [&_.leaflet-bottom]:mb-0" />
+            <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
+              <p className="rounded-lg bg-ink/90 px-3 py-1 text-center text-[11px] text-white shadow-lg">
+                Move the map to place the pin on {other ? 'their' : 'your'} door
+              </p>
             </div>
-            <LocationPicker value={location} onChange={setLocation} start={store.location} home={store.location} />
-            <p className="text-xs text-muted">
-              {location ? 'Pin in the wrong place? Drag it or tap the map to choose your home.' : locError || 'Getting your location... Or tap the map to choose your home.'}
-            </p>
-            {quote && (
-              quote.tooFar ? (
-                <OutOfArea location={location} label={getSavedLocation()?.label} km={quote.km} />
-              ) : (
-                <p className="rounded-xl bg-white/5 p-3 text-sm">We deliver here · Delivery charge <b className="text-accent">{rupee(quote.fee)}</b></p>
-              )
-            )}
+            <button
+              type="button"
+              onClick={locate}
+              disabled={locating}
+              className="absolute bottom-7 left-1/2 z-10 flex h-10 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-accent/70 bg-ink px-4 text-xs font-semibold text-accent shadow-[0_6px_20px_rgb(0_0_0/0.35)] disabled:opacity-80"
+            >
+              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} /> {locating ? 'Finding you...' : other ? 'I am at their home' : 'Use current location'}
+            </button>
           </div>
+          {locError && <p className="px-1 text-xs text-orange-200">{locError}</p>}
+
+          {!location ? (
+            <p className="rounded-xl bg-white/5 p-3 text-sm text-muted">Set the pin on the map to see the delivery charge.</p>
+          ) : quote.tooFar ? (
+            <OutOfArea location={location} label={other ? '' : getSavedLocation()?.label} km={quote.km} compact={other} />
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-white/[0.03] p-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent"><Route size={21} /></span>
+              <span className="flex-1">
+                <span className="block font-bold">{quote.km} km from our store</span>
+                <span className="text-xs text-muted">Road distance to the pin</span>
+              </span>
+              <span className="text-right">
+                <span className="block text-lg font-black text-accent">{rupee(quote.fee)}</span>
+                <span className="text-[11px] text-muted">delivery</span>
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-4">
             <Clock size={26} className="shrink-0 text-accent" />
@@ -178,9 +285,10 @@ export default function Checkout() {
 
         <section className={`${card} space-y-2 p-3`}>
           <h2 className="px-1 pt-1 font-bold">Payment method</h2>
+          {other && <p className="px-1 text-xs text-muted">{firstName || 'The receiver'} pays when the items arrive. Want to pay yourself? Call us after ordering.</p>}
           {[
-            ['cash', Banknote, 'Cash on delivery', 'Pay cash when you receive your items'],
-            ['upi', Smartphone, 'UPI on delivery', 'Scan our QR and pay at delivery'],
+            ['cash', Banknote, 'Cash on delivery', other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash when you receive your items'],
+            ['upi', Smartphone, 'UPI on delivery', other ? `${firstName || 'They'} scan our QR at the door` : 'Scan our QR and pay at delivery'],
           ].map(([value, Icon, title, note]) => (
             <button key={value} type="button" onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', payment === value ? 'border-accent' : 'border-line')}>
               <Radio on={payment === value} />
@@ -196,7 +304,10 @@ export default function Checkout() {
         <section className={`${card} p-4`}>
           <h2 className="font-bold">Bill summary</h2>
           <div className="mt-2 flex justify-between text-muted"><span>Items ({lines.reduce((s, l) => s + l.qty, 0)})</span><span>{rupee(subtotal)}</span></div>
-          <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span><span>{fee === null ? 'Choose location' : rupee(fee)}</span></div>
+          <div className="mt-1 flex justify-between text-muted">
+            <span>Delivery charge{fee !== null ? ` (${quote.km} km)` : ''}</span>
+            <span>{fee === null ? 'Set the pin' : rupee(fee)}</span>
+          </div>
           <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>
         </section>
@@ -204,9 +315,13 @@ export default function Checkout() {
         {/* Cloudflare Turnstile (free CAPTCHA) goes here when the site is deployed. */}
 
         {error && <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">{error}</p>}
-        <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>{busy ? 'Placing...' : 'Place order'}</button>
+        <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>
+          {busy ? 'Placing...' : other && firstName ? `Place order for ${firstName}` : 'Place order'}
+        </button>
         <p className="text-center text-xs text-muted">
-          We will call you to confirm your order. Once confirmed, we buy your items, so the order can't be cancelled after that.
+          {other
+            ? 'We will call you or them to confirm the order. Once confirmed, we buy the items, so the order can\'t be cancelled after that.'
+            : 'We will call you to confirm your order. Once confirmed, we buy your items, so the order can\'t be cancelled after that.'}
         </p>
         <p className="text-center text-xs text-muted">
           By placing an order you agree to our <Link to="/policy/terms" className="underline">Terms</Link>,{' '}

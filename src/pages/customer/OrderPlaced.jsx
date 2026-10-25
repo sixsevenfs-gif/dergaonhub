@@ -35,7 +35,9 @@ export default function OrderPlaced() {
         </div>
         <h1 className="mt-5 text-4xl font-black">Order placed!</h1>
         <p className="mt-1 text-2xl font-bold text-muted">#{order.order_number}</p>
-        <p className="mt-1 text-muted">We have received your order.</p>
+        <p className="mt-1 text-muted">
+          {order.ordered_by_phone ? `We will deliver it to ${order.customer_name} (${order.customer_phone}).` : 'We have received your order.'}
+        </p>
       </div>
 
       <section className={`${card} mt-6 p-4`}>

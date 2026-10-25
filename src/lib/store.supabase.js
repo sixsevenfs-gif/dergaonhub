@@ -109,6 +109,8 @@ export async function saveStore(data) {
     max_delivery_km: Number(data.max_delivery_km),
     pack_fee_low: Number(data.pack_fee_low) || 0, pack_fee_mid: Number(data.pack_fee_mid) || 0, pack_fee_high: Number(data.pack_fee_high) || 0,
     pack_mid_from: Number(data.pack_mid_from) || 0, pack_high_from: Number(data.pack_high_from) || 0,
+    // Only after update 003 (supabase/migrations/003_partners.sql) has added the column.
+    ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()
@@ -247,13 +249,16 @@ const toOrder = (o) => ({
 })
 
 // Price, fee, limits and delivery day are all decided by place_order() in the database.
-export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute }) {
+// orderer: { name, phone } when ordering for someone else (name/phone/address are then the receiver's).
+export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer }) {
   await session()
   const orderNumber = check(await sb.rpc('place_order', {
     p_lines: lines.map((l) => ({ product_id: l.productId, qty: l.qty, note: l.note || '' })),
     p_name: name, p_phone: cleanPhone(phone), p_address: address, p_area: area,
     p_lat: location?.lat ?? null, p_lng: location?.lng ?? null,
     p_note: note ?? '', p_payment: payment_method, p_allow_substitute: !!allow_substitute,
+    // Only sent when used, so ordering for yourself works even before update 004 is run.
+    ...(orderer ? { p_orderer_name: orderer.name.trim(), p_orderer_phone: cleanPhone(orderer.phone) } : {}),
   }))
   notify()
   return { order_number: orderNumber, customer_phone: cleanPhone(phone), customer_name: name.trim() }
@@ -266,10 +271,15 @@ export async function getOrder(orderNumber) {
   return { order: toOrder(res.order), items: res.items, complaints: res.complaints, mine: res.mine, store: await getStore() }
 }
 
-// Orders placed from this phone (row-level security only returns those).
+// Orders placed from this phone (row-level security only returns those), for this number
+// or ordered by this number for someone else.
 export async function ordersByPhone(phone) {
   await session()
-  const rows = check(await sb.from('orders').select('*, order_items(*)').eq('customer_phone', cleanPhone(phone)).order('created_at', { ascending: false }))
+  const ph = cleanPhone(phone)
+  const base = () => sb.from('orders').select('*, order_items(*)').order('created_at', { ascending: false })
+  let res = await base().or(`customer_phone.eq.${ph},ordered_by_phone.eq.${ph}`)
+  if (res.error) res = await base().eq('customer_phone', ph) // before update 004 there is no ordered_by_phone
+  const rows = check(res)
   return rows.map(({ order_items, ...o }) => ({ ...toOrder(o), items: order_items, item_count: sum(order_items, (i) => i.quantity) }))
 }
 
@@ -503,5 +513,76 @@ export async function setCustomerBlocked(id, blocked) {
 
 export async function resetNoShows(id) {
   check(await sb.from('customers').update({ no_show_count: 0 }).eq('id', id))
+  notify()
+}
+
+/* ---------- delivery partner (rider) ---------- */
+
+// role: 'admin', 'rider' or '' (not allowed on the partner page).
+export async function partnerSession() {
+  const { data } = await sb.auth.getSession()
+  const user = data.session?.user
+  if (!user || user.is_anonymous) return { email: '', role: '' }
+  const [isAdmin, isRider] = await Promise.all([sb.rpc('is_admin').then(check), sb.rpc('is_rider').then(check)])
+  return { email: user.email, role: isAdmin ? 'admin' : isRider ? 'rider' : '' }
+}
+
+export async function partnerSignIn(email, password) {
+  check(await sb.auth.signInWithPassword({ email: email.trim(), password }))
+  const s = await partnerSession()
+  if (!s.role) {
+    await sb.auth.signOut()
+    ready = null
+    fail('This login is not a delivery partner.')
+  }
+  notify()
+  return s
+}
+
+export async function partnerOrders(date) {
+  const rows = check(await sb.rpc('partner_orders', { p_date: date }))
+  return rows.map(toOrder)
+}
+
+const partnerCall = async (fn, args) => {
+  check(await sb.rpc(fn, args))
+  notify()
+}
+
+export const setDispatch = (id, dispatch) => partnerCall('partner_set_dispatch', { p_order_id: id, p_dispatch: dispatch })
+export const partnerComplete = (id, cash) => partnerCall('partner_complete', { p_order_id: id, p_cash: cash == null ? null : Number(cash) || 0 })
+export const partnerUndoDelivered = (id) => partnerCall('partner_undo_delivered', { p_order_id: id })
+export const logMessage = (id, kind) => partnerCall('log_order_message', { p_order_id: id, p_kind: kind })
+
+// Automatic WhatsApp through the notify-whatsapp Edge Function. Never throws: { sent, error }.
+export async function sendAutoMessage({ orderId, orderNumber, kind }) {
+  try {
+    await session()
+    const { data, error } = await sb.functions.invoke('notify-whatsapp', { body: { order_id: orderId, order_number: orderNumber, kind } })
+    if (error) return { sent: false, error: error.message }
+    notify()
+    return data ?? { sent: false }
+  } catch (err) {
+    return { sent: false, error: err.message }
+  }
+}
+
+/* ---------- admin: riders ---------- */
+
+export async function adminListRiders() {
+  return check(await sb.rpc('admin_list_riders'))
+}
+
+export async function adminAddRider({ email, name, phone }) {
+  if (!email?.trim()) fail('Enter the rider login email.')
+  if (!name?.trim()) fail('Enter the rider name.')
+  const ph = cleanPhone(phone ?? '')
+  if (ph && ph.length !== 10) fail('Enter a valid 10-digit phone number.')
+  check(await sb.rpc('admin_add_rider', { p_email: email.trim(), p_name: name.trim(), p_phone: ph }))
+  notify()
+}
+
+export async function setRiderActive(userId, active) {
+  check(await sb.from('riders').update({ active: !!active }).eq('user_id', userId))
   notify()
 }

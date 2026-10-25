@@ -17,6 +17,8 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
 | `waitlist` | "Notify me" from outside the delivery area | Anyone adds · admin reads |
 | `daily_expenses` | Money spent at shops per day | Admin only |
 | `admins` | Which logins are admin | Admin only |
+| `riders` | Delivery partner logins (name, phone, access on/off) | Admin manages · rider reads own row |
+| `order_messages` | WhatsApp messages sent to customers (automatic or by tap) | Admin and riders read · written by functions only |
 
 ## Logins
 
@@ -24,10 +26,16 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
   to that phone's browser, so nobody can see someone else's orders by typing a number.
   Phone OTP can be added later.
 - **Admin:** email + password, created in Supabase and added to the `admins` table.
+- **Rider (delivery partner):** email + password, created in Supabase and added in
+  Admin → Settings → Delivery partners. Opens `/partner`. Everything a rider does goes through
+  the `partner_*` functions, which check the login every time. A rider never reads the
+  `orders` table directly, cannot see customers, money reports, settings or products, and
+  "Remove access" locks them out at once.
 
 ## Important functions
 
-- `place_order(...)`: the only way to create an order. It prices items from `products`,
+- `place_order(...)`: the only way to create an order (optionally for someone else: the last two
+  arguments are the orderer's name and phone). It prices items from `products`,
   works out distance and fee from the home location, checks min order, first-order limit,
   no-shows, blocked numbers, the cut-off time (India time) and the 15-per-evening cap.
 - `delivery_quote(lat, lng)`: distance and fee (same rule as `src/lib/delivery.js`).
@@ -35,6 +43,10 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
   it is your own order or you are admin.
 - `cancel_order(id, reason)`: admin cancel; "No-show" also counts against the number.
 - `expire_old_orders()`: marks past-day unfinished orders as Expired.
+- `partner_orders(date)`, `partner_set_dispatch(id, step)`, `partner_complete(id, cash)`,
+  `partner_undo_delivered(id)`, `log_order_message(id, kind)`: the rider page. Only admin and
+  active riders; an order goes out only after the admin has confirmed it.
+- `admin_add_rider(email, name, phone)`, `admin_list_riders()`: riders in Admin → Settings.
 
 ## Setup (one time, about 15 minutes)
 
@@ -50,3 +62,51 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
 
 The free plan pauses a project after about a week with no use; open the site daily or
 upgrade before handing over.
+
+## Updates for an existing database
+
+Run each file once, in order, in **SQL Editor → New query** (each is safe to run again):
+
+1. `migrations/002_packaging.sql`: packaging charge.
+2. `migrations/003_partners.sql`: riders, the `/partner` page and WhatsApp message log.
+3. `migrations/004_order_for_someone.sql`: "Order for someone else" at checkout (the person
+   who ordered is saved in `ordered_by_name` / `ordered_by_phone`; the receiver is the customer).
+
+A new database made from the latest `schema.sql` already has all of them.
+
+## Adding a rider
+
+1. **Authentication → Users → Add user → Create new user**: the rider's email + a password
+   (tick "Auto confirm"). Give these to the rider.
+2. On the site: **Admin → Settings → Delivery partners** → same email, name, phone → **Add**.
+3. The rider opens `yoursite/partner` on their phone and logs in.
+
+## WhatsApp messages
+
+Without any setup, the rider page opens WhatsApp with the message ready and the rider taps
+Send (free). The "order placed" message is sent the same way from the order page in Admin.
+
+To send them automatically (no tap), connect the **WhatsApp Cloud API** (Meta). Meta charges
+a small fee per message. One time:
+
+1. https://business.facebook.com → create a Business account → **WhatsApp Manager** → add a
+   phone number for the store (it must not be in use on the WhatsApp app).
+2. **Message templates → Create**, category **Utility**, language **English**, these three
+   (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
+   - `order_placed`: Hello {{1}}, your Dergaon Hub order #{{2}} is placed successfully ✅ It will be delivered {{3}}. Total: {{4}}. Thank you!
+   - `rider_on_the_way`: Hello {{1}}, our rider has left with your Dergaon Hub order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
+   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Dergaon Hub order #{{2}} 📍 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
+3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
+   access token (Business settings → System users → Generate token, permission
+   `whatsapp_business_messaging`).
+4. On your computer, in the project folder:
+   ```
+   npx supabase login
+   npx supabase secrets set WA_TOKEN=<token> WA_PHONE_ID=<phone number id> --project-ref <project ref>
+   npx supabase functions deploy notify-whatsapp --project-ref <project ref>
+   ```
+   (The project ref is the part before `.supabase.co` in your Supabase URL.)
+5. **Admin → Settings → Automatic WhatsApp messages → on → Save changes.**
+
+If an automatic message fails (for example a template is not approved yet), the rider page
+says so and offers the WhatsApp button instead. Every message is listed under the order.

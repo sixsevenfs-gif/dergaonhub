@@ -1,14 +1,69 @@
 import { useEffect, useState } from 'react'
-import { LocateFixed } from 'lucide-react'
+import { LocateFixed, UserPlus } from 'lucide-react'
 import Field from '../../components/Field.jsx'
+import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
-import { lbtnDanger, lbtnDark, lcard, lfield } from '../../components/ui.js'
-import { getStore, resetDemo, saveStore } from '../../lib/store.js'
+import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
+import { adminAddRider, adminListRiders, getStore, resetDemo, saveStore, setRiderActive } from '../../lib/store.js'
 import { currentPosition, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG, DEMO_MODE } from '../../config.js'
+
+// Delivery partners: each rider logs in on /partner with their own email + password.
+function Riders() {
+  const { data: riders, error: loadError } = useData(adminListRiders)
+  const [form, setForm] = useState({ email: '', name: '', phone: '' })
+  const [error, setError] = useState('')
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+
+  const add = async (e) => {
+    e.preventDefault()
+    setError('')
+    try {
+      await adminAddRider(form)
+      setForm({ email: '', name: '', phone: '' })
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  return (
+    <section className={`${lcard} space-y-3 p-4`}>
+      <div>
+        <h2 className="font-bold">Delivery partners (riders)</h2>
+        <p className="text-sm text-neutral-500">
+          Riders open <b>{window.location.host}/partner</b>. They see the day's orders and send delivery messages, nothing else.
+          {!DEMO_MODE && ' First create their login in Supabase → Authentication → Users → Add user (tick Auto confirm), then add the same email here.'}
+        </p>
+      </div>
+      {loadError && <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/003_partners.sql in the Supabase SQL Editor first.</p>}
+      {riders?.length > 0 && (
+        <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+          {riders.map((r) => (
+            <li key={r.user_id} className={`flex items-center gap-3 px-3 py-2.5 ${r.active ? '' : 'opacity-50'}`}>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{r.name}</span>
+                <span className="block truncate text-xs text-neutral-500">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
+              </span>
+              <button type="button" onClick={() => setRiderActive(r.user_id, !r.active).catch((err) => setError(err.message))} className={`${lbtnOutline} min-h-9 text-sm`}>
+                {r.active ? 'Remove access' : 'Give access'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+        <input type="email" required placeholder="Login email" value={form.email} onChange={set('email')} className={lfield} />
+        <input required placeholder="Name" value={form.name} onChange={set('name')} className={lfield} />
+        <input inputMode="numeric" placeholder="Phone" value={form.phone} onChange={set('phone')} className={lfield} />
+        <button type="submit" className={lbtnDark}><UserPlus size={17} /> Add</button>
+      </form>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </section>
+  )
+}
 
 function SettingsForm({ store }) {
   const [v, setV] = useState({ ...store, whatsapp: store.whatsapp.slice(-10) })
@@ -127,6 +182,26 @@ function SettingsForm({ store }) {
         </p>
       </section>
 
+      <section className={`${lcard} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold">Automatic WhatsApp messages</h2>
+            <p className="text-sm text-neutral-500">
+              When on, customers get "Order placed", "Rider on the way" and "Arriving soon" on WhatsApp without anyone tapping Send.
+              Needs the WhatsApp Cloud API set up first (supabase/README.md). When off, the rider page opens WhatsApp with the message ready.
+            </p>
+          </div>
+          {v.whatsapp_auto !== undefined && !DEMO_MODE && (
+            <Toggle checked={!!v.whatsapp_auto} onChange={(on) => setV({ ...v, whatsapp_auto: on })} label="Automatic WhatsApp messages" />
+          )}
+        </div>
+        {DEMO_MODE ? (
+          <p className="rounded-xl bg-neutral-100 p-3 text-xs text-neutral-600">Demo mode cannot send messages by itself.</p>
+        ) : v.whatsapp_auto === undefined && (
+          <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/003_partners.sql in the Supabase SQL Editor to use this.</p>
+        )}
+      </section>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm font-semibold text-green-700">{msg}</p>}
       <button type="submit" className={`${lbtnDark} h-12 w-full`}>Save changes</button>
@@ -141,6 +216,7 @@ export default function AdminSettings() {
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Settings</h1>
       <SettingsForm store={store} />
+      <Riders />
       {DEMO_MODE && (
         <button type="button" onClick={() => window.confirm('Reset all demo data?') && resetDemo()} className={`${lbtnDanger} w-full`}>
           Reset demo data

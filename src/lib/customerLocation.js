@@ -5,6 +5,7 @@ import { validPoint } from './delivery.js'
 
 const LOCATION_KEY = 'dergaonhub-location'
 const DETAILS_KEY = 'dergaonhub-checkout'
+const RECEIVER_KEY = 'dergaonhub-receiver'
 const EVENT = 'dergaonhub-location-change'
 
 function read(key, fallback) {
@@ -35,6 +36,11 @@ export const saveLocation = (point, label = '') => write(LOCATION_KEY, { lat: po
 // { name, phone, address, area }
 export const getSavedDetails = () => read(DETAILS_KEY, {})
 export const saveDetails = (details) => write(DETAILS_KEY, { ...getSavedDetails(), ...details })
+
+// "Order for someone else": the last receiver { name, phone, address, area, location }, so ordering
+// for the same family member again is quick. Kept apart from the customer's own address.
+export const getSavedReceiver = () => read(RECEIVER_KEY, {})
+export const saveReceiver = (receiver) => write(RECEIVER_KEY, receiver)
 
 // Re-renders when the saved location or details change (also from other tabs).
 export function useSavedDelivery() {

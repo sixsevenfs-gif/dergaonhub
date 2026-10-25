@@ -1,4 +1,4 @@
-import { fmtDateTime, rupee, slotText } from './format.js'
+import { dayLabel, fmtDateTime, fmtTime, rupee, slotText } from './format.js'
 
 export const waLink = (number, text = '') =>
   `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ''}`
@@ -16,6 +16,7 @@ export function orderMessage({ order, items, store }) {
     '',
     `Name: ${order.customer_name}`,
     `Phone: ${order.customer_phone}`,
+    ...(order.ordered_by_phone ? [`Ordered by: ${order.ordered_by_name} (${order.ordered_by_phone})`] : []),
     `Address: ${order.address}, ${order.area}`,
     ...(order.location ? [`Map: https://maps.google.com/?q=${order.location.lat},${order.location.lng}`] : []),
     `Slot: ${slotText(order.delivery_date, store)}`,
@@ -52,4 +53,34 @@ export function billMessage({ order, items }) {
     'Thank you! If anything is wrong, report it here:',
     trackUrl(order),
   ].join('\n')
+}
+
+// Messages to the customer while the order is on its way. Same words as the WhatsApp
+// templates used by the notify-whatsapp Edge Function (see supabase/README.md).
+const firstName = (order) => order.customer_name.split(' ')[0] || 'there'
+function slotWords(order, store) {
+  const day = dayLabel(order.delivery_date)
+  const when = day === 'Today' || day === 'Tomorrow' ? day.toLowerCase() : `on ${day}`
+  return `${when} between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}`
+}
+
+// "Order placed" goes to whoever ordered (for someone else: the orderer); rider messages go to the receiver.
+export const messagePhone = (kind, order) => (kind === 'placed' && order.ordered_by_phone) || order.customer_phone
+
+export function customerMessage(kind, { order, store }) {
+  const name = firstName(order)
+  const total = rupee(order.total)
+  if (kind === 'placed') {
+    const orderer = order.ordered_by_phone ? order.ordered_by_name.split(' ')[0] || 'there' : name
+    return [
+      `Hello ${orderer}, your Dergaon Hub order #${order.order_number}${order.ordered_by_phone ? ` for ${order.customer_name}` : ''} is placed successfully ✅`,
+      `It will be delivered ${slotWords(order, store)}. Total: ${total}.`,
+      '',
+      `Track your order: ${trackUrl(order)}`,
+    ].join('\n')
+  }
+  if (kind === 'on_the_way') {
+    return `Hello ${name}, our rider has left with your Dergaon Hub order #${order.order_number} 🛵\nYou will get it in 10–15 minutes. Please keep ${total} ready (cash or UPI).`
+  }
+  return `Hello ${name}, our rider is arriving soon with your Dergaon Hub order #${order.order_number} 📍\nYou will get it in 10–15 minutes. Please keep ${total} ready (cash or UPI).`
 }

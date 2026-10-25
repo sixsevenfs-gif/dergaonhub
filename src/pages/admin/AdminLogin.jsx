@@ -26,7 +26,7 @@ export default function AdminLogin({ onDone }) {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-100 px-4 pt-10 text-neutral-900">
+    <main className="min-h-screen bg-neutral-100 px-4 pt-10 font-ui text-neutral-900">
       <div className="mx-auto max-w-sm">
         <Wordmark theme="light" />
         <form onSubmit={submit} className={`${lcard} mt-6 space-y-3 p-5`}>

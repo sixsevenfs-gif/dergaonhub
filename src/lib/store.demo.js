@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -249,7 +249,7 @@ function pickDate() {
   return date
 }
 
-export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute }) {
+export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer }) {
   const store = db.store
   if (store.paused) fail('The store is not taking orders right now. Please try again later.')
   const ph = cleanPhone(phone)
@@ -258,6 +258,9 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (!address.trim()) fail('Enter your address or a landmark.')
   if (!store.delivery_area.includes(area)) fail('Choose your area.')
   if (!validPoint(location)) fail('Set your home location on the map.')
+  const ob = orderer && cleanPhone(orderer.phone) !== ph ? { name: orderer.name.trim(), phone: cleanPhone(orderer.phone) } : null
+  if (ob && ob.phone.length !== 10) fail('Enter a valid 10-digit phone number for yourself.')
+  if (ob && !ob.name) fail('Enter your name.')
   const quote = deliveryQuote(store, location)
   if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
@@ -265,6 +268,8 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (customer?.blocked || (customer?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) {
     fail('Online ordering is blocked for this number. Please call us to order.')
   }
+  const obc = ob && customerByPhone(ob.phone)
+  if (obc?.blocked || (obc?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) fail('Online ordering is blocked for this number. Please call us to order.')
 
   const items = []
   for (const line of lines) {
@@ -300,6 +305,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     subtotal, delivery_fee: quote.fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
     delivery_date: pickDate(), status: 'placed', cancel_reason: '',
     created_at: now(), confirmed_at: null, completed_at: null,
+    ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
   }
   db.orders.push(order)
   db.order_items.push(...items.map((i) => ({ ...i, order_id: order.id })))
@@ -340,7 +346,7 @@ export async function ordersByPhone(phone) {
   const ph = cleanPhone(phone)
   return clone(
     db.orders
-      .filter((o) => o.customer_phone === ph)
+      .filter((o) => o.customer_phone === ph || o.ordered_by_phone === ph)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((o) => ({ ...o, items: itemsOf(o.id), item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
   )
@@ -605,3 +611,76 @@ export async function adminSignIn() {
 }
 
 export async function adminSignOut() {}
+
+/* ---------- delivery partner (demo: the admin is the rider) ---------- */
+
+export async function partnerSession() {
+  return { email: 'demo', role: 'admin' }
+}
+
+export async function partnerSignIn() {
+  return partnerSession()
+}
+
+const messagesOf = (orderId) => (db.order_messages ?? []).filter((m) => m.order_id === orderId)
+
+export async function partnerOrders(date) {
+  expireOld()
+  return clone(
+    db.orders
+      .filter((o) => o.delivery_date === date && o.status !== 'cancelled')
+      .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
+      .map((o) => ({ dispatch: '', ...o, items: itemsOf(o.id), messages: messagesOf(o.id) })),
+  )
+}
+
+export async function setDispatch(id, dispatch) {
+  const o = orderOrFail(id)
+  if (o.status !== 'confirmed') fail('Only confirmed orders can go out for delivery.')
+  o.dispatch = dispatch
+  o.dispatched_at = dispatch ? now() : null
+  commit()
+}
+
+export async function partnerComplete(id, cash) {
+  const o = orderOrFail(id)
+  if (o.status !== 'confirmed') fail('Only confirmed orders can be marked delivered.')
+  await completeOrder(id, cash)
+}
+
+export const partnerUndoDelivered = (id) => reopenOrder(id)
+
+export async function logMessage(id, kind) {
+  db.order_messages ??= []
+  db.order_messages.push({ id: newId(), order_id: id, kind, channel: 'tap', ok: true, at: now() })
+  commit()
+}
+
+// Demo mode cannot send WhatsApp messages by itself.
+export async function sendAutoMessage() {
+  return { sent: false, reason: 'off' }
+}
+
+/* ---------- admin: riders (demo: names only, no logins) ---------- */
+
+export async function adminListRiders() {
+  return clone(db.riders ?? [])
+}
+
+export async function adminAddRider({ email, name, phone }) {
+  if (!email?.trim()) fail('Enter the rider login email.')
+  if (!name?.trim()) fail('Enter the rider name.')
+  const ph = cleanPhone(phone ?? '')
+  if (ph && ph.length !== 10) fail('Enter a valid 10-digit phone number.')
+  db.riders ??= []
+  const found = db.riders.find((r) => r.email.toLowerCase() === email.trim().toLowerCase())
+  if (found) Object.assign(found, { name: name.trim(), phone: ph, active: true })
+  else db.riders.push({ user_id: newId(), email: email.trim(), name: name.trim(), phone: ph, active: true })
+  commit()
+}
+
+export async function setRiderActive(userId, active) {
+  const r = (db.riders ?? []).find((x) => x.user_id === userId) ?? fail('Rider not found.')
+  r.active = !!active
+  commit()
+}

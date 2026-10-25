@@ -22,10 +22,11 @@ import AdminComplaints from './pages/admin/AdminComplaints.jsx'
 import AdminCustomers from './pages/admin/AdminCustomers.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
 import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
+import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
 
-// One grocery store: the customer site, and /admin for the founder.
+// One grocery store: the customer site, /admin for the founder and /partner for the delivery riders.
 export default function App() {
   return (
     <CartProvider>
@@ -40,6 +41,8 @@ export default function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/report/:orderNumber" element={<Report />} />
         <Route path="/policy/:slug" element={<Policy />} />
+
+        <Route path="/partner" element={<Partner />} />
 
         <Route path="/admin" element={<AdminArea />}>
           <Route index element={<AdminHome />} />

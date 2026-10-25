@@ -7,10 +7,10 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { cancelOrder, confirmOrder, getOrderById, removeOrderItem, reopenOrder } from '../../lib/store.js'
+import { cancelOrder, confirmOrder, getOrderById, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
-import { billMessage, toWa, waLink } from '../../lib/whatsapp.js'
+import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
 
@@ -49,9 +49,14 @@ export default function AdminOrderDetail() {
         <div className="font-semibold">{order.customer_name}</div>
         <div className="text-neutral-600">{order.customer_phone}</div>
         <div className="mt-1"><CustomerHint hint={hint} /></div>
+        {order.ordered_by_phone && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Ordered for them by <b>{order.ordered_by_name}</b> · <a href={`tel:${order.ordered_by_phone}`} className="font-semibold underline">{order.ordered_by_phone}</a>
+          </p>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={`tel:${order.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-          <a href={waLink(toWa(order.customer_phone), `Hello ${order.customer_name}, this is Dergaon Hub. We have received your order #${order.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+          <a href={waLink(toWa(messagePhone('placed', order)), customerMessage('placed', { order, store }))} target="_blank" rel="noreferrer" onClick={() => logMessage(order.id, 'placed').catch(() => {})} className={lbtnOutline}>
             <WhatsAppIcon size={17} /> WhatsApp
           </a>
         </div>

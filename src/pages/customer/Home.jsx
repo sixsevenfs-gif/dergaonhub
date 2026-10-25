@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, House, LayoutGrid, Leaf, MapPin, Search, ShoppingCart, Smartphone, Truck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, House, Leaf, MapPin, Search, ShoppingCart, Smartphone, Truck } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import Footer from '../../components/Footer.jsx'
 import HeroSlider from '../../components/HeroSlider.jsx'
@@ -9,6 +9,7 @@ import { useSavedDelivery } from '../../lib/customerLocation.js'
 import { deliveryQuote } from '../../lib/delivery.js'
 import Stepper from '../../components/Stepper.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
+import CategoryBar from '../../components/CategoryBar.jsx'
 import { card, field } from '../../components/ui.js'
 import { getStore, listCategories, listProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
@@ -26,16 +27,16 @@ function ProductCard({ p, qty, onQty, disabled }) {
         )}
       </div>
       <div className="flex flex-1 flex-col p-3">
-        <h3 className="line-clamp-2 text-[15px] font-bold leading-tight">{p.name}</h3>
-        <p className="mt-0.5 text-xs text-muted">{p.size}</p>
-        <p className="mt-1 text-lg font-bold">{rupee(p.price)}</p>
+        <h3 className="line-clamp-2 text-[19px] leading-[1.1]">{p.name}</h3>
+        <p className="mt-1 font-tagline text-[10px] font-medium uppercase tracking-[0.18em] text-muted">{p.size}</p>
+        <p className="mt-1.5 text-[26px] leading-none">{rupee(p.price)}</p>
         <div className="mt-auto pt-2">
           {!p.available ? (
             <div className="flex h-10 items-center justify-center rounded-xl bg-white/10 text-sm text-muted">Out of stock</div>
           ) : qty > 0 ? (
             <Stepper value={qty} onChange={onQty} />
           ) : (
-            <button type="button" disabled={disabled} onClick={() => onQty(1)} className="h-10 w-full rounded-xl bg-accent text-base font-bold text-ink disabled:opacity-40">
+            <button type="button" disabled={disabled} onClick={() => onQty(1)} className="h-10 w-full rounded-xl bg-accent text-lg text-ink disabled:opacity-40">
               Add
             </button>
           )}
@@ -118,8 +119,8 @@ export default function Home() {
 
       {!searching && (
         <>
-          <h1 className="mt-5 text-[32px] font-black leading-[1.05] tracking-tight">
-            Everything Dergaon needs, <span className="text-accent">in one place.</span>
+          <h1 className="mt-6 text-[46px] leading-[0.95] tracking-[-0.01em]">
+            Everything <em>you</em> need, <span className="italic text-accent">in one place.</span>
           </h1>
 
           <HeroSlider onShop={browseAll} />
@@ -140,25 +141,17 @@ export default function Home() {
         </>
       )}
 
-      <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-        {[{ id: '', short: 'All' }, ...usedCats].map((c) => {
-          const active = cat === c.id
-          return (
-            <button key={c.id || 'all'} type="button" onClick={() => {
-                setCat(c.id)
-                setQ('')
-              }} className="flex w-16 shrink-0 flex-col items-center gap-1.5">
-              <span className={`flex h-14 w-14 items-center justify-center rounded-full ${active ? 'bg-accent text-ink' : 'border border-line'}`}>
-                {c.id ? <CategoryIcon id={c.id} size={24} /> : <LayoutGrid size={24} />}
-              </span>
-              <span className={`text-center text-xs leading-tight ${active ? 'font-semibold text-accent' : 'text-white/85'}`}>{c.short}</span>
-            </button>
-          )
-        })}
-      </div>
+      <CategoryBar
+        categories={usedCats}
+        value={cat}
+        onChange={(id) => {
+          setCat(id)
+          setQ('')
+        }}
+      />
 
       <div ref={productsRef} className="mt-6 flex scroll-mt-4 items-center justify-between">
-        <h2 className="text-2xl font-black tracking-tight">{title}</h2>
+        <h2 className="text-[32px] leading-none">{title}</h2>
         {browsing ? (
           <button type="button" onClick={backToPopular} className="flex items-center gap-1 text-sm font-semibold text-accent"><ArrowLeft size={16} /> Popular</button>
         ) : (

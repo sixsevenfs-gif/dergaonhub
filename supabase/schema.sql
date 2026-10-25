@@ -6,6 +6,8 @@
 --   Customer (device)     : each phone gets an anonymous Supabase login. It can place orders
 --                           (only through place_order), see its own orders and report problems on them.
 --   Admin (founder)       : email + password login listed in the admins table; can do everything.
+--   Rider (partner)       : email + password login listed in the riders table; on /partner sees one
+--                           day's orders and marks them on the way / arriving / delivered (functions only).
 -- Prices, delivery fee, limits and the delivery day are worked out inside the database,
 -- so a customer can never change them from the browser.
 
@@ -113,7 +115,9 @@ create table public.orders (
   cancel_reason text not null default '',
   created_at timestamptz not null default now(),
   confirmed_at timestamptz,
-  completed_at timestamptz
+  completed_at timestamptz,
+  ordered_by_name text not null default '',    -- "Order for someone else": who placed it
+  ordered_by_phone text not null default ''
 );
 create index orders_day_idx on public.orders (delivery_date, status);
 create index orders_placed_by_idx on public.orders (placed_by);
@@ -199,15 +203,21 @@ $$;
 
 -- p_lines: [{ "product_id": "...", "qty": 2, "note": "fresh wala" }, ...]
 -- Returns the new order number. Errors are short messages shown to the customer.
+-- Ordering for someone else: p_name / p_phone / address are the receiver's (the rider calls them),
+-- p_orderer_name / p_orderer_phone are the person who placed the order (updates, "My orders").
 create or replace function public.place_order(
   p_lines jsonb, p_name text, p_phone text, p_address text, p_area text,
   p_lat double precision, p_lng double precision,
-  p_note text, p_payment text, p_allow_substitute boolean
+  p_note text, p_payment text, p_allow_substitute boolean,
+  p_orderer_name text default '', p_orderer_phone text default ''
 ) returns text
 language plpgsql security definer set search_path = public as $$
 declare
   s store_settings;
   c customers;
+  ob customers;
+  v_ob_name text := coalesce(trim(p_orderer_name), '');
+  v_ob_phone text := coalesce(p_orderer_phone, '');
   q record;
   p products;
   line jsonb;
@@ -232,6 +242,11 @@ begin
   if not (p_area = any (s.delivery_area)) then raise exception 'Choose your area.'; end if;
   if p_payment not in ('cash', 'upi') then raise exception 'Choose a payment method.'; end if;
   if p_lat is null or p_lng is null then raise exception 'Set your home location on the map.'; end if;
+  if v_ob_phone = p_phone then v_ob_phone := ''; v_ob_name := ''; end if;   -- ordering for themselves
+  if v_ob_phone <> '' then
+    if v_ob_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number for yourself.'; end if;
+    if v_ob_name = '' then raise exception 'Enter your name.'; end if;
+  end if;
 
   select * into q from delivery_quote(p_lat, p_lng);
   if q.too_far then
@@ -241,6 +256,12 @@ begin
   select * into c from customers where phone = p_phone;
   if c.id is not null and (c.blocked or c.no_show_count >= no_show_limit) then
     raise exception 'Online ordering is blocked for this number. Please call us to order.';
+  end if;
+  if v_ob_phone <> '' then
+    select * into ob from customers where phone = v_ob_phone;
+    if ob.id is not null and (ob.blocked or ob.no_show_count >= no_show_limit) then
+      raise exception 'Online ordering is blocked for this number. Please call us to order.';
+    end if;
   end if;
 
   -- Every line is priced from the products table, never from the browser.
@@ -277,9 +298,11 @@ begin
   end loop;
 
   insert into orders (customer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
-                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, total, payment_method, delivery_date)
+                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, total, payment_method, delivery_date,
+                      ordered_by_name, ordered_by_phone)
   values (c.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, q.km,
-          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, q.fee, v_packaging, v_total, p_payment, v_date)
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, q.fee, v_packaging, v_total, p_payment, v_date,
+          v_ob_name, v_ob_phone)
   returning * into v_order;
 
   insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
@@ -332,7 +355,7 @@ $$;
 
 grant execute on function public.delivery_quote(double precision, double precision) to anon, authenticated;
 grant execute on function public.packaging_fee(int) to anon, authenticated;
-grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean) to authenticated;
+grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text) to authenticated;
 grant execute on function public.get_order(text) to anon, authenticated;
 grant execute on function public.expire_old_orders() to authenticated;
 grant execute on function public.cancel_order(uuid, text) to authenticated;
@@ -388,3 +411,163 @@ create policy "anyone views photos" on storage.objects for select using (bucket_
 create policy "admin uploads photos" on storage.objects for insert with check (bucket_id = 'photos' and is_admin());
 create policy "admin changes photos" on storage.objects for update using (bucket_id = 'photos' and is_admin());
 create policy "admin deletes photos" on storage.objects for delete using (bucket_id = 'photos' and is_admin());
+
+/* ================ delivery partners and WhatsApp messages (same as migrations/003_partners.sql) ================ */
+
+/* ---------------- riders ---------------- */
+
+create table if not exists public.riders (
+  user_id uuid primary key references auth.users on delete cascade,
+  name text not null default '',
+  phone text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_rider() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from riders where user_id = auth.uid() and active)
+$$;
+
+-- Admin or an active rider.
+create or replace function public.is_staff() returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_admin() or is_rider()
+$$;
+
+alter table public.riders enable row level security;
+drop policy if exists "admin manages riders" on public.riders;
+create policy "admin manages riders" on public.riders for all using (is_admin()) with check (is_admin());
+drop policy if exists "rider reads self" on public.riders;
+create policy "rider reads self" on public.riders for select using (user_id = auth.uid());
+
+/* ---------------- delivery progress on orders ---------------- */
+
+-- dispatch: '' (not left yet), 'on_the_way' (rider has left), 'arriving' (next stop, about to arrive)
+alter table public.orders
+  add column if not exists dispatch text not null default '',
+  add column if not exists dispatched_at timestamptz,
+  add column if not exists delivered_by uuid references auth.users on delete set null;
+do $$ begin
+  alter table public.orders add constraint orders_dispatch_check check (dispatch in ('', 'on_the_way', 'arriving'));
+exception when duplicate_object then null;
+end $$;
+
+-- Turned on by the admin once the WhatsApp Cloud API is connected (see supabase/README.md).
+alter table public.store_settings add column if not exists whatsapp_auto boolean not null default false;
+
+/* ---------------- WhatsApp messages sent to customers ---------------- */
+
+-- channel: 'auto' = sent by the notify-whatsapp Edge Function, 'tap' = sent by hand from WhatsApp.
+create table if not exists public.order_messages (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders on delete cascade,
+  kind text not null check (kind in ('placed', 'on_the_way', 'arriving', 'delivered')),
+  channel text not null check (channel in ('auto', 'tap')),
+  ok boolean not null default true,
+  error text not null default '',
+  sent_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index if not exists order_messages_order_idx on public.order_messages (order_id);
+
+alter table public.order_messages enable row level security;
+drop policy if exists "staff reads messages" on public.order_messages;
+create policy "staff reads messages" on public.order_messages for select using (is_staff());
+-- Written only by log_order_message() and by the Edge Function (service role).
+
+/* ---------------- partner functions ---------------- */
+
+-- One day's orders for the delivery run, with items and the messages already sent.
+create or replace function public.partner_orders(p_date date) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not is_staff() then raise exception 'Delivery partners only.'; end if;
+  return (
+    select coalesce(jsonb_agg(
+      (to_jsonb(o) - array['placed_by', 'customer_id']) || jsonb_build_object(
+        'items', (select coalesce(jsonb_agg(to_jsonb(i) order by i.name_snapshot), '[]') from order_items i where i.order_id = o.id),
+        'messages', (select coalesce(jsonb_agg(jsonb_build_object('kind', m.kind, 'channel', m.channel, 'ok', m.ok, 'at', m.created_at) order by m.created_at), '[]')
+                     from order_messages m where m.order_id = o.id)
+      ) order by o.area, o.created_at), '[]')
+    from orders o
+    where o.delivery_date = p_date and o.status <> 'cancelled'
+  );
+end
+$$;
+
+create or replace function public.partner_set_dispatch(p_order_id uuid, p_dispatch text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_staff() then raise exception 'Delivery partners only.'; end if;
+  if p_dispatch not in ('', 'on_the_way', 'arriving') then raise exception 'Unknown delivery step.'; end if;
+  update orders set dispatch = p_dispatch, dispatched_at = case when p_dispatch = '' then null else now() end
+  where id = p_order_id and status = 'confirmed';
+  if not found then raise exception 'Only confirmed orders can go out for delivery.'; end if;
+end
+$$;
+
+-- Delivered and paid. Cash is what the rider actually collected (UPI orders: 0).
+create or replace function public.partner_complete(p_order_id uuid, p_cash int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_staff() then raise exception 'Delivery partners only.'; end if;
+  update orders set status = 'completed', completed_at = now(), delivered_by = auth.uid(),
+    cash_collected = case when payment_method = 'cash' then greatest(coalesce(p_cash, total), 0) else 0 end
+  where id = p_order_id and status = 'confirmed';
+  if not found then raise exception 'Only confirmed orders can be marked delivered.'; end if;
+end
+$$;
+
+-- Undo "Delivered" (tapped by mistake). A rider can only undo their own.
+create or replace function public.partner_undo_delivered(p_order_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_staff() then raise exception 'Delivery partners only.'; end if;
+  update orders set status = 'confirmed', completed_at = null, cash_collected = 0, delivered_by = null
+  where id = p_order_id and status = 'completed' and (is_admin() or delivered_by = auth.uid());
+  if not found then raise exception 'This delivery cannot be undone.'; end if;
+end
+$$;
+
+-- A message sent by hand (WhatsApp opened with the text ready).
+create or replace function public.log_order_message(p_order_id uuid, p_kind text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_staff() then raise exception 'Delivery partners only.'; end if;
+  insert into order_messages (order_id, kind, channel) values (p_order_id, p_kind, 'tap');
+end
+$$;
+
+-- Admin: riders with their login email.
+create or replace function public.admin_list_riders() returns table (user_id uuid, email text, name text, phone text, active boolean)
+language sql stable security definer set search_path = public as $$
+  select r.user_id, u.email::text, r.name, r.phone, r.active
+  from riders r join auth.users u on u.id = r.user_id
+  where is_admin()
+  order by r.active desc, r.name
+$$;
+
+-- Admin: make an existing login (Supabase → Authentication → Users) a rider.
+create or replace function public.admin_add_rider(p_email text, p_name text, p_phone text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+begin
+  if not is_admin() then raise exception 'Admins only.'; end if;
+  select id into v_id from auth.users where lower(email) = lower(trim(p_email));
+  if v_id is null then
+    raise exception 'No login with this email yet. First create it in Supabase → Authentication → Users → Add user.';
+  end if;
+  insert into riders (user_id, name, phone) values (v_id, trim(p_name), coalesce(trim(p_phone), ''))
+  on conflict (user_id) do update set name = excluded.name, phone = excluded.phone, active = true;
+end
+$$;
+
+revoke execute on function public.partner_orders(date), public.partner_set_dispatch(uuid, text), public.partner_complete(uuid, int),
+  public.partner_undo_delivered(uuid), public.log_order_message(uuid, text), public.admin_list_riders(),
+  public.admin_add_rider(text, text, text) from public, anon;
+grant execute on function public.is_rider(), public.is_staff() to anon, authenticated;
+grant execute on function public.partner_orders(date), public.partner_set_dispatch(uuid, text), public.partner_complete(uuid, int),
+  public.partner_undo_delivered(uuid), public.log_order_message(uuid, text), public.admin_list_riders(),
+  public.admin_add_rider(text, text, text) to authenticated;

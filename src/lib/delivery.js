@@ -45,13 +45,16 @@ export function currentPosition() {
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
       (err) =>
         reject(
-          new Error(
-            err.code === 1
-              ? 'Location permission was not given. Drag the pin to your home on the map.'
-              : 'Could not get your location. Drag the pin to your home on the map.',
+          Object.assign(
+            new Error(
+              err.code === 1
+                ? 'Location permission was not given. Drag the pin to your home on the map.'
+                : 'Could not get your location. Drag the pin to your home on the map.',
+            ),
+            { denied: err.code === 1 },
           ),
         ),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
