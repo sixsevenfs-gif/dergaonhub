@@ -7,6 +7,10 @@
   --color-line: #444441;
   --color-muted: #B4B2A9;
   --color-accent: #E8FF3A;
+
+  /* Logo fonts: same look as public/brand/ logos */
+  --font-logo: 'Arial Black', 'Helvetica Neue', system-ui, sans-serif;
+  --font-tagline: 'Montserrat', 'Avenir Next', 'Helvetica Neue', sans-serif;
 }
 
 html,

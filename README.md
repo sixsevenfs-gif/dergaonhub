@@ -73,6 +73,13 @@ sunflower oil).
 `public/demo/products/`, made by `node scripts/make-demo-photos.mjs`. They are not real
 packages: replace them with your own photos before launch.
 
+## Logo
+
+`public/brand/`: Dergaon Hub logo (powered by Malchetra Groups) as SVG and PNG for dark and
+light backgrounds, the app icon, and `preview.html` to see them all. The website header
+draws the same logo in code (`src/components/Wordmark.jsx`); browser tab and phone app
+icons are `public/favicon.svg` and `public/icons/`.
+
 ## Folders
 
 | Folder | What is inside |

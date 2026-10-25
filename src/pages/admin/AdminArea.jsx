@@ -22,7 +22,7 @@ export default function AdminArea() {
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white print:hidden">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
-          <Wordmark className="text-xl" />
+          <Wordmark theme="light" />
           <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase text-white">Admin</span>
           {stats?.paused && <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">Store paused</span>}
         </div>

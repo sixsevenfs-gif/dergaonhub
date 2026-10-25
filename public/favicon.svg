@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B0B0B"/><text x="7" y="44" font-family="Arial, sans-serif" font-weight="900" font-size="30" fill="#FFFFFF">dh</text><circle cx="53" cy="41" r="4.5" fill="#E8FF3A"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="28" fill="#0B0B0B"/>
+  <path d="M42 52v-9a22 22 0 0 1 44 0v9" fill="none" stroke="#E8FF3A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M27 50h74l-6.5 49a10 10 0 0 1-9.9 8.7H43.4a10 10 0 0 1-9.9-8.7Z" fill="#E8FF3A"/>
+  <path d="M48 95c0-19 13-30 32-30 0 19-12 30-32 30Z" fill="#0B0B0B"/>
+  <path d="M51 92l22-22" stroke="#E8FF3A" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

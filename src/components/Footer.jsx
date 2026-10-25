@@ -7,6 +7,7 @@ export default function Footer({ store }) {
   if (!store) return null
   return (
     <footer className="mt-10 space-y-3 border-t border-line pt-6 text-sm text-muted">
+      <img src="/brand/png/dergaon-hub-logo-footer.png" alt="Dergaon Hub, powered by Malchetra Groups" className="mb-5 h-auto w-full max-w-[340px]" loading="lazy" />
       <p className="font-semibold text-white">Help chahiye?</p>
       <div className="flex gap-2">
         <a href={`tel:${store.phone}`} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line text-white"><Phone size={17} /> Call</a>
