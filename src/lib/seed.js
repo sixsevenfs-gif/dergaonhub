@@ -92,7 +92,7 @@ export function makeSeed() {
   const today = dateStr()
 
   const library = LIB.map(([name, size, category_id, keywords], i) => ({
-    id: `lp${i + 1}`, name, size, category_id, keywords, photo_url: '', status: 'active',
+    id: `lp${i + 1}`, name, size, category_id, keywords, photo_url: `/demo/products/lp${i + 1}.svg`, status: 'active',
   }))
   const lp = (name, size) => library.find((l) => l.name === name && (!size || l.size === size)).id
 
@@ -112,6 +112,9 @@ export function makeSeed() {
     { ...rules, id: 'nath', owner_user_id: 'u2', name: 'Nath General Store', category: 'Grocery', area: 'Borpathar', address: 'Near Borpathar Chariali', phone: '9000000002', whatsapp: '919000000002', delivery_available: false, delivery_area: [], status: 'live' },
     { ...rules, id: 'laxmi', owner_user_id: 'u3', name: 'Maa Laxmi Kirana', category: 'Grocery', area: 'Dergaon Town', address: 'College Road, Dergaon Town', phone: '9000000003', whatsapp: '919000000003', delivery_area: ['Dergaon Town'], status: 'pending' },
   ]
+
+  // Demo drawings from scripts/make-demo-photos.mjs; real photos replace them before launch.
+  for (const s of shops) s.logo_url = `/demo/shops/${s.id}.svg`
 
   const sp = (shop_id, l, price, extra = {}) => ({
     id: `${shop_id}-${l.id}`, shop_id, library_product_id: l.id, custom_name: '', custom_size: '', category_id: l.category_id,

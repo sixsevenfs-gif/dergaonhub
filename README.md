@@ -75,6 +75,10 @@ Product photos are not copied from other sites (copyright). Add your own:
 - **Shop → Settings:** shop logo.
 
 Photos are shrunk automatically. Products without a photo show a category icon.
+
+**Demo pictures:** every library product and demo shop has a simple drawing (marked DEMO) in
+`public/demo/`, made by `node scripts/make-demo-photos.mjs`. They are not real packages:
+replace them with your own photos before launch.
 In demo mode photos are saved in the browser, which has limited space (roughly 100+ photos).
 
 ## Not done yet
