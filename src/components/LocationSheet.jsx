@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, LocateFixed, MapPin, X } from 'lucide-react'
 import LocationPicker from './LocationPicker.jsx'
+import OutOfArea from './OutOfArea.jsx'
 import { btnAccent } from './ui.js'
 import { currentPosition, deliveryQuote } from '../lib/delivery.js'
 import { getSavedLocation, placeName, saveLocation } from '../lib/customerLocation.js'
@@ -66,16 +67,14 @@ export default function LocationSheet({ store, onClose }) {
         </div>
         <p className="mt-2 text-xs text-muted">{status || 'Pin ko khiska ke ya map pe tap karke apna ghar chuno.'}</p>
 
-        {point && (
+        {point && (quote.tooFar ? (
+          <div className="mt-3"><OutOfArea location={point} label={label} km={quote.km} /></div>
+        ) : (
           <div className="mt-3 rounded-xl bg-white/5 p-3">
             <p className="flex items-center gap-2 font-semibold"><MapPin size={17} className="text-accent" /> {label || 'Chuni hui jagah'}</p>
-            {quote.tooFar ? (
-              <p className="mt-1 text-sm text-red-300">Ye jagah {quote.km} km door hai. Abhi hum {store.max_delivery_km} km tak hi deliver karte hain.</p>
-            ) : (
-              <p className="mt-1 text-sm text-muted">{quote.km} km door · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
-            )}
+            <p className="mt-1 text-sm text-muted">{quote.km} km door · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
           </div>
-        )}
+        ))}
 
         <button type="button" disabled={!point} onClick={save} className={`${btnAccent} mt-4 h-12 text-base`}>
           <Check size={18} /> Ye location save karo

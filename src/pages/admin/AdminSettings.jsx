@@ -90,7 +90,7 @@ function SettingsForm({ store }) {
         <div className="grid grid-cols-3 gap-3">
           <Field label="₹ per km"><input type="number" min="0" value={v.per_km_fee} onChange={set('per_km_fee')} className={lfield} /></Field>
           <Field label="Minimum ₹"><input type="number" min="0" value={v.min_delivery_fee} onChange={set('min_delivery_fee')} className={lfield} /></Field>
-          <Field label="Max km"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
+          <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
         </div>
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
           Example: 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · 5 km → {rupee(example(5))} · {rates.max_delivery_km} km ke baad delivery nahi.

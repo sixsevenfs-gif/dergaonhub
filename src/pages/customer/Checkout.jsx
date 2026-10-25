@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { ArrowLeft, Banknote, ChevronDown, Clock, LocateFixed, Map, MapPin, Phone, Repeat, Smartphone, User } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
+import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
 import { currentCustomer, customerSignIn, placeOrder } from '../../lib/store.js'
 import { useCart } from '../../lib/cart-context.js'
@@ -147,7 +148,7 @@ export default function Checkout() {
             </p>
             {quote && (
               quote.tooFar ? (
-                <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">Ye jagah {quote.km} km door hai. Abhi hum {store.max_delivery_km} km tak hi deliver karte hain.</p>
+                <OutOfArea location={location} label={getSavedLocation()?.label} km={quote.km} />
               ) : (
                 <p className="rounded-xl bg-white/5 p-3 text-sm"><b>{quote.km} km</b> door · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
               )

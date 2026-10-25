@@ -7,7 +7,7 @@ import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
 import { deliveryQuote, validPoint } from './delivery.js'
 
-const KEY = 'dergaonhub-demo-v6' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v7' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
@@ -291,7 +291,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (!store.delivery_area.includes(area)) fail('Apna area chuno.')
   if (!validPoint(location)) fail('Map pe apne ghar ki location lagao.')
   const quote = deliveryQuote(store, location)
-  if (quote.tooFar) fail(`Ye jagah ${quote.km} km door hai. Abhi hum ${store.max_delivery_km} km tak deliver karte hain.`)
+  if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
   let customer = customerByPhone(ph)
   if (customer?.blocked || (customer?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) {
@@ -375,6 +375,32 @@ export async function ordersByPhone(phone) {
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((o) => ({ ...o, items: itemsOf(o.id), item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
   )
+}
+
+/* ---------- waitlist: people outside the delivery radius ---------- */
+
+// "Notify me": someone outside the delivery area leaves their number to hear when we start there.
+export async function joinWaitlist({ phone, name, location, label, km }) {
+  const ph = cleanPhone(phone)
+  if (ph.length !== 10) fail('Sahi 10 digit phone number daalo.')
+  db.waitlist ??= []
+  const existing = db.waitlist.find((w) => w.phone === ph && !w.notified)
+  const entry = {
+    id: existing?.id ?? newId(), phone: ph, name: name?.trim() ?? '', location, label: label ?? '', km,
+    notified: false, created_at: existing?.created_at ?? now(),
+  }
+  db.waitlist = [...db.waitlist.filter((w) => w.id !== entry.id), entry]
+  commit()
+}
+
+export async function adminListWaitlist() {
+  return clone([...(db.waitlist ?? [])].sort((a, b) => a.notified - b.notified || a.km - b.km))
+}
+
+export async function setWaitlistNotified(id, notified) {
+  const w = (db.waitlist ?? []).find((x) => x.id === id) ?? fail('Entry nahi mili.')
+  w.notified = notified
+  commit()
 }
 
 /* ---------- complaints ---------- */
@@ -515,6 +541,7 @@ export async function adminStats() {
     todayOrders: todays.length,
     todayValue: sum(todays, (o) => o.total),
     openComplaints: db.complaints.filter((k) => k.status === 'open').length,
+    waitlist: (db.waitlist ?? []).filter((w) => !w.notified).length,
     outOfStock: db.products.filter((p) => p.status === 'active' && !p.available).length,
     paused: db.store.paused,
   }

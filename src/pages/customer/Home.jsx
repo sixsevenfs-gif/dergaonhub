@@ -4,6 +4,9 @@ import { ArrowLeft, ArrowRight, House, LayoutGrid, Leaf, MapPin, Search, Shoppin
 import TopBar from '../../components/TopBar.jsx'
 import Footer from '../../components/Footer.jsx'
 import HeroSlider from '../../components/HeroSlider.jsx'
+import OutOfArea from '../../components/OutOfArea.jsx'
+import { useSavedDelivery } from '../../lib/customerLocation.js'
+import { deliveryQuote } from '../../lib/delivery.js'
 import Stepper from '../../components/Stepper.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { card, field } from '../../components/ui.js'
@@ -59,6 +62,7 @@ export default function Home() {
   const { data: products = [] } = useData(listProducts)
   const { data: categories = [] } = useData(listCategories)
   const { cart, count, qtyOf, setQty } = useCart()
+  const { location } = useSavedDelivery()
 
   const usedCats = categories.filter((c) => products.some((p) => p.category_id === c.id))
   const searching = q.trim() !== ''
@@ -89,6 +93,7 @@ export default function Home() {
   }
 
   if (!store) return null
+  const quote = deliveryQuote(store, location)
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pb-28 pt-4">
@@ -106,6 +111,10 @@ export default function Home() {
           className={`${field} h-14 bg-transparent pl-12`}
         />
       </div>
+
+      {quote?.tooFar && (
+        <div className="mt-3"><OutOfArea location={location} label={location.label} km={quote.km} /></div>
+      )}
 
       {!searching && (
         <>

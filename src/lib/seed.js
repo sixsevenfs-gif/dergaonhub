@@ -120,7 +120,8 @@ export function makeSeed() {
     // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
     // Approximate until the exact pin is set in Admin → Settings.
     location: { lat: 26.7, lng: 93.97 },
-    per_km_fee: 10, min_delivery_fee: 20, max_delivery_km: 8,
+    // Zone 1 (road ~4 km): Dergaon town, bazaar, Dergaon Circle, Radiant College area, Rangamati.
+    per_km_fee: 10, min_delivery_fee: 20, max_delivery_km: 4,
   }
 
   const customers = [
@@ -161,6 +162,6 @@ export function makeSeed() {
 
   return {
     store, categories: CATEGORIES.map((c) => ({ ...c, parent_id: null })), products,
-    customers, orders, order_items, complaints, daily_expenses: [], next_order_number: n,
+    customers, orders, order_items, complaints, waitlist: [], daily_expenses: [], next_order_number: n,
   }
 }

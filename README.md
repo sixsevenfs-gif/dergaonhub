@@ -57,7 +57,9 @@ Change the numbers in `src/config.js`; store timings and fees in Admin → Setti
 - Max 15 orders per evening; extra orders move to the next day.
 - First-time phone number: max ₹500 order. Minimum order ₹200.
 - Delivery fee by distance from the founder's home (pin set in Admin → Settings):
-  ₹10 per km, minimum ₹20, up to 8 km. Distance = straight line × 1.3. The customer's
+  ₹10 per km, minimum ₹20, up to 4 km (Zone 1: Dergaon town, bazaar, Circle, Radiant College,
+  Rangamati). Outside it the customer sees "We are currently not available at your location"
+  and can tap Notify me; those numbers appear in Admin → Waitlist. Distance = straight line × 1.3. The customer's
   location is fetched at checkout (or they move the pin on the free OpenStreetMap map).
   Admin gets a Google Maps directions link for every order.
 - 2 no-shows → number can't order online. Admin can block a number.

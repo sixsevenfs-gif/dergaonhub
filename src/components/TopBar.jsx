@@ -46,7 +46,7 @@ export default function TopBar() {
         {location ? (
           <span className="truncate">
             Deliver to <b className="text-white">{location.label || 'aapki location'}</b>
-            {quote && (quote.tooFar ? <span className="text-red-300"> · delivery area se bahar</span> : ` · ${quote.km} km · fee ${rupee(quote.fee)}`)}
+            {quote && (quote.tooFar ? <span className="text-orange-300"> · not available yet</span> : ` · ${quote.km} km · fee ${rupee(quote.fee)}`)}
           </span>
         ) : (
           <span>Delivery location set karo · <span className="text-accent underline">Set karo</span></span>

@@ -21,6 +21,7 @@ import AdminProducts from './pages/admin/AdminProducts.jsx'
 import AdminComplaints from './pages/admin/AdminComplaints.jsx'
 import AdminCustomers from './pages/admin/AdminCustomers.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
+import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
 
 import NotFound from './pages/NotFound.jsx'
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="products" element={<AdminProducts />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="waitlist" element={<AdminWaitlist />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 
