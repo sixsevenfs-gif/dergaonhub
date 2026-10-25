@@ -79,3 +79,5 @@ export function matches(text, query) {
   const words = normalize(text).split(/\s+/)
   return normalize(query).split(/\s+/).filter(Boolean).every((q) => words.some((w) => w.startsWith(q)))
 }
+
+export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', completed: 'Delivered', cancelled: 'Cancelled' })[s] ?? s

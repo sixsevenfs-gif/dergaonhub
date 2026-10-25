@@ -11,31 +11,31 @@ import { rupee, slotDate, slotText } from '../../lib/format.js'
 export default function Cart() {
   const navigate = useNavigate()
   const { setQty, setLineNote, setNote } = useCart()
-  const { cart, shop, lines, subtotal, problems, ready } = useCartDetails()
+  const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
 
   if (!ready) return null
-  if (!lines.length || !shop) {
+  if (!lines.length) {
     return (
       <main className="mx-auto min-h-screen max-w-md px-4 pt-4">
         <TopBar />
         <div className="mt-20 flex flex-col items-center text-center">
           <ShoppingCart size={56} className="text-muted" strokeWidth={1.5} />
           <h1 className="mt-4 text-2xl font-bold">Cart khaali hai</h1>
-          <p className="mt-1 text-muted">Kisi shop se saman add karo.</p>
-          <Link to="/" className={`${btnAccent} mt-6 max-w-60`}>Shops dekho</Link>
+          <p className="mt-1 text-muted">Store se saman add karo.</p>
+          <Link to="/" className={`${btnAccent} mt-6 max-w-60`}>Saman dekho</Link>
         </div>
       </main>
     )
   }
 
-  const shortBy = shop.delivery_available ? shop.min_order - subtotal : 0
-  const fee = shop.delivery_available ? shop.delivery_fee : 0
+  const shortBy = store.min_order - subtotal
+  const fee = store.delivery_fee
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pb-10 pt-4">
       <TopBar />
       <h1 className="mt-5 text-3xl font-black">Your Cart</h1>
-      <p className="text-muted">{shop.name} · {shop.area}</p>
+      <p className="text-muted">{store.name}</p>
 
       <div className="mt-4 space-y-3">
         {lines.map((l) => (
@@ -48,13 +48,13 @@ export default function Cart() {
                     <h3 className="font-semibold leading-tight">{l.product?.name ?? 'Item ab nahi hai'}</h3>
                     <p className="text-sm text-muted">{l.product?.size}</p>
                   </div>
-                  <button type="button" aria-label="Hatao" onClick={() => setQty(shop.id, l.id, 0)} className="-mr-1 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center text-muted">
+                  <button type="button" aria-label="Hatao" onClick={() => setQty(l.id, 0)} className="-mr-1 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center text-muted">
                     <Trash2 size={20} />
                   </button>
                 </div>
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-lg font-bold">{rupee((l.product?.price ?? 0) * l.qty)}</span>
-                  <Stepper value={l.qty} onChange={(v) => setQty(shop.id, l.id, v)} className="w-32" />
+                  <Stepper value={l.qty} onChange={(v) => setQty(l.id, v)} className="w-32" />
                 </div>
               </div>
             </div>
@@ -84,11 +84,11 @@ export default function Cart() {
       </label>
 
       {shortBy > 0 && (
-        <Link to={`/s/${shop.id}`} className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-4">
+        <Link to="/" className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-4">
           <AlertCircle size={28} className="shrink-0 text-accent" />
           <span className="flex-1">
-            <span className="block font-bold text-accent">{rupee(shortBy)} aur add karo delivery ke liye</span>
-            <span className="text-sm text-muted">Minimum order {rupee(shop.min_order)}. Pickup mein koi minimum nahi.</span>
+            <span className="block font-bold text-accent">{rupee(shortBy)} aur add karo</span>
+            <span className="text-sm text-muted">Minimum order {rupee(store.min_order)} hai.</span>
           </span>
           <ChevronRight size={20} className="text-accent" />
         </Link>
@@ -97,16 +97,16 @@ export default function Cart() {
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/40 text-accent"><Truck size={20} /></span>
         <span>
-          <span className="block text-sm text-muted">{shop.delivery_available ? 'Delivery slot' : 'Pickup'}</span>
-          <span>{shop.delivery_available ? slotText(slotDate(shop), shop) : 'Shop se khud le jao'}</span>
+          <span className="block text-sm text-muted">Delivery slot</span>
+          <span>{slotText(slotDate(store), store)}</span>
         </span>
       </div>
 
       <div className={`${card} mt-3 p-4`}>
         <div className="flex justify-between text-muted"><span>Subtotal ({lines.reduce((s, l) => s + l.qty, 0)} items)</span><span>{rupee(subtotal)}</span></div>
-        {fee > 0 && <div className="mt-1 flex justify-between text-muted"><span>Delivery fee</span><span>{rupee(fee)}</span></div>}
+        <div className="mt-1 flex justify-between text-muted"><span>Delivery fee</span><span>{rupee(fee)}</span></div>
         <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(subtotal + fee)}</span></div>
-        <button type="button" disabled={problems.length > 0} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
+        <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout
         </button>
       </div>

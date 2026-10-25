@@ -1,36 +1,43 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import Wordmark from '../../components/Wordmark.jsx'
+import { adminStats } from '../../lib/store.js'
+import { useData } from '../../lib/useData.js'
 import { DEMO_MODE } from '../../config.js'
 
 const NAV = [
   ['/admin', 'Home'],
-  ['/admin/shops', 'Shops'],
+  ['/admin/orders', 'Orders', 'newOrders'],
   ['/admin/delivery', 'Delivery sheet'],
-  ['/admin/settlement', 'Settlement'],
-  ['/admin/orders', 'Orders'],
+  ['/admin/summary', 'Daily summary'],
+  ['/admin/products', 'Products', 'outOfStock'],
+  ['/admin/complaints', 'Complaints', 'openComplaints'],
   ['/admin/customers', 'Customers'],
-  ['/admin/library', 'Library'],
-  ['/admin/directory', 'Directory'],
+  ['/admin/settings', 'Settings'],
 ]
 
-// Founder-only area. With Supabase, only the admin login can open it.
+// Founder-only area. With the database, only the admin login can open it.
 export default function AdminArea() {
+  const { data: stats } = useData(adminStats)
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white print:hidden">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
-          <Wordmark />
+          <Wordmark className="text-xl" />
           <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase text-white">Admin</span>
+          {stats?.paused && <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">Store paused</span>}
         </div>
         <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
-          {NAV.map(([to, label]) => (
+          {NAV.map(([to, label, countKey]) => (
             <NavLink
               key={to}
               to={to}
               end={to === '/admin'}
-              className={({ isActive }) => `flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-semibold ${isActive ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
+              className={({ isActive }) => `flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${isActive ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
             >
               {label}
+              {countKey && stats?.[countKey] > 0 && (
+                <span className="rounded-full bg-accent px-1.5 text-xs font-bold text-ink">{stats[countKey]}</span>
+              )}
             </NavLink>
           ))}
         </nav>

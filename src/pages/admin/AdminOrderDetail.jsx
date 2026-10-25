@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Phone, Trash2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
+import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { cancelOrder, completeOrder, confirmOrder, getOrderById, removeOrderItem } from '../../lib/store.js'
+import { cancelOrder, confirmOrder, getOrderById, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
-import { toWa, waLink } from '../../lib/whatsapp.js'
+import { billMessage, toWa, waLink } from '../../lib/whatsapp.js'
 import { CONFIG } from '../../config.js'
 
-export default function OrderDetail({ backTo = '/shop' }) {
+export default function AdminOrderDetail() {
   const { orderId } = useParams()
   const { data } = useData(() => getOrderById(orderId), [orderId])
   const [cancelling, setCancelling] = useState(false)
@@ -22,7 +23,7 @@ export default function OrderDetail({ backTo = '/shop' }) {
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order nahi mila.</p>
-  const { order, items, shop, hint } = data
+  const { order, items, store, hint, complaints } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
 
   const run = async (fn) => {
@@ -36,7 +37,7 @@ export default function OrderDetail({ backTo = '/shop' }) {
 
   return (
     <div className="space-y-3">
-      <Link to={backTo} className="flex items-center gap-2 text-sm text-neutral-600"><ArrowLeft size={18} /> Orders</Link>
+      <Link to="/admin/orders" className="flex items-center gap-2 text-sm text-neutral-600"><ArrowLeft size={18} /> Orders</Link>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black">#{order.order_number}</h1>
         <StatusBadge status={order.status} />
@@ -49,19 +50,19 @@ export default function OrderDetail({ backTo = '/shop' }) {
         <div className="mt-1"><CustomerHint hint={hint} /></div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={`tel:${order.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-          <a href={waLink(toWa(order.customer_phone), `Namaste ${order.customer_name}, aapka order #${order.order_number} mila hai.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+          <a href={waLink(toWa(order.customer_phone), `Namaste ${order.customer_name}, Dergaon Hub se. Aapka order #${order.order_number} mila hai.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
             <WhatsAppIcon size={17} /> WhatsApp
           </a>
         </div>
-        <p className="mt-3 flex gap-2 text-sm">
-          <MapPin size={16} className="mt-0.5 shrink-0" />
-          {order.type === 'delivery' ? `${order.address}, ${order.area} · ${slotText(order.delivery_date, shop)}` : 'Pickup from shop'}
+        <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address}, {order.area} · {slotText(order.delivery_date, store)}</p>
+        <p className={`mt-2 flex gap-2 text-sm font-semibold ${order.allow_substitute ? 'text-green-700' : 'text-orange-600'}`}>
+          <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand chalega' : 'Sirf yahi brand chahiye'}
         </p>
       </section>
 
       <section className={`${lcard} p-4`}>
         <h2 className="font-bold">Items</h2>
-        {editable && <p className="text-xs text-neutral-500">Koi item nahi hai toh hatao. Total apne aap update hoga. Customer ko call karke batao.</p>}
+        {editable && <p className="text-xs text-neutral-500">Dukaan pe nahi mila toh item hatao. Total apne aap update hoga. Customer ko bata do.</p>}
         <div className="mt-2 divide-y divide-neutral-100">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-2 py-2">
@@ -80,9 +81,9 @@ export default function OrderDetail({ backTo = '/shop' }) {
         </div>
         <div className="mt-2 space-y-1 border-t border-neutral-200 pt-2 text-sm">
           <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{rupee(order.subtotal)}</span></div>
-          {order.delivery_fee > 0 && <div className="flex justify-between text-neutral-600"><span>Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>}
+          <div className="flex justify-between text-neutral-600"><span>Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>
           <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{rupee(order.total)}</span></div>
-          <div className="flex justify-between text-neutral-600"><span>Payment</span><span>{order.payment_method === 'cash' ? 'Cash' : 'UPI to shop'}</span></div>
+          <div className="flex justify-between text-neutral-600"><span>Payment</span><span>{order.payment_method === 'cash' ? 'Cash on delivery' : 'UPI on delivery'}</span></div>
           {order.status === 'completed' && order.payment_method === 'cash' && (
             <div className="flex justify-between text-neutral-600"><span>Cash collected</span><span>{rupee(order.cash_collected)}</span></div>
           )}
@@ -91,12 +92,18 @@ export default function OrderDetail({ backTo = '/shop' }) {
         {order.status === 'cancelled' && <p className="mt-3 text-sm text-neutral-600">Cancelled: {order.cancel_reason}</p>}
       </section>
 
+      {complaints.length > 0 && (
+        <Link to="/admin/complaints" className={`${lcard} block p-4 text-sm`}>
+          <b>{complaints.length} complaint</b> is order pe: {complaints.map((k) => `${k.type} (${k.status})`).join(', ')}
+        </Link>
+      )}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {editable && !cancelling && (
         <section className="space-y-2">
           {order.status === 'placed' && (
-            <button type="button" onClick={() => run(() => confirmOrder(order.id))} className={`${lbtnDark} h-12 w-full`}>Confirm order</button>
+            <button type="button" onClick={() => run(() => confirmOrder(order.id))} className={`${lbtnDark} h-12 w-full`}>Confirm order (call ke baad)</button>
           )}
           {order.status === 'confirmed' && (
             <div className={`${lcard} space-y-2 p-4`}>
@@ -105,13 +112,20 @@ export default function OrderDetail({ backTo = '/shop' }) {
                   <input type="number" min="0" value={cash} onChange={(e) => setCash(e.target.value)} placeholder={String(order.total)} className={lfield} />
                 </Field>
               )}
-              <button type="button" onClick={() => run(() => completeOrder(order.id, cash === '' ? order.total : cash))} className={`${lbtnDark} h-12 w-full`}>
-                Mark completed
-              </button>
+              <DeliveredButton order={order} items={items} cash={cash === '' ? undefined : cash} className="h-12 w-full" />
             </div>
           )}
           <button type="button" onClick={() => setCancelling(true)} className={`${lbtnDanger} w-full`}>Cancel order</button>
         </section>
+      )}
+
+      {order.status === 'completed' && (
+        <div className="grid grid-cols-2 gap-2">
+          <a href={waLink(toWa(order.customer_phone), billMessage({ order, items }))} target="_blank" rel="noreferrer" className={lbtnOutline}>
+            <WhatsAppIcon size={17} /> Bill dobara bhejo
+          </a>
+          <button type="button" onClick={() => run(() => reopenOrder(order.id))} className={lbtnOutline}>Undo delivered</button>
+        </div>
       )}
 
       {cancelling && (

@@ -13,7 +13,7 @@ export default function OrderPlaced() {
   const { data, loading } = useData(() => getOrder(orderNumber), [orderNumber])
   if (loading) return null
   if (!data) return <p className="p-10 text-center text-muted">Order nahi mila.</p>
-  const { order, items, shop } = data
+  const { order, items, store } = data
   const trackUrl = `${window.location.host}/track/${order.order_number}`
 
   return (
@@ -35,15 +35,15 @@ export default function OrderPlaced() {
         </div>
         <h1 className="mt-5 text-4xl font-black">Order placed!</h1>
         <p className="mt-1 text-2xl font-bold text-muted">#{order.order_number}</p>
-        <p className="mt-1 text-muted">Aapka order shop tak pahunch gaya hai.</p>
+        <p className="mt-1 text-muted">Aapka order hume mil gaya hai.</p>
       </div>
 
       <section className={`${card} mt-6 p-4`}>
         <div className="flex items-center gap-3 border-b border-line pb-3">
-          {shop.logo_url ? <img src={shop.logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" /> : <Store size={26} />}
+          <Store size={26} />
           <div>
-            <div className="font-bold">{shop.name}</div>
-            <div className="text-sm text-muted">{shop.area}</div>
+            <div className="font-bold">{store.name}</div>
+            <div className="text-sm text-muted">{order.address}, {order.area}</div>
           </div>
         </div>
         <div className="space-y-2 py-3">
@@ -60,19 +60,19 @@ export default function OrderPlaced() {
         </div>
         <div className="flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(order.total)}</span></div>
         <div className="mt-3 flex items-center gap-2 text-sm text-muted">
-          {order.type === 'delivery' ? <><Clock size={16} /> Delivery {slotText(order.delivery_date, shop)}</> : <><MapPin size={16} /> Pickup from shop</>}
+          <Clock size={16} /> Delivery {slotText(order.delivery_date, store)}
         </div>
       </section>
 
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <Phone size={24} className="shrink-0 text-accent" />
         <span className="border-l border-line pl-3">
-          <span className="block font-semibold">Shop aapko call karke confirm karegi.</span>
-          <span className="text-sm text-muted">Thoda wait karo, order ready kar rahe hain.</span>
+          <span className="block font-semibold">Hum aapko call karke confirm karenge.</span>
+          <span className="text-sm text-muted">Confirm hone ke baad saman kharid ke shaam ko pahuncha denge.</span>
         </span>
       </div>
 
-      <a href={waLink(shop.whatsapp, orderMessage(data))} target="_blank" rel="noreferrer" className={`${btnWhatsApp} mt-4`}>
+      <a href={waLink(store.whatsapp, orderMessage(data))} target="_blank" rel="noreferrer" className={`${btnWhatsApp} mt-4`}>
         <WhatsAppIcon size={26} /> Send order on WhatsApp <ChevronRight size={20} />
       </a>
       <Link to={`/track/${order.order_number}`} className={`${card} mt-3 flex h-14 items-center gap-3 px-4 font-semibold`}>

@@ -1,6 +1,6 @@
-// Makes simple demo pictures for every library product and demo shop.
+// Makes simple demo pictures for every product.
 // They are drawings, not real packages: replace them with your own photos before launch.
-// Run again after changing the library:  node scripts/make-demo-photos.mjs
+// Run again after changing the product list:  node scripts/make-demo-photos.mjs
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { makeSeed } from '../src/lib/seed.js'
 
@@ -51,19 +51,7 @@ ${SHAPES[shape](color)}
 `
 }
 
-function logoSvg(name, color) {
-  const initials = name.split(' ').filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" font-family="Arial, Helvetica, sans-serif">
-<rect width="200" height="200" rx="40" fill="${color}"/>
-<text x="100" y="128" text-anchor="middle" font-size="84" font-weight="900" fill="#fff">${esc(initials)}</text>
-</svg>
-`
-}
-
 const seed = makeSeed()
 mkdirSync('public/demo/products', { recursive: true })
-mkdirSync('public/demo/shops', { recursive: true })
-for (const item of seed.library) writeFileSync(`public/demo/products/${item.id}.svg`, productSvg(item))
-const LOGO_COLORS = ['#1F7A4A', '#B4462F', '#3559A8', '#7A3FA0']
-seed.shops.forEach((s, i) => writeFileSync(`public/demo/shops/${s.id}.svg`, logoSvg(s.name, LOGO_COLORS[i % LOGO_COLORS.length])))
-console.log(`${seed.library.length} product pictures, ${seed.shops.length} shop logos`)
+for (const item of seed.products) writeFileSync(`public/demo/products/${item.id}.svg`, productSvg(item))
+console.log(`${seed.products.length} product pictures`)

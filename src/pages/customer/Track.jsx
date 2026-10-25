@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Check, ChevronRight, Phone, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Phone, X } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import AddToHomeSheet from '../../components/AddToHomeSheet.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { btnAccent, btnOutline, card, cx, field } from '../../components/ui.js'
 import { getOrder, ordersByPhone } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { cleanPhone, dayLabel, fmtDateTime, rupee, slotText } from '../../lib/format.js'
+import { cleanPhone, fmtDateTime, rupee, slotText, statusLabel } from '../../lib/format.js'
 import { waLink } from '../../lib/whatsapp.js'
 
 const STEPS = [
-  ['placed', 'Placed', 'Shop ko order mil gaya'],
-  ['confirmed', 'Confirmed', 'Shop ne confirm kiya, packing ho rahi hai'],
-  ['completed', 'Completed', 'Order mil gaya. Thank you!'],
+  ['placed', 'Placed', 'Order hume mil gaya'],
+  ['confirmed', 'Confirmed', 'Confirm ho gaya, saman shaam ko aayega'],
+  ['completed', 'Delivered', 'Saman mil gaya. Thank you!'],
 ]
 
 function FindByPhone() {
@@ -35,8 +35,8 @@ function FindByPhone() {
           {list.map((o) => (
             <Link key={o.id} to={`/track/${o.order_number}`} className="flex items-center gap-3 rounded-xl border border-line p-3">
               <span className="flex-1">
-                <span className="block font-semibold">#{o.order_number} · {o.shop_name}</span>
-                <span className="text-sm text-muted">{fmtDateTime(o.created_at)} · {rupee(o.total)} · {o.status}</span>
+                <span className="block font-semibold">#{o.order_number}</span>
+                <span className="text-sm text-muted">{fmtDateTime(o.created_at)} · {rupee(o.total)} · {statusLabel(o.status)}</span>
               </span>
               <ChevronRight size={18} className="text-muted" />
             </Link>
@@ -68,7 +68,7 @@ export default function Track() {
 }
 
 function OrderView({ data }) {
-  const { order, items, shop } = data
+  const { order, items, store, complaints } = data
   const cancelled = order.status === 'cancelled'
   const reached = STEPS.findIndex(([s]) => s === order.status)
 
@@ -78,12 +78,9 @@ function OrderView({ data }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-2xl font-bold">#{order.order_number}</div>
-            <div className="text-muted">{shop.name}</div>
+            <div className="text-sm text-muted">{fmtDateTime(order.created_at)}</div>
           </div>
-          <div className="text-right text-sm text-muted">
-            {order.type === 'delivery' ? 'Delivery' : 'Pickup'}<br />
-            {order.type === 'delivery' ? slotText(order.delivery_date, shop) : dayLabel(order.delivery_date)}
-          </div>
+          <div className="text-right text-sm text-muted">Delivery<br />{slotText(order.delivery_date, store)}</div>
         </div>
 
         {cancelled ? (
@@ -92,7 +89,7 @@ function OrderView({ data }) {
             <span><span className="block font-bold text-red-200">Cancelled</span><span className="text-sm text-red-200/80">{order.cancel_reason}</span></span>
           </div>
         ) : (
-          <ol className="mt-5 space-y-0">
+          <ol className="mt-5">
             {STEPS.map(([key, title, note], i) => {
               const done = i <= reached
               return (
@@ -117,14 +114,36 @@ function OrderView({ data }) {
           {items.map((i) => (
             <div key={i.id} className="flex"><span className="flex-1 text-muted">{i.name_snapshot} ×{i.quantity}</span><span>{rupee(i.line_total)}</span></div>
           ))}
-          {order.delivery_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>}
+          <div className="flex"><span className="flex-1 text-muted">Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>
           <div className="flex pt-2 text-lg font-bold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
       </section>
 
+      {complaints.length > 0 && (
+        <section className={`${card} mt-3 space-y-2 p-4`}>
+          <h2 className="font-bold">Aapki complaint</h2>
+          {complaints.map((k) => (
+            <div key={k.id} className="rounded-xl border border-line p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{k.type}</span>
+                <span className={cx('rounded-full px-2 py-0.5 text-xs font-bold', k.status === 'open' ? 'bg-orange-500/20 text-orange-300' : 'bg-green-500/20 text-green-300')}>
+                  {k.status === 'open' ? 'Dekh rahe hain' : 'Solved'}
+                </span>
+              </div>
+              {k.message && <p className="mt-1 text-muted">{k.message}</p>}
+              {k.admin_note && <p className="mt-1 text-accent">Reply: {k.admin_note}</p>}
+            </div>
+          ))}
+        </section>
+      )}
+
+      <Link to={`/report/${order.order_number}`} className={`${card} mt-3 flex h-14 items-center gap-3 px-4 font-semibold`}>
+        <AlertTriangle size={20} className="text-orange-300" /> <span className="flex-1">Report a problem</span> <ChevronRight size={20} className="text-muted" />
+      </Link>
+
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <a href={`tel:${shop.phone}`} className={btnOutline}><Phone size={18} /> Call shop</a>
-        <a href={waLink(shop.whatsapp, `Order #${order.order_number} ke baare mein`)} target="_blank" rel="noreferrer" className={`${btnAccent} min-h-11 text-base`}>
+        <a href={`tel:${store.phone}`} className={btnOutline}><Phone size={18} /> Call us</a>
+        <a href={waLink(store.whatsapp, `Order #${order.order_number} ke baare mein`)} target="_blank" rel="noreferrer" className={`${btnAccent} min-h-11 text-base`}>
           <WhatsAppIcon size={18} /> WhatsApp
         </a>
       </div>

@@ -1,6 +1,6 @@
 import { addDays, dateStr } from './format.js'
 
-// Demo data. The WhatsApp/phone numbers are fake placeholders.
+// Demo data for Dergaon Hub Store. Phone/WhatsApp numbers are fake placeholders.
 
 export const CATEGORIES = [
   { id: 'atta', name: 'Atta & Flour', short: 'Atta & Flour' },
@@ -91,41 +91,19 @@ export function makeSeed() {
   const now = new Date().toISOString()
   const today = dateStr()
 
-  const library = LIB.map(([name, size, category_id, keywords], i) => ({
-    id: `lp${i + 1}`, name, size, category_id, keywords, photo_url: `/demo/products/lp${i + 1}.svg`, status: 'active',
+  // Demo pictures come from scripts/make-demo-photos.mjs; real photos replace them before launch.
+  const products = LIB.map(([name, size, category_id, keywords, price], i) => ({
+    id: `p${i + 1}`, name, size, category_id, keywords, price,
+    photo_url: `/demo/products/p${i + 1}.svg`,
+    available: name !== 'Dove Shampoo', status: 'active', updated_at: now,
   }))
-  const lp = (name, size) => library.find((l) => l.name === name && (!size || l.size === size)).id
+  const pid = (name, size) => products.find((p) => p.name === name && p.size === size)
 
-  const users = [
-    { id: 'u1', email: 'sharma@demo.in', role: 'shop_owner', created_at: now },
-    { id: 'u2', email: 'nath@demo.in', role: 'shop_owner', created_at: now },
-    { id: 'u3', email: 'laxmi@demo.in', role: 'shop_owner', created_at: now },
-  ]
-
-  const rules = {
-    delivery_available: true, pickup_available: true, min_order: 300, delivery_fee: 30,
-    cutoff_time: '14:00', slot_start: '17:00', slot_end: '20:00',
-    open_time: '08:00', close_time: '21:00', paused: false, reject_reason: '', logo_url: '', created_at: now,
+  const store = {
+    name: 'Dergaon Hub Store', phone: '9000000001', whatsapp: '919000000001',
+    open_time: '08:00', close_time: '21:00', cutoff_time: '14:00', slot_start: '17:00', slot_end: '20:00',
+    min_order: 200, delivery_fee: 30, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
   }
-  const shops = [
-    { ...rules, id: 'sharma', owner_user_id: 'u1', name: 'Sharma Grocery Store', category: 'Grocery', area: 'Dergaon Bazaar', address: 'Main Road, Dergaon Bazaar', phone: '9000000001', whatsapp: '919000000001', delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], status: 'live' },
-    { ...rules, id: 'nath', owner_user_id: 'u2', name: 'Nath General Store', category: 'Grocery', area: 'Borpathar', address: 'Near Borpathar Chariali', phone: '9000000002', whatsapp: '919000000002', delivery_available: false, delivery_area: [], status: 'live' },
-    { ...rules, id: 'laxmi', owner_user_id: 'u3', name: 'Maa Laxmi Kirana', category: 'Grocery', area: 'Dergaon Town', address: 'College Road, Dergaon Town', phone: '9000000003', whatsapp: '919000000003', delivery_area: ['Dergaon Town'], status: 'pending' },
-  ]
-
-  // Demo drawings from scripts/make-demo-photos.mjs; real photos replace them before launch.
-  for (const s of shops) s.logo_url = `/demo/shops/${s.id}.svg`
-
-  const sp = (shop_id, l, price, extra = {}) => ({
-    id: `${shop_id}-${l.id}`, shop_id, library_product_id: l.id, custom_name: '', custom_size: '', category_id: l.category_id,
-    price, available: true, review_status: 'approved', photo_url: '', updated_at: now, ...extra,
-  })
-  const shop_products = [
-    ...library.map((l, i) => sp('sharma', l, LIB[i][4], l.name === 'Dove Shampoo' ? { available: false } : {})),
-    ...library.filter((_, i) => i % 2 === 0).map((l) => sp('nath', l, LIB[library.indexOf(l)][4] + 5)),
-    ...library.slice(0, 12).map((l, i) => sp('laxmi', l, LIB[i][4])),
-    { id: 'laxmi-c1', shop_id: 'laxmi', library_product_id: null, custom_name: 'Pitha Guri (Rice Flour)', custom_size: '500 g', category_id: 'atta', price: 50, available: true, review_status: 'pending', photo_url: '', updated_at: now },
-  ]
 
   const customers = [
     { id: 'c1', phone: '9000000101', name: 'Ritu Das', no_show_count: 0, blocked: false, created_at: now },
@@ -138,33 +116,32 @@ export function makeSeed() {
   const addOrder = (o, lines) => {
     const id = `o${n}`
     const items = lines.map(([name, size, qty], i) => {
-      const prod = shop_products.find((p) => p.shop_id === o.shop_id && p.library_product_id === lp(name, size))
-      return { id: `${id}-${i}`, order_id: id, shop_product_id: prod.id, name_snapshot: `${name} ${size}`, price_snapshot: prod.price, quantity: qty, note: '', line_total: prod.price * qty }
+      const p = pid(name, size)
+      return { id: `${id}-${i}`, order_id: id, product_id: p.id, name_snapshot: `${name} ${size}`, price_snapshot: p.price, quantity: qty, note: '', line_total: p.price * qty }
     })
     const subtotal = items.reduce((s, i) => s + i.line_total, 0)
-    const delivery_fee = o.type === 'delivery' ? 30 : 0
-    orders.push({ id, order_number: `DG-${n++}`, note: '', cancel_reason: '', cash_collected: 0, confirmed_at: null, completed_at: null, ...o, subtotal, delivery_fee, total: subtotal + delivery_fee })
+    orders.push({
+      id, order_number: `DG-${n++}`, type: 'delivery', note: '', cancel_reason: '', allow_substitute: true,
+      cash_collected: 0, confirmed_at: null, completed_at: null,
+      ...o, subtotal, delivery_fee: 30, total: subtotal + 30,
+    })
     order_items.push(...items)
   }
-  addOrder({ shop_id: 'sharma', customer_id: 'c1', customer_name: 'Ritu Das', customer_phone: '9000000101', type: 'delivery', address: 'House 12, near Namghar', area: 'Dergaon Bazaar', payment_method: 'cash', delivery_date: addDays(today, -1), status: 'completed', created_at: now, confirmed_at: now, completed_at: now, cash_collected: 0 },
+  const ritu = { customer_id: 'c1', customer_name: 'Ritu Das', customer_phone: '9000000101', address: 'House 12, near Namghar', area: 'Dergaon Bazaar' }
+  addOrder({ ...ritu, payment_method: 'cash', delivery_date: addDays(today, -1), status: 'completed', created_at: now, confirmed_at: now, completed_at: now },
     [['Aashirvaad Atta', '5 kg', 1], ['Tata Tea Gold', '250 g', 1]])
-  addOrder({ shop_id: 'sharma', customer_id: 'c1', customer_name: 'Ritu Das', customer_phone: '9000000101', type: 'delivery', address: 'House 12, near Namghar', area: 'Dergaon Bazaar', payment_method: 'cash', delivery_date: today, status: 'confirmed', created_at: now, confirmed_at: now },
+  addOrder({ ...ritu, payment_method: 'cash', delivery_date: today, status: 'confirmed', created_at: now, confirmed_at: now },
     [['Toor Daal', '1 kg', 1], ['Engine Mustard Oil', '1 L', 1], ['Amul Taaza Milk', '500 ml', 2]])
-  addOrder({ shop_id: 'sharma', customer_id: 'c2', customer_name: 'Bikash Gogoi', customer_phone: '9000000102', type: 'delivery', address: 'Behind Dergaon Post Office', area: 'Dergaon Town', payment_method: 'upi', delivery_date: today, status: 'placed', created_at: now },
+  addOrder({ customer_id: 'c2', customer_name: 'Bikash Gogoi', customer_phone: '9000000102', address: 'Behind Dergaon Post Office', area: 'Dergaon Town', payment_method: 'upi', delivery_date: today, status: 'placed', created_at: now },
     [['India Gate Basmati Rice', '1 kg', 2], ['Sugar', '1 kg', 1], ['Parle-G Biscuit', '250 g', 2]])
-  // The completed order was paid in cash to the founder on delivery.
   orders[0].cash_collected = orders[0].total
 
-  const directory = [
-    { id: 'd1', name: 'Das Medical Store', category: 'Medical', area: 'Dergaon Bazaar', phone: '9000000201', whatsapp: '919000000201', hours: '8 AM – 9 PM', photo_url: '', status: 'live' },
-    { id: 'd2', name: 'Style Zone Salon', category: 'Salon', area: 'Dergaon Town', phone: '9000000202', whatsapp: '919000000202', hours: '9 AM – 8 PM', photo_url: '', status: 'live' },
-    { id: 'd3', name: 'Mobile Care Repair', category: 'Mobile repair', area: 'Station Road', phone: '9000000203', whatsapp: '919000000203', hours: '10 AM – 8 PM', photo_url: '', status: 'live' },
-    { id: 'd4', name: 'Bora Electricals', category: 'Electrician', area: 'Borpathar', phone: '9000000204', whatsapp: '', hours: 'On call', photo_url: '', status: 'live' },
-    { id: 'd5', name: 'Bright Future Tuition', category: 'Tuition', area: 'Dergaon Town', phone: '9000000205', whatsapp: '919000000205', hours: '6 AM – 9 AM, 4 PM – 7 PM', photo_url: '', status: 'pending' },
+  const complaints = [
+    { id: 'k1', order_id: 'o1001', order_number: 'DG-1001', customer_phone: '9000000101', customer_name: 'Ritu Das', type: 'Missing item', message: 'Chai ka packet nahi mila.', status: 'open', admin_note: '', created_at: now, resolved_at: null },
   ]
 
   return {
-    users, shops, categories: CATEGORIES.map((c) => ({ ...c, parent_id: null })), library, shop_products,
-    customers, orders, order_items, directory, settlements: [], next_order_number: n,
+    store, categories: CATEGORIES.map((c) => ({ ...c, parent_id: null })), products,
+    customers, orders, order_items, complaints, daily_expenses: [], next_order_number: n,
   }
 }

@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { CartContext } from './cart-context.js'
 
-const KEY = 'dergaon-cart'
-const EMPTY = { shopId: null, lines: {}, note: '' }
+const KEY = 'dergaonhub-cart'
+const EMPTY = { lines: {}, note: '' }
 
 function loadCart() {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) ?? EMPTY
+    const saved = JSON.parse(localStorage.getItem(KEY))
+    return saved?.lines ? saved : EMPTY
   } catch {
     return EMPTY
   }
 }
 
-// One cart, for one shop at a time. lines = { shopProductId: { qty, note } }
+// One cart for the store. lines = { productId: { qty, note } }
 export default function CartProvider({ children }) {
   const [cart, setCart] = useState(loadCart)
 
@@ -24,13 +25,12 @@ export default function CartProvider({ children }) {
     }
   }, [cart])
 
-  const setQty = (shopId, productId, qty) =>
+  const setQty = (productId, qty) =>
     setCart((c) => {
-      const base = c.shopId === shopId ? c : { ...EMPTY, shopId }
-      const lines = { ...base.lines }
+      const lines = { ...c.lines }
       if (qty <= 0) delete lines[productId]
       else lines[productId] = { note: '', ...lines[productId], qty }
-      return Object.keys(lines).length ? { ...base, lines } : EMPTY
+      return { ...c, lines }
     })
 
   const setLineNote = (productId, note) =>
