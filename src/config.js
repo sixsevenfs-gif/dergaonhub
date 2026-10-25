@@ -11,3 +11,16 @@ export const CONFIG = {
 
 // Demo mode: data is saved in this browser only (localStorage) until the database is connected.
 export const DEMO_MODE = true
+
+// Business details shown on the policy pages (/policy/...). Fill the [TBD] ones before launch.
+// Phone and WhatsApp come from Admin → Settings.
+export const LEGAL = {
+  BRAND: 'Dergaon Hub',
+  COMPANY: 'Malchetra Groups', // [TBD] exact registered name (proprietorship / LLP / Pvt Ltd)
+  ADDRESS: '[TBD] Full address, Dergaon, Golaghat, Assam 785614', // [TBD] check PIN code
+  EMAIL: '[TBD] support email',
+  GRIEVANCE_OFFICER: '[TBD] Name', // required for online stores in India
+  FSSAI: '[TBD] FSSAI registration number',
+  COMPLAINT_HOURS: 24, // report damaged / wrong / missing items within this many hours
+  LAST_UPDATED: '25 October 2026',
+}

@@ -9,6 +9,7 @@ import Track from './pages/customer/Track.jsx'
 import Login from './pages/customer/Login.jsx'
 import Account from './pages/customer/Account.jsx'
 import Report from './pages/customer/Report.jsx'
+import Policy from './pages/customer/Policy.jsx'
 
 import AdminArea from './pages/admin/AdminArea.jsx'
 import AdminHome from './pages/admin/AdminHome.jsx'
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/account" element={<Account />} />
         <Route path="/report/:orderNumber" element={<Report />} />
+        <Route path="/policy/:slug" element={<Policy />} />
 
         <Route path="/admin" element={<AdminArea />}>
           <Route index element={<AdminHome />} />

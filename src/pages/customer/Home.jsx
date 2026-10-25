@@ -14,25 +14,25 @@ import { matches, rupee } from '../../lib/format.js'
 
 function ProductCard({ p, qty, onQty, disabled }) {
   return (
-    <div className={`${card} flex flex-col overflow-hidden rounded-xl ${p.available ? '' : 'opacity-60'}`}>
-      <div className="flex aspect-[1.2] items-center justify-center bg-[#151514]">
+    <div className={`${card} flex flex-col overflow-hidden ${p.available ? '' : 'opacity-60'}`}>
+      <div className="flex aspect-[1.56] items-center justify-center bg-[#151514]">
         {p.photo_url ? (
           <img src={p.photo_url} alt="" loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <CategoryIcon id={p.category_id} size={30} strokeWidth={1.5} className="text-muted" />
+          <CategoryIcon id={p.category_id} size={36} strokeWidth={1.5} className="text-muted" />
         )}
       </div>
-      <div className="flex flex-1 flex-col p-2">
-        <h3 className="line-clamp-2 text-[13px] font-bold leading-tight">{p.name}</h3>
-        <p className="mt-0.5 text-[11px] text-muted">{p.size}</p>
-        <p className="mt-0.5 text-[15px] font-bold">{rupee(p.price)}</p>
-        <div className="mt-auto pt-1.5">
+      <div className="flex flex-1 flex-col p-3">
+        <h3 className="line-clamp-2 text-[15px] font-bold leading-tight">{p.name}</h3>
+        <p className="mt-0.5 text-xs text-muted">{p.size}</p>
+        <p className="mt-1 text-lg font-bold">{rupee(p.price)}</p>
+        <div className="mt-auto pt-2">
           {!p.available ? (
-            <div className="flex h-9 items-center justify-center rounded-lg bg-white/10 text-[11px] text-muted">Out of stock</div>
+            <div className="flex h-10 items-center justify-center rounded-xl bg-white/10 text-sm text-muted">Out of stock</div>
           ) : qty > 0 ? (
-            <Stepper value={qty} onChange={onQty} compact />
+            <Stepper value={qty} onChange={onQty} />
           ) : (
-            <button type="button" disabled={disabled} onClick={() => onQty(1)} className="h-9 w-full rounded-lg bg-accent text-sm font-bold text-ink disabled:opacity-40">
+            <button type="button" disabled={disabled} onClick={() => onQty(1)} className="h-10 w-full rounded-xl bg-accent text-base font-bold text-ink disabled:opacity-40">
               Add
             </button>
           )}
@@ -71,7 +71,7 @@ export default function Home() {
     () => products.filter((p) => (q.trim() ? matches(`${p.name} ${p.size} ${p.keywords}`, q) : !cat || p.category_id === cat)),
     [products, cat, q],
   )
-  // Home shows 6 popular items (2 rows of 3); starred ones first, then others to fill the rows.
+  // Home shows 6 popular items (3 on the left, 3 on the right); starred ones first, then others to fill.
   const POPULAR_COUNT = 6
   const filler = products.filter((p) => !p.featured && p.available)
   const list = browsing ? shown : [...popular, ...filler].slice(0, POPULAR_COUNT)
@@ -157,7 +157,7 @@ export default function Home() {
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-3">
         {list.map((p) => (
           <ProductCard key={p.id} p={p} qty={qtyOf(p.id)} onQty={(v) => setQty(p.id, v)} disabled={store.paused} />
         ))}

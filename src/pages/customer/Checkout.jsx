@@ -165,6 +165,11 @@ export default function Checkout() {
         <p className="text-center text-xs text-muted">
           Hum aapko call karke order confirm karenge. Confirm hone ke baad saman kharid liya jaata hai, isliye uske baad cancel nahi hoga.
         </p>
+        <p className="text-center text-xs text-muted">
+          Order karke aap hamari <Link to="/policy/terms" className="underline">Terms</Link>,{' '}
+          <Link to="/policy/refund" className="underline">Refund policy</Link> aur{' '}
+          <Link to="/policy/privacy" className="underline">Privacy policy</Link> se agree karte ho.
+        </p>
       </form>
     </main>
   )
