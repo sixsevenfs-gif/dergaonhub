@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bike, Check, ChevronDown, Gift, MapPinned, Navigation, Phone, Repeat, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
+import MapPreview from '../../components/MapPreview.jsx'
 import { confirmOrder, logMessage, partnerComplete, partnerUndoDelivered, sendAutoMessage, setDispatch } from '../../lib/store.js'
 import { rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
@@ -148,6 +149,11 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
       {open && (
         <div className="space-y-4 border-t border-line px-4 pb-4 pt-3">
           <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-accent" /> {o.address}, {o.area}</p>
+          {o.location ? (
+            !done && <MapPreview point={o.location} home={store.location} />
+          ) : (
+            <p className="rounded-lg bg-orange-500/10 px-3 py-2 text-sm text-orange-200">No map pin on this order. Call the customer for directions.</p>
+          )}
           {o.ordered_by_phone && (
             <p className="flex items-center gap-2 rounded-lg bg-accent/[0.07] px-3 py-2 text-sm">
               <Gift size={16} className="shrink-0 text-accent" />

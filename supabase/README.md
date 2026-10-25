@@ -65,12 +65,14 @@ upgrade before handing over.
 
 ## Updates for an existing database
 
-Run each file once, in order, in **SQL Editor → New query** (each is safe to run again):
+Run each file once, in order, in **SQL Editor → New query** (each is safe to run again).
+`migrations/run_all_updates.sql` has all of them in one file:
 
 1. `migrations/002_packaging.sql`: packaging charge.
 2. `migrations/003_partners.sql`: riders, the `/partner` page and WhatsApp message log.
 3. `migrations/004_order_for_someone.sql`: "Order for someone else" at checkout (the person
    who ordered is saved in `ordered_by_name` / `ordered_by_phone`; the receiver is the customer).
+4. `migrations/005_free_delivery.sql`: "Free delivery (launch offer)" switch in Admin → Settings.
 
 A new database made from the latest `schema.sql` already has all of them.
 

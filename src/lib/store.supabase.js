@@ -111,6 +111,7 @@ export async function saveStore(data) {
     pack_mid_from: Number(data.pack_mid_from) || 0, pack_high_from: Number(data.pack_high_from) || 0,
     // Only after update 003 (supabase/migrations/003_partners.sql) has added the column.
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
+    ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()

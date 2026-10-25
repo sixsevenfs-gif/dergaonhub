@@ -101,7 +101,9 @@ export default function Home() {
             <div className="font-ui mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
               <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />
               <span className="min-w-0">
-                <span className="block text-sm font-semibold leading-tight">Same-day delivery on eligible orders</span>
+                <span className="block text-sm font-semibold leading-tight">
+                  {store.free_delivery ? <>Same-day delivery · <span className="text-emerald-400">FREE for launch 🎉</span></> : 'Same-day delivery on eligible orders'}
+                </span>
                 {/* The radius comes from Admin → Settings → Max km, so it grows with the delivery zone. */}
                 <span className="mt-1 flex items-center gap-1.5 text-sm text-muted">
                   <span className="relative flex h-2 w-2 shrink-0">

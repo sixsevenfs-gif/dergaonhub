@@ -45,6 +45,7 @@ create table public.store_settings (
   per_km_fee int not null default 10 check (per_km_fee >= 0),
   min_delivery_fee int not null default 20 check (min_delivery_fee >= 0),
   max_delivery_km numeric not null default 4 check (max_delivery_km > 0),
+  free_delivery boolean not null default false,   -- launch offer: no delivery charge
   pack_fee_low int not null default 5 check (pack_fee_low >= 0),      -- packaging charge by items total
   pack_fee_mid int not null default 9 check (pack_fee_mid >= 0),
   pack_fee_high int not null default 12 check (pack_fee_high >= 0),
@@ -172,6 +173,7 @@ create table public.daily_expenses (
 /* ---------------- delivery fee (same rule as src/lib/delivery.js) ---------------- */
 
 -- Road distance ≈ straight line × 1.3; every started km costs per_km_fee, never below min_delivery_fee.
+-- free_delivery (launch offer, Admin → Settings) makes the fee 0 inside the delivery area.
 create or replace function public.delivery_quote(p_lat double precision, p_lng double precision)
 returns table (km numeric, fee int, too_far boolean)
 language sql stable security definer set search_path = public as $$
@@ -185,6 +187,7 @@ language sql stable security definer set search_path = public as $$
   )
   select d.dist,
          case when d.dist > d.max_delivery_km then null
+              when d.free_delivery then 0
               else greatest(d.min_delivery_fee, ceil(d.dist)::int * d.per_km_fee) end,
          d.dist > d.max_delivery_km
   from d

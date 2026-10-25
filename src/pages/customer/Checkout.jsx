@@ -257,8 +257,17 @@ export default function Checkout() {
                 <span className="text-xs text-muted">Road distance to the pin</span>
               </span>
               <span className="text-right">
-                <span className="block text-lg font-black text-accent">{rupee(quote.fee)}</span>
-                <span className="text-[11px] text-muted">delivery</span>
+                {quote.free ? (
+                  <>
+                    <span className="block text-xs text-muted line-through">{rupee(quote.fullFee)}</span>
+                    <span className="block font-ui text-lg font-black text-emerald-400">FREE</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="block text-lg font-black text-accent">{rupee(quote.fee)}</span>
+                    <span className="text-[11px] text-muted">delivery</span>
+                  </>
+                )}
               </span>
             </div>
           )}
@@ -306,7 +315,11 @@ export default function Checkout() {
           <div className="mt-2 flex justify-between text-muted"><span>Items ({lines.reduce((s, l) => s + l.qty, 0)})</span><span>{rupee(subtotal)}</span></div>
           <div className="mt-1 flex justify-between text-muted">
             <span>Delivery charge{fee !== null ? ` (${quote.km} km)` : ''}</span>
-            <span>{fee === null ? 'Set the pin' : rupee(fee)}</span>
+            <span>
+              {fee === null ? 'Set the pin' : quote.free ? (
+                <><s className="mr-1.5 text-xs">{rupee(quote.fullFee)}</s><b className="font-ui text-emerald-400">FREE</b></>
+              ) : rupee(fee)}
+            </span>
           </div>
           <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>

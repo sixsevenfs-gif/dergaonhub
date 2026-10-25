@@ -112,10 +112,10 @@ export default function Cart() {
 
       <div className={`${card} mt-3 p-4`}>
         <div className="flex justify-between text-muted"><span>Subtotal ({itemsText(lines.reduce((s, l) => s + l.qty, 0))})</span><span>{rupee(subtotal)}</span></div>
-        <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span><span>At checkout</span></div>
+        <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span>{store.free_delivery ? <b className="font-ui text-emerald-400">FREE</b> : <span>At checkout</span>}</div>
         <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
         <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(subtotal + packaging)}</span></div>
-        <p className="mt-1 text-right text-xs text-muted">+ delivery charge, shown at checkout by distance</p>
+        {!store.free_delivery && <p className="mt-1 text-right text-xs text-muted">+ delivery charge, shown at checkout by distance</p>}
         <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused || quote?.tooFar} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout
         </button>

@@ -15,11 +15,13 @@ export const roadKm = (a, b) => Math.round(straightKm(a, b) * CONFIG.ROAD_FACTOR
 
 // Delivery fee from the store (founder's home) to the customer's pin:
 // every started km costs per_km_fee, never less than min_delivery_fee.
+// With free delivery on (launch offer) the fee is 0; fullFee is what it would have been.
 export function deliveryQuote(store, point) {
   if (!point) return null
   const km = roadKm(store.location, point)
   if (km > store.max_delivery_km) return { km, fee: null, tooFar: true }
-  return { km, fee: Math.max(store.min_delivery_fee, Math.ceil(km) * store.per_km_fee), tooFar: false }
+  const fullFee = Math.max(store.min_delivery_fee, Math.ceil(km) * store.per_km_fee)
+  return { km, fee: store.free_delivery ? 0 : fullFee, fullFee, free: !!store.free_delivery, tooFar: false }
 }
 
 // Packaging charge by order value (items only): below pack_mid_from, up to pack_high_from, and above.

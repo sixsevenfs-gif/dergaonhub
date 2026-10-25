@@ -161,6 +161,16 @@ function SettingsForm({ store }) {
           <Field label="Minimum ₹"><input type="number" min="0" value={v.min_delivery_fee} onChange={set('min_delivery_fee')} className={lfield} /></Field>
           <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
         </div>
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+          <span className="text-sm">
+            <b>Free delivery (launch offer)</b>
+            <span className="block text-neutral-600">No delivery charge on any order inside the area. Customers see the usual charge struck out and "FREE". Turn it off later and Save.</span>
+            {v.free_delivery === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/005_free_delivery.sql first.</span>}
+          </span>
+          {(v.free_delivery !== undefined || DEMO_MODE) && (
+            <Toggle checked={!!v.free_delivery} onChange={(on) => setV({ ...v, free_delivery: on })} label="Free delivery" />
+          )}
+        </div>
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
           Example: 0.1 km → {rupee(example(0.1))} · 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · no delivery beyond {rates.max_delivery_km} km.
           <span className="block text-xs text-neutral-500">Road distance ≈ straight line × 1.3. Petrol ₹110/L, scooter ~40 km/L: a round trip costs about ₹5.5 per km.</span>
