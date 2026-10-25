@@ -4,6 +4,7 @@
 import { CONFIG, LEGAL } from '../config.js'
 import { fmtTime, rupee } from '../lib/format.js'
 import { H, P, UL } from '../components/Prose.jsx'
+import { feeRuleText } from '../lib/delivery.js'
 
 const contactLine = (store) => `phone/WhatsApp +91 ${store.phone}, email ${LEGAL.EMAIL}`
 
@@ -113,7 +114,7 @@ export const POLICIES = {
         <H>Orders</H>
         <UL items={[
           'Placing an order is a request. It is final only after we call you and confirm it.',
-          `Minimum order value is ${rupee(store.min_order)}. A delivery fee of ${rupee(store.delivery_fee)} applies.`,
+          `Minimum order value is ${rupee(store.min_order)}. The delivery fee depends on distance: ${feeRuleText(store)}. It is shown before you place the order.`,
           `For a phone number's first order, the limit is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. It goes up after a successful delivery.`,
           'We may refuse or cancel an order, for example if an item is not available, the address is outside our delivery area, or details look fake.',
         ]} />
@@ -183,7 +184,7 @@ export const POLICIES = {
     body: (store) => (
       <>
         <H>Delivery areas</H>
-        <P>We currently deliver in {store.delivery_area.join(', ')}.</P>
+        <P>We currently deliver in {store.delivery_area.join(', ')}, up to {store.max_delivery_km} km from our store.</P>
         <H>Delivery time</H>
         <UL items={[
           `Orders placed before ${fmtTime(store.cutoff_time)} are delivered the same day between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
@@ -192,7 +193,10 @@ export const POLICIES = {
           'Heavy rain, floods or other problems can delay delivery. We will call or WhatsApp you if that happens, and we may pause new orders for the day.',
         ]} />
         <H>Charges</H>
-        <P>Minimum order {rupee(store.min_order)}. Delivery fee {rupee(store.delivery_fee)} per order, shown before you place it.</P>
+        <P>
+          Minimum order {rupee(store.min_order)}. Delivery fee depends on how far you are from us: {feeRuleText(store)}.
+          Distance is worked out from the pin you set on the map at checkout, and the fee is shown before you place the order.
+        </P>
         <H>At delivery</H>
         <UL items={[
           'Please keep your phone on. We call when we are near.',

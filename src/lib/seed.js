@@ -1,4 +1,5 @@
 import { addDays, dateStr } from './format.js'
+import { deliveryQuote } from './delivery.js'
 
 // Demo data for Dergaon Hub Store. Phone/WhatsApp numbers are fake placeholders.
 
@@ -115,7 +116,11 @@ export function makeSeed() {
   const store = {
     name: 'Dergaon Hub Store', phone: '9000000001', whatsapp: '919000000001',
     open_time: '08:00', close_time: '21:00', cutoff_time: '14:00', slot_start: '17:00', slot_end: '20:00',
-    min_order: 200, delivery_fee: 30, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
+    min_order: 200, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
+    // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
+    // Approximate until the exact pin is set in Admin → Settings.
+    location: { lat: 26.7, lng: 93.97 },
+    per_km_fee: 10, min_delivery_fee: 20, max_delivery_km: 8,
   }
 
   const customers = [
@@ -133,19 +138,20 @@ export function makeSeed() {
       return { id: `${id}-${i}`, order_id: id, product_id: p.id, name_snapshot: `${name} ${size}`, price_snapshot: p.price, quantity: qty, note: '', line_total: p.price * qty }
     })
     const subtotal = items.reduce((s, i) => s + i.line_total, 0)
+    const quote = deliveryQuote(store, o.location)
     orders.push({
       id, order_number: `DG-${n++}`, type: 'delivery', note: '', cancel_reason: '', allow_substitute: true,
       cash_collected: 0, confirmed_at: null, completed_at: null,
-      ...o, subtotal, delivery_fee: 30, total: subtotal + 30,
+      ...o, distance_km: quote.km, subtotal, delivery_fee: quote.fee, total: subtotal + quote.fee,
     })
     order_items.push(...items)
   }
-  const ritu = { customer_id: 'c1', customer_name: 'Ritu Das', customer_phone: '9000000101', address: 'House 12, near Namghar', area: 'Dergaon Bazaar' }
+  const ritu = { customer_id: 'c1', customer_name: 'Ritu Das', customer_phone: '9000000101', address: 'House 12, near Namghar', area: 'Dergaon Bazaar', location: { lat: 26.7052, lng: 93.9761 } }
   addOrder({ ...ritu, payment_method: 'cash', delivery_date: addDays(today, -1), status: 'completed', created_at: now, confirmed_at: now, completed_at: now },
     [['Aashirvaad Atta', '5 kg', 1], ['Tata Tea Gold', '250 g', 1]])
   addOrder({ ...ritu, payment_method: 'cash', delivery_date: today, status: 'confirmed', created_at: now, confirmed_at: now },
     [['Toor Daal', '1 kg', 1], ['Engine Mustard Oil', '1 L', 1], ['Amul Taaza Milk', '500 ml', 2]])
-  addOrder({ customer_id: 'c2', customer_name: 'Bikash Gogoi', customer_phone: '9000000102', address: 'Behind Dergaon Post Office', area: 'Dergaon Town', payment_method: 'upi', delivery_date: today, status: 'placed', created_at: now },
+  addOrder({ customer_id: 'c2', customer_name: 'Bikash Gogoi', customer_phone: '9000000102', address: 'Behind Dergaon Post Office', area: 'Dergaon Town', location: { lat: 26.6921, lng: 93.9598 }, payment_method: 'upi', delivery_date: today, status: 'placed', created_at: now },
     [['India Gate Basmati Rice', '1 kg', 2], ['Sugar', '1 kg', 1], ['Parle-G Biscuit', '250 g', 2]])
   orders[0].cash_collected = orders[0].total
 

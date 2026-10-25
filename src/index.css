@@ -20,3 +20,22 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Map pin used by LocationPicker */
+.dh-pin {
+  width: 30px;
+  height: 30px;
+  margin: 2px 0 0 1px;
+  background: #e8ff3a;
+  border: 3px solid #0b0b0b;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.45);
+}
+.dh-pin::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: #0b0b0b;
+}

@@ -5,8 +5,9 @@
 import { CONFIG } from '../config.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
+import { deliveryQuote, validPoint } from './delivery.js'
 
-const KEY = 'dergaonhub-demo-v5' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v6' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
@@ -78,19 +79,24 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_fee', 'delivery_area', 'paused']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Store ka naam daalo.')
   if (cleanPhone(data.phone).length !== 10) fail('Sahi 10 digit phone number daalo.')
   if (cleanPhone(data.whatsapp).length !== 10) fail('Sahi 10 digit WhatsApp number daalo.')
   if (!data.delivery_area?.length) fail('Kam se kam ek delivery area chuno.')
+  if (!validPoint(data.location)) fail('Map pe apne ghar (store) ki location lagao.')
+  if (!(Number(data.per_km_fee) >= 0) || !(Number(data.min_delivery_fee) >= 0)) fail('Delivery charge sahi daalo.')
+  if (!(Number(data.max_delivery_km) > 0)) fail('Max delivery km sahi daalo.')
   for (const f of STORE_FIELDS) if (f in data) db.store[f] = data[f]
   db.store.name = db.store.name.trim()
   db.store.phone = cleanPhone(db.store.phone)
   db.store.whatsapp = `91${cleanPhone(db.store.whatsapp)}`
   db.store.min_order = Number(db.store.min_order) || 0
-  db.store.delivery_fee = Number(db.store.delivery_fee) || 0
+  db.store.per_km_fee = Number(db.store.per_km_fee) || 0
+  db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
+  db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
   commit()
   return clone(db.store)
 }
@@ -259,7 +265,7 @@ function pickDate() {
   return date
 }
 
-export async function placeOrder({ lines, name, phone, address, area, note, payment_method, allow_substitute }) {
+export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute }) {
   const store = db.store
   if (store.paused) fail('Store abhi orders nahi le raha. Thodi der baad try karo.')
   const ph = cleanPhone(phone)
@@ -267,6 +273,9 @@ export async function placeOrder({ lines, name, phone, address, area, note, paym
   if (ph.length !== 10) fail('Sahi 10 digit phone number daalo.')
   if (!address.trim()) fail('Address ya landmark daalo.')
   if (!store.delivery_area.includes(area)) fail('Apna area chuno.')
+  if (!validPoint(location)) fail('Map pe apne ghar ki location lagao.')
+  const quote = deliveryQuote(store, location)
+  if (quote.tooFar) fail(`Ye jagah ${quote.km} km door hai. Abhi hum ${store.max_delivery_km} km tak deliver karte hain.`)
 
   let customer = customerByPhone(ph)
   if (customer?.blocked || (customer?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) {
@@ -286,7 +295,7 @@ export async function placeOrder({ lines, name, phone, address, area, note, paym
 
   const subtotal = sum(items, (i) => i.line_total)
   if (subtotal < store.min_order) fail(`Minimum order ${rupee(store.min_order)} hai.`)
-  const total = subtotal + store.delivery_fee
+  const total = subtotal + quote.fee
   if ((!customer || completedCount(customer.id) === 0) && total > CONFIG.FIRST_ORDER_LIMIT) {
     fail(`Pehle order ki limit ${rupee(CONFIG.FIRST_ORDER_LIMIT)} hai. Thode items kam karo, ya hume call karo.`)
   }
@@ -301,8 +310,9 @@ export async function placeOrder({ lines, name, phone, address, area, note, paym
   const order = {
     id: newId(), order_number: `DG-${db.next_order_number++}`, type: 'delivery',
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
-    address: address.trim(), area, note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    subtotal, delivery_fee: store.delivery_fee, total, payment_method, cash_collected: 0,
+    address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
+    note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
+    subtotal, delivery_fee: quote.fee, total, payment_method, cash_collected: 0,
     delivery_date: pickDate(), status: 'placed', cancel_reason: '',
     created_at: now(), confirmed_at: null, completed_at: null,
   }

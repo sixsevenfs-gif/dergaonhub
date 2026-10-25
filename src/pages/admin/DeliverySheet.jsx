@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Phone, Printer, Repeat, ShoppingBasket } from 'lucide-react'
+import { Navigation, Phone, Printer, Repeat, ShoppingBasket } from 'lucide-react'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
 import { deliverySheet, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, rupee } from '../../lib/format.js'
+import { mapsLink } from '../../lib/delivery.js'
 
 // The evening run: first the shopping list (buy everything in one trip), then deliveries by area.
 export default function DeliverySheet() {
@@ -71,6 +72,11 @@ export default function DeliverySheet() {
                       </div>
                       <a href={`tel:${o.customer_phone}`} className="mt-0.5 flex items-center gap-1 text-sm font-semibold underline"><Phone size={14} /> {o.customer_phone}</a>
                       <p className="text-sm">{o.address}</p>
+                      {o.location && (
+                        <a href={mapsLink(o.location)} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-blue-700 underline print:hidden">
+                          <Navigation size={14} /> Raasta · {o.distance_km} km
+                        </a>
+                      )}
                       <p className="mt-1 text-sm text-neutral-600">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>
                       {!o.allow_substitute && <p className="flex items-center gap-1 text-xs font-semibold text-orange-600"><Repeat size={12} /> Sirf yahi brand</p>}
                       {o.note && <p className="text-sm text-neutral-600">Note: {o.note}</p>}

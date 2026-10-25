@@ -56,6 +56,10 @@ Change the numbers in `src/config.js`; store timings and fees in Admin → Setti
 - Order before the cut-off (2 pm) → delivered today, else tomorrow.
 - Max 15 orders per evening; extra orders move to the next day.
 - First-time phone number: max ₹500 order. Minimum order ₹200.
+- Delivery fee by distance from the founder's home (pin set in Admin → Settings):
+  ₹10 per km, minimum ₹20, up to 8 km. Distance = straight line × 1.3. The customer's
+  location is fetched at checkout (or they move the pin on the free OpenStreetMap map).
+  Admin gets a Google Maps directions link for every order.
 - 2 no-shows → number can't order online. Admin can block a number.
 - Customer chooses whether a similar brand is OK if theirs is not found.
 - Orders not delivered on their day are auto-cancelled ("Expired").

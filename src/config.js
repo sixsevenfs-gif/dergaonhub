@@ -6,6 +6,7 @@ export const CONFIG = {
   NO_SHOW_LIMIT: 2, // after this many no-shows the number cannot order online
   AREAS: ['Dergaon Bazaar', 'Dergaon Town', 'Borpathar', 'Station Road'], // [TBD]
   CANCEL_REASONS: ['Item not available', 'Customer unreachable', 'No-show', 'Customer cancelled', 'Other'],
+  ROAD_FACTOR: 1.3, // road distance ≈ straight-line distance × this
   COMPLAINT_TYPES: ['Wrong item', 'Missing item', 'Damaged / expired', 'Late delivery', 'Payment issue', 'Other'],
 }
 

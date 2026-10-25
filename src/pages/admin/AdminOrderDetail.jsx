@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Phone, Repeat, Trash2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
@@ -11,6 +11,7 @@ import { cancelOrder, confirmOrder, getOrderById, removeOrderItem, reopenOrder }
 import { useData } from '../../lib/useData.js'
 import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
 import { billMessage, toWa, waLink } from '../../lib/whatsapp.js'
+import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
 
 export default function AdminOrderDetail() {
@@ -55,6 +56,11 @@ export default function AdminOrderDetail() {
           </a>
         </div>
         <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address}, {order.area} · {slotText(order.delivery_date, store)}</p>
+        {order.location && (
+          <a href={mapsLink(order.location)} target="_blank" rel="noreferrer" className={`${lbtnOutline} mt-2 w-full`}>
+            <Navigation size={17} /> Google Maps pe raasta · {order.distance_km} km
+          </a>
+        )}
         <p className={`mt-2 flex gap-2 text-sm font-semibold ${order.allow_substitute ? 'text-green-700' : 'text-orange-600'}`}>
           <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand chalega' : 'Sirf yahi brand chahiye'}
         </p>

@@ -17,6 +17,7 @@ export function orderMessage({ order, items, store }) {
     `Name: ${order.customer_name}`,
     `Phone: ${order.customer_phone}`,
     `Address: ${order.address}, ${order.area}`,
+    ...(order.location ? [`Map: https://maps.google.com/?q=${order.location.lat},${order.location.lng} (${order.distance_km} km)`] : []),
     `Slot: ${slotText(order.delivery_date, store)}`,
     '',
     'Items:',

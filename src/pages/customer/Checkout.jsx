@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, Banknote, ChevronDown, Clock, Map, MapPin, Phone, Repeat, Smartphone, User } from 'lucide-react'
+import { ArrowLeft, Banknote, ChevronDown, Clock, LocateFixed, Map, MapPin, Phone, Repeat, Smartphone, User } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
+import LocationPicker from '../../components/LocationPicker.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
 import { currentCustomer, customerSignIn, placeOrder } from '../../lib/store.js'
 import { useCart } from '../../lib/cart-context.js'
 import { fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
+import { currentPosition, deliveryQuote, feeRuleText, validPoint } from '../../lib/delivery.js'
 
 const SAVED_KEY = 'dergaonhub-checkout'
 const loadSaved = () => {
@@ -43,11 +45,31 @@ export default function Checkout() {
     const me = currentCustomer()
     return { name: me?.name || saved.name || '', phone: me?.phone || saved.phone || '', address: saved.address ?? '', area: saved.area ?? '' }
   })
+  const [location, setLocation] = useState(() => (validPoint(loadSaved().location) ? loadSaved().location : null))
+  const [locating, setLocating] = useState(false)
+  const [locError, setLocError] = useState('')
   const [payment, setPayment] = useState('cash')
   const [substitute, setSubstitute] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [placed, setPlaced] = useState(null)
+
+  const locate = async () => {
+    setLocating(true)
+    setLocError('')
+    try {
+      setLocation(await currentPosition())
+    } catch (err) {
+      setLocError(err.message)
+    }
+    setLocating(false)
+  }
+
+  // Ask for the phone's location as soon as checkout opens (unless one was saved last time).
+  useEffect(() => {
+    if (!location) locate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Checked first: clearing the cart after placing must not bounce back to the empty cart.
   if (placed) return <Navigate to={`/order/${placed}`} replace />
@@ -55,7 +77,9 @@ export default function Checkout() {
   if (!lines.length || problems.length || subtotal < store.min_order) return <Navigate to="/cart" replace />
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
-  const total = subtotal + store.delivery_fee
+  const quote = deliveryQuote(store, location)
+  const fee = quote && !quote.tooFar ? quote.fee : null
+  const total = subtotal + (fee ?? 0)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -65,12 +89,13 @@ export default function Checkout() {
       const order = await placeOrder({
         lines: lines.map((l) => ({ productId: l.id, qty: l.qty, note: l.note })),
         ...form,
+        location,
         note: cart.note,
         payment_method: payment,
         allow_substitute: substitute,
       })
       try {
-        localStorage.setItem(SAVED_KEY, JSON.stringify(form))
+        localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, location }))
       } catch {
         // not saved: customer types details again next time
       }
@@ -114,6 +139,26 @@ export default function Checkout() {
             </span>
           </InputRow>
 
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">Delivery location</span>
+              <button type="button" onClick={locate} disabled={locating} className="flex h-9 items-center gap-1.5 rounded-full border border-accent/60 px-3 text-xs font-semibold text-accent disabled:opacity-50">
+                <LocateFixed size={15} /> {locating ? 'Dhundh rahe hain...' : 'Meri location'}
+              </button>
+            </div>
+            <LocationPicker value={location} onChange={setLocation} start={store.location} home={store.location} />
+            <p className="text-xs text-muted">
+              {location ? 'Pin galat jagah hai? Pin ko khiska ke ya map pe tap karke apna ghar chuno.' : locError || 'Location aa rahi hai... Ya map pe tap karke apna ghar chuno.'}
+            </p>
+            {quote && (
+              quote.tooFar ? (
+                <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">Ye jagah {quote.km} km door hai. Abhi hum {store.max_delivery_km} km tak hi deliver karte hain.</p>
+              ) : (
+                <p className="rounded-xl bg-white/5 p-3 text-sm"><b>{quote.km} km</b> door · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
+              )
+            )}
+          </div>
+
           <div className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-4">
             <Clock size={26} className="shrink-0 text-accent" />
             <span>
@@ -154,14 +199,15 @@ export default function Checkout() {
         <section className={`${card} p-4`}>
           <h2 className="font-bold">Bill summary</h2>
           <div className="mt-2 flex justify-between text-muted"><span>Items ({lines.reduce((s, l) => s + l.qty, 0)})</span><span>{rupee(subtotal)}</span></div>
-          <div className="mt-1 flex justify-between text-muted"><span>Delivery fee</span><span>{rupee(store.delivery_fee)}</span></div>
+          <div className="mt-1 flex justify-between text-muted"><span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span><span>{fee === null ? 'Location chuno' : rupee(fee)}</span></div>
+          <p className="mt-1 text-xs text-muted">{feeRuleText(store)}</p>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>
         </section>
 
         {/* Cloudflare Turnstile (free CAPTCHA) goes here when the site is deployed. */}
 
         {error && <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">{error}</p>}
-        <button type="submit" disabled={busy} className={`${btnAccent} h-14`}>{busy ? 'Placing...' : 'Place order'}</button>
+        <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>{busy ? 'Placing...' : 'Place order'}</button>
         <p className="text-center text-xs text-muted">
           Hum aapko call karke order confirm karenge. Confirm hone ke baad saman kharid liya jaata hai, isliye uske baad cancel nahi hoga.
         </p>
