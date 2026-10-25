@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Logo preview</title>
+<style>
+  body { margin: 0; background: #0B0B0B; color: #fff; font-family: system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; color: #B4B2A9; font-weight: 600; margin: 28px 0 10px; text-transform: uppercase; letter-spacing: .08em; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .box { border-radius: 16px; padding: 22px 18px; display: flex; align-items: center; justify-content: center; }
+  .dark { background: #1C1C1A; border: 1px solid #444441; }
+  .light { background: #F4F3EF; }
+  .box img { width: 100%; max-width: 320px; height: auto; }
+  .icons { display: flex; align-items: end; gap: 18px; padding: 18px; }
+  .icons { justify-content: flex-start; }
+  .box.icons img { display: block; max-width: none; }
+  .phone { margin-top: 12px; border: 1px solid #444441; border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .phone img { height: 40px; }
+  p { color: #B4B2A9; margin: 0; }
+  @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Logo preview</h1>
+  <p>Dono naam ek hi nishaan (bag + patta) ke saath.</p>
+
+  <h2>Option A · MLC FoodHub</h2>
+  <div class="row">
+    <div class="box dark"><img src="mlc-foodhub-logo-dark-bg.svg" alt="MLC FoodHub logo on dark" /></div>
+    <div class="box light"><img src="mlc-foodhub-logo-light-bg.svg" alt="MLC FoodHub logo on light" /></div>
+  </div>
+
+  <h2>Option B · Dergaon Hub by MLC</h2>
+  <div class="row">
+    <div class="box dark"><img src="dergaon-hub-by-mlc-dark-bg.svg" alt="Dergaon Hub by MLC logo on dark" /></div>
+    <div class="box light"><img src="dergaon-hub-by-mlc-light-bg.svg" alt="Dergaon Hub by MLC logo on light" /></div>
+  </div>
+
+  <h2>App icon (phone home screen)</h2>
+  <div class="box dark icons">
+    <img src="mlc-foodhub-icon.svg" style="width:96px;height:96px" alt="Icon large" />
+    <img src="mlc-foodhub-icon.svg" style="width:64px;height:64px" alt="Icon medium" />
+    <img src="mlc-foodhub-icon.svg" style="width:40px;height:40px" alt="Icon small" />
+    <img src="mlc-foodhub-icon.svg" style="width:24px;height:24px" alt="Icon tiny" />
+  </div>
+
+  <h2>Website header mein kaisa dikhega</h2>
+  <div class="phone"><img src="mlc-foodhub-logo-dark-bg.svg" alt="" /><span>👤 🛒</span></div>
+  <div class="phone"><img src="dergaon-hub-by-mlc-dark-bg.svg" alt="" /><span>👤 🛒</span></div>
+</main>
+</body>
+</html>
