@@ -1,0 +1,372 @@
+-- Dergaon Hub database (Supabase / Postgres)
+-- Run once in Supabase → SQL Editor, then run seed.sql. See supabase/README.md.
+--
+-- Who can do what (row-level security):
+--   Everyone (no login)   : read store settings, categories and active products; join the waitlist.
+--   Customer (device)     : each phone gets an anonymous Supabase login. It can place orders
+--                           (only through place_order), see its own orders and report problems on them.
+--   Admin (founder)       : email + password login listed in the admins table; can do everything.
+-- Prices, delivery fee, limits and the delivery day are worked out inside the database,
+-- so a customer can never change them from the browser.
+
+create extension if not exists pgcrypto;
+
+/* ---------------- admins ---------------- */
+
+create table public.admins (
+  user_id uuid primary key references auth.users on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from admins where user_id = auth.uid())
+$$;
+
+/* ---------------- store settings (one row) ---------------- */
+
+create table public.store_settings (
+  id int primary key default 1 check (id = 1),
+  name text not null default 'Dergaon Hub Store',
+  phone text not null check (phone ~ '^[0-9]{10}$'),
+  whatsapp text not null check (whatsapp ~ '^91[0-9]{10}$'),
+  open_time time not null default '08:00',
+  close_time time not null default '21:00',
+  cutoff_time time not null default '14:00',
+  slot_start time not null default '17:00',
+  slot_end time not null default '20:00',
+  min_order int not null default 200 check (min_order >= 0),
+  delivery_area text[] not null default '{}',
+  paused boolean not null default false,
+  lat double precision not null,            -- founder's home: distance is measured from here
+  lng double precision not null,
+  per_km_fee int not null default 10 check (per_km_fee >= 0),
+  min_delivery_fee int not null default 20 check (min_delivery_fee >= 0),
+  max_delivery_km numeric not null default 4 check (max_delivery_km > 0),
+  updated_at timestamptz not null default now()
+);
+
+/* ---------------- catalogue ---------------- */
+
+create table public.categories (
+  id text primary key,
+  name text not null,
+  short text not null,
+  sort int not null default 0
+);
+
+create table public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  size text not null default '',
+  category_id text not null references public.categories,
+  keywords text not null default '',
+  price int not null check (price > 0),
+  photo_url text not null default '',
+  featured boolean not null default false,
+  available boolean not null default true,
+  status text not null default 'active' check (status in ('active', 'hidden')),
+  updated_at timestamptz not null default now()
+);
+create index products_category_idx on public.products (category_id);
+
+/* ---------------- customers and orders ---------------- */
+
+create table public.customers (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null unique check (phone ~ '^[0-9]{10}$'),
+  name text not null default '',
+  no_show_count int not null default 0,
+  blocked boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create sequence public.order_number_seq start 1001;
+
+create table public.orders (
+  id uuid primary key default gen_random_uuid(),
+  order_number text not null unique default ('DG-' || nextval('public.order_number_seq')),
+  customer_id uuid not null references public.customers,
+  placed_by uuid references auth.users on delete set null,   -- the device login that placed it
+  customer_name text not null,
+  customer_phone text not null,
+  address text not null,
+  area text not null,
+  lat double precision,
+  lng double precision,
+  distance_km numeric,
+  note text not null default '',
+  allow_substitute boolean not null default true,
+  subtotal int not null,
+  delivery_fee int not null,
+  total int not null,
+  payment_method text not null check (payment_method in ('cash', 'upi')),
+  cash_collected int not null default 0,
+  delivery_date date not null,
+  status text not null default 'placed' check (status in ('placed', 'confirmed', 'completed', 'cancelled')),
+  cancel_reason text not null default '',
+  created_at timestamptz not null default now(),
+  confirmed_at timestamptz,
+  completed_at timestamptz
+);
+create index orders_day_idx on public.orders (delivery_date, status);
+create index orders_placed_by_idx on public.orders (placed_by);
+
+create table public.order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders on delete cascade,
+  product_id uuid references public.products on delete set null,
+  name_snapshot text not null,      -- name and price at the time of order,
+  price_snapshot int not null,      -- so later price edits never change past orders
+  quantity int not null check (quantity > 0),
+  note text not null default '',
+  line_total int not null
+);
+create index order_items_order_idx on public.order_items (order_id);
+
+/* ---------------- complaints, waitlist, daily money ---------------- */
+
+create table public.complaints (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders on delete cascade,
+  order_number text not null,
+  placed_by uuid default auth.uid(),
+  customer_name text not null default '',
+  customer_phone text not null default '',
+  type text not null,
+  message text not null default '',
+  status text not null default 'open' check (status in ('open', 'resolved')),
+  admin_note text not null default '',
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+create table public.waitlist (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null check (phone ~ '^[0-9]{10}$'),
+  name text not null default '',
+  lat double precision,
+  lng double precision,
+  label text not null default '',
+  km numeric,
+  notified boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table public.daily_expenses (
+  date date primary key,
+  amount int not null check (amount >= 0),
+  note text not null default ''
+);
+
+/* ---------------- delivery fee (same rule as src/lib/delivery.js) ---------------- */
+
+-- Road distance ≈ straight line × 1.3; every started km costs per_km_fee, never below min_delivery_fee.
+create or replace function public.delivery_quote(p_lat double precision, p_lng double precision)
+returns table (km numeric, fee int, too_far boolean)
+language sql stable security definer set search_path = public as $$
+  with s as (select * from store_settings where id = 1),
+  d as (
+    select s.*, round((2 * 6371 * asin(sqrt(
+      power(sin(radians(p_lat - s.lat) / 2), 2) +
+      cos(radians(s.lat)) * cos(radians(p_lat)) * power(sin(radians(p_lng - s.lng) / 2), 2)
+    )) * 1.3)::numeric, 1) as dist
+    from s
+  )
+  select d.dist,
+         case when d.dist > d.max_delivery_km then null
+              else greatest(d.min_delivery_fee, ceil(d.dist)::int * d.per_km_fee) end,
+         d.dist > d.max_delivery_km
+  from d
+$$;
+
+/* ---------------- placing an order ---------------- */
+
+-- p_lines: [{ "product_id": "...", "qty": 2, "note": "fresh wala" }, ...]
+-- Returns the new order number. Errors are short Hinglish messages shown to the customer.
+create or replace function public.place_order(
+  p_lines jsonb, p_name text, p_phone text, p_address text, p_area text,
+  p_lat double precision, p_lng double precision,
+  p_note text, p_payment text, p_allow_substitute boolean
+) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  s store_settings;
+  c customers;
+  q record;
+  p products;
+  line jsonb;
+  v_qty int;
+  v_subtotal int := 0;
+  v_total int;
+  v_completed int := 0;
+  v_now timestamp := now() at time zone 'Asia/Kolkata';
+  v_date date;
+  v_order orders;
+  first_order_limit constant int := 500;   -- CONFIG.FIRST_ORDER_LIMIT
+  no_show_limit constant int := 2;         -- CONFIG.NO_SHOW_LIMIT
+  delivery_cap constant int := 15;         -- CONFIG.DELIVERY_CAP
+begin
+  if auth.uid() is null then raise exception 'Page reload karke dobara try karo.'; end if;
+  select * into s from store_settings where id = 1;
+  if s.paused then raise exception 'Store abhi orders nahi le raha. Thodi der baad try karo.'; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Apna naam daalo.'; end if;
+  if p_phone is null or p_phone !~ '^[0-9]{10}$' then raise exception 'Sahi 10 digit phone number daalo.'; end if;
+  if coalesce(trim(p_address), '') = '' then raise exception 'Address ya landmark daalo.'; end if;
+  if not (p_area = any (s.delivery_area)) then raise exception 'Apna area chuno.'; end if;
+  if p_payment not in ('cash', 'upi') then raise exception 'Payment method chuno.'; end if;
+  if p_lat is null or p_lng is null then raise exception 'Map pe apne ghar ki location lagao.'; end if;
+
+  select * into q from delivery_quote(p_lat, p_lng);
+  if q.too_far then
+    raise exception 'We are currently not available at your location (% km away). We will be available soon!', q.km;
+  end if;
+
+  select * into c from customers where phone = p_phone;
+  if c.id is not null and (c.blocked or c.no_show_count >= no_show_limit) then
+    raise exception 'Is number se online order abhi band hai. Hume call karke order karo.';
+  end if;
+
+  -- Every line is priced from the products table, never from the browser.
+  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then raise exception 'Cart khaali hai.'; end if;
+  for line in select * from jsonb_array_elements(p_lines) loop
+    v_qty := (line ->> 'qty')::int;
+    select * into p from products where id = (line ->> 'product_id')::uuid and status = 'active' and available;
+    if not found or v_qty is null or v_qty < 1 or v_qty > 50 then
+      raise exception 'Kuch items ab available nahi hain. Cart check karo.';
+    end if;
+    v_subtotal := v_subtotal + p.price * v_qty;
+  end loop;
+
+  if v_subtotal < s.min_order then raise exception 'Minimum order ₹% hai.', s.min_order; end if;
+  v_total := v_subtotal + q.fee;
+  if c.id is not null then
+    select count(*) into v_completed from orders where customer_id = c.id and status = 'completed';
+  end if;
+  if v_completed = 0 and v_total > first_order_limit then
+    raise exception 'Pehle order ki limit ₹% hai. Thode items kam karo, ya hume call karo.', first_order_limit;
+  end if;
+
+  if c.id is null then
+    insert into customers (phone, name) values (p_phone, trim(p_name)) returning * into c;
+  else
+    update customers set name = trim(p_name) where id = c.id;
+  end if;
+
+  -- Before the cut-off: today; after it: tomorrow. A full evening moves to the next day.
+  v_date := v_now::date + case when v_now::time >= s.cutoff_time then 1 else 0 end;
+  while (select count(*) from orders where delivery_date = v_date and status <> 'cancelled') >= delivery_cap loop
+    v_date := v_date + 1;
+  end loop;
+
+  insert into orders (customer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
+                      note, allow_substitute, subtotal, delivery_fee, total, payment_method, delivery_date)
+  values (c.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, q.km,
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, q.fee, v_total, p_payment, v_date)
+  returning * into v_order;
+
+  insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
+  select v_order.id, pr.id, trim(pr.name || ' ' || pr.size), pr.price, (l ->> 'qty')::int,
+         coalesce(l ->> 'note', ''), pr.price * (l ->> 'qty')::int
+  from jsonb_array_elements(p_lines) l
+  join products pr on pr.id = (l ->> 'product_id')::uuid;
+
+  return v_order.order_number;
+end
+$$;
+
+-- Order page by order number (the link in the WhatsApp bill). Address and phone are only
+-- included for the device that placed the order, or for the admin.
+create or replace function public.get_order(p_order_number text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'order', to_jsonb(o) - case when o.placed_by = auth.uid() or is_admin() then '{}'::text[]
+                               else array['address', 'customer_phone', 'lat', 'lng', 'placed_by', 'customer_id'] end,
+    'items', (select coalesce(jsonb_agg(to_jsonb(i) order by i.name_snapshot), '[]') from order_items i where i.order_id = o.id),
+    'complaints', (select coalesce(jsonb_agg(to_jsonb(k)), '[]') from complaints k
+                   where k.order_id = o.id and (o.placed_by = auth.uid() or is_admin())),
+    'mine', o.placed_by = auth.uid()
+  )
+  from orders o
+  where upper(o.order_number) = upper(p_order_number)
+$$;
+
+-- Placed or confirmed orders whose day has passed become "Expired" (called when admin opens orders).
+create or replace function public.expire_old_orders() returns void
+language sql security definer set search_path = public as $$
+  update orders set status = 'cancelled', cancel_reason = 'Expired'
+  where status in ('placed', 'confirmed') and delivery_date < (now() at time zone 'Asia/Kolkata')::date
+    and is_admin()
+$$;
+
+-- Admin cancels with "No-show": also counts it against the phone number.
+create or replace function public.cancel_order(p_order_id uuid, p_reason text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'Sirf admin.'; end if;
+  update orders set status = 'cancelled', cancel_reason = p_reason
+  where id = p_order_id and status <> 'completed';
+  if p_reason = 'No-show' then
+    update customers set no_show_count = no_show_count + 1
+    where id = (select customer_id from orders where id = p_order_id);
+  end if;
+end
+$$;
+
+grant execute on function public.delivery_quote(double precision, double precision) to anon, authenticated;
+grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean) to authenticated;
+grant execute on function public.get_order(text) to anon, authenticated;
+grant execute on function public.expire_old_orders() to authenticated;
+grant execute on function public.cancel_order(uuid, text) to authenticated;
+
+/* ---------------- row-level security ---------------- */
+
+alter table public.admins enable row level security;
+alter table public.store_settings enable row level security;
+alter table public.categories enable row level security;
+alter table public.products enable row level security;
+alter table public.customers enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+alter table public.complaints enable row level security;
+alter table public.waitlist enable row level security;
+alter table public.daily_expenses enable row level security;
+
+create policy "admin reads admins" on public.admins for select using (is_admin());
+
+create policy "anyone reads store" on public.store_settings for select using (true);
+create policy "admin edits store" on public.store_settings for update using (is_admin()) with check (is_admin());
+
+create policy "anyone reads categories" on public.categories for select using (true);
+create policy "admin manages categories" on public.categories for all using (is_admin()) with check (is_admin());
+
+create policy "anyone reads active products" on public.products for select using (status = 'active' or is_admin());
+create policy "admin manages products" on public.products for all using (is_admin()) with check (is_admin());
+
+create policy "admin manages customers" on public.customers for all using (is_admin()) with check (is_admin());
+
+-- Orders are created only by place_order(); customers read their own, admin reads and updates all.
+create policy "customer reads own orders" on public.orders for select using (placed_by = auth.uid() or is_admin());
+create policy "admin updates orders" on public.orders for update using (is_admin()) with check (is_admin());
+
+create policy "read items of visible orders" on public.order_items for select
+  using (exists (select 1 from orders o where o.id = order_id and (o.placed_by = auth.uid() or is_admin())));
+create policy "admin manages items" on public.order_items for all using (is_admin()) with check (is_admin());
+
+create policy "customer reports on own order" on public.complaints for insert
+  with check (exists (select 1 from orders o where o.id = order_id and o.placed_by = auth.uid()));
+create policy "customer reads own complaints" on public.complaints for select using (placed_by = auth.uid() or is_admin());
+create policy "admin updates complaints" on public.complaints for update using (is_admin()) with check (is_admin());
+
+create policy "anyone joins waitlist" on public.waitlist for insert with check (true);
+create policy "admin manages waitlist" on public.waitlist for all using (is_admin()) with check (is_admin());
+
+create policy "admin manages expenses" on public.daily_expenses for all using (is_admin()) with check (is_admin());
+
+/* ---------------- product photos (Supabase Storage) ---------------- */
+
+insert into storage.buckets (id, name, public) values ('photos', 'photos', true) on conflict (id) do nothing;
+create policy "anyone views photos" on storage.objects for select using (bucket_id = 'photos');
+create policy "admin uploads photos" on storage.objects for insert with check (bucket_id = 'photos' and is_admin());
+create policy "admin changes photos" on storage.objects for update using (bucket_id = 'photos' and is_admin());
+create policy "admin deletes photos" on storage.objects for delete using (bucket_id = 'photos' and is_admin());
