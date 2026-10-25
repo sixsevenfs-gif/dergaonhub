@@ -7,7 +7,7 @@ import HeroSlider from '../../components/HeroSlider.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import { deliveryQuote } from '../../lib/delivery.js'
-import Stepper from '../../components/Stepper.jsx'
+import ProductCard from '../../components/ProductCard.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import CategoryBar from '../../components/CategoryBar.jsx'
 import { card, field } from '../../components/ui.js'
@@ -15,36 +15,6 @@ import { getStore, listCategories, listProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
 import { itemsText, matches, rupee } from '../../lib/format.js'
-
-function ProductCard({ p, qty, onQty, disabled }) {
-  return (
-    <div className={`${card} flex flex-col overflow-hidden ${p.available ? '' : 'opacity-60'}`}>
-      <div className="flex aspect-[1.56] items-center justify-center bg-[#151514]">
-        {p.photo_url ? (
-          <img src={p.photo_url} alt="" loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <CategoryIcon id={p.category_id} size={36} strokeWidth={1.5} className="text-muted" />
-        )}
-      </div>
-      <div className="flex flex-1 flex-col p-3">
-        <h3 className="line-clamp-2 text-[19px] leading-[1.1]">{p.name}</h3>
-        <p className="mt-1 font-tagline text-[10px] font-medium uppercase tracking-[0.18em] text-muted">{p.size}</p>
-        <p className="mt-2 font-tagline text-[21px] font-semibold leading-none tracking-tight">{rupee(p.price)}</p>
-        <div className="mt-auto pt-2">
-          {!p.available ? (
-            <div className="flex h-10 items-center justify-center rounded-xl bg-white/10 text-sm text-muted">Out of stock</div>
-          ) : qty > 0 ? (
-            <Stepper value={qty} onChange={onQty} />
-          ) : (
-            <button type="button" disabled={disabled} onClick={() => onQty(1)} className="h-10 w-full rounded-xl bg-accent text-lg text-ink disabled:opacity-40">
-              Add
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 const PROMISES = [
   [Leaf, 'Locally stocked', 'Fresh & trusted'],
@@ -164,7 +134,7 @@ export default function Home() {
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6">
         {list.map((p) => (
           <ProductCard key={p.id} p={p} qty={qtyOf(p.id)} onQty={(v) => setQty(p.id, v)} disabled={store.paused} />
         ))}
