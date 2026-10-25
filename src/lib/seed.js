@@ -100,7 +100,7 @@ export function makeSeed() {
     'Toor Daal 1 kg': 'toor-dal-1kg.jpg',
     'Fortune Sunflower Oil 1 L': 'sunflower-oil-1l.jpg',
   }
-  const POPULAR = ['Aashirvaad Atta 5 kg', 'India Gate Basmati Rice 5 kg', 'Toor Daal 1 kg', 'Fortune Sunflower Oil 1 L']
+  const POPULAR = ['Aashirvaad Atta 5 kg', 'India Gate Basmati Rice 5 kg', 'Toor Daal 1 kg', 'Fortune Sunflower Oil 1 L', 'Sugar 1 kg', 'Tata Tea Gold 250 g']
   const products = LIB.map(([name, size, category_id, keywords, price], i) => {
     const key = `${name} ${size}`
     return {

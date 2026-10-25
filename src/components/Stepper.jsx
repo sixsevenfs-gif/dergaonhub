@@ -1,14 +1,17 @@
 import { Minus, Plus } from 'lucide-react'
 
-export default function Stepper({ value, onChange, className = '' }) {
+// compact: smaller version for the 3-per-row product grid.
+export default function Stepper({ value, onChange, className = '', compact = false }) {
+  const btn = `flex h-full items-center justify-center ${compact ? 'w-8' : 'w-11'}`
+  const icon = compact ? 15 : 18
   return (
-    <div className={`flex h-11 items-center justify-between rounded-xl border border-line ${className}`}>
-      <button type="button" aria-label="Kam karo" onClick={() => onChange(value - 1)} className="flex h-full w-11 items-center justify-center">
-        <Minus size={18} />
+    <div className={`flex items-center justify-between rounded-xl border border-line ${compact ? 'h-9 rounded-lg' : 'h-11'} ${className}`}>
+      <button type="button" aria-label="Kam karo" onClick={() => onChange(value - 1)} className={btn}>
+        <Minus size={icon} />
       </button>
-      <span className="min-w-6 text-center font-semibold">{value}</span>
-      <button type="button" aria-label="Aur add karo" onClick={() => onChange(value + 1)} className="flex h-full w-11 items-center justify-center">
-        <Plus size={18} />
+      <span className={`text-center font-semibold ${compact ? 'min-w-4 text-sm' : 'min-w-6'}`}>{value}</span>
+      <button type="button" aria-label="Aur add karo" onClick={() => onChange(value + 1)} className={btn}>
+        <Plus size={icon} />
       </button>
     </div>
   )

@@ -6,7 +6,7 @@ import { CONFIG } from '../config.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
 
-const KEY = 'dergaonhub-demo-v4' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v5' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
