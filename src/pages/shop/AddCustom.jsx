@@ -39,7 +39,7 @@ export default function AddCustom() {
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Field>
-        <p className="text-xs text-neutral-500">Photo upload database connect hone ke baad. Bina photo ke category icon dikhega.</p>
+        <p className="text-xs text-neutral-500">Save karne ke baad Products list mein product ke box pe tap karke photo add karo.</p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" className={`${lbtnDark} h-12 w-full`}>Save</button>
       </form>

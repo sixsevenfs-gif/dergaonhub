@@ -8,7 +8,7 @@ export const toWa = (phone10) => `91${phone10}`
 // Order message the customer sends to the shop. The database order is the truth; this is a convenience.
 export function orderMessage({ order, items, shop }) {
   const lines = [
-    `New order ${order.order_number} from dergaon.`,
+    `New order ${order.order_number} from Dergaon Hub`,
     '',
     `Name: ${order.customer_name}`,
     `Phone: ${order.customer_phone}`,

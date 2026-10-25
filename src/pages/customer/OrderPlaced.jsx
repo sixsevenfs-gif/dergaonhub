@@ -40,7 +40,7 @@ export default function OrderPlaced() {
 
       <section className={`${card} mt-6 p-4`}>
         <div className="flex items-center gap-3 border-b border-line pb-3">
-          <Store size={26} />
+          {shop.logo_url ? <img src={shop.logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" /> : <Store size={26} />}
           <div>
             <div className="font-bold">{shop.name}</div>
             <div className="text-sm text-muted">{shop.area}</div>

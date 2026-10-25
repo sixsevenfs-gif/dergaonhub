@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Search } from 'lucide-react'
-import { CategoryIcon } from '../../components/icons.jsx'
+import ProductThumb from '../../components/ProductThumb.jsx'
 import { lbtnAccent, lbtnDark, lcard, lfield, lfieldBase } from '../../components/ui.js'
 import { addFromLibrary, listCategories, listLibrary, listShopProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
@@ -20,9 +20,7 @@ function LibraryRow({ item, added }) {
   }
   return (
     <div className={`${lcard} flex items-center gap-3 p-3`}>
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-100">
-        <CategoryIcon id={item.category_id} size={20} className="text-neutral-600" />
-      </div>
+      <ProductThumb product={item} size="h-11 w-11" iconSize={20} className="bg-neutral-100 text-neutral-600" />
       <div className="min-w-0 flex-1">
         <div className="font-semibold leading-tight">{item.name}</div>
         <div className="text-sm text-neutral-500">{item.size}</div>

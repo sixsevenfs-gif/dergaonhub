@@ -7,8 +7,8 @@ export default function ShopCard({ shop }) {
   const open = isOpenNow(shop)
   return (
     <Link to={`/s/${shop.id}`} className={`${card} flex items-center gap-4 p-4 active:bg-white/5`}>
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/5">
-        <ShoppingCart size={28} />
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
+        {shop.logo_url ? <img src={shop.logo_url} alt="" loading="lazy" className="h-full w-full object-cover" /> : <ShoppingCart size={28} />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">

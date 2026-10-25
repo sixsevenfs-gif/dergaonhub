@@ -1,4 +1,4 @@
-# dergaon.
+# Dergaon Hub
 
 Mobile-first website where people in Dergaon order from local shops.
 Full plan: "Dergaon Project: Complete Plan for the AI Builder" (PDF).
@@ -66,10 +66,20 @@ Change the numbers in `src/config.js`.
 | `supabase/` | Database tables and security rules (SQL), next step |
 | `public/` | Icon, app manifest, `_redirects` for Cloudflare Pages |
 
+## Photos
+
+Product photos are not copied from other sites (copyright). Add your own:
+
+- **Admin → Library:** tap the box next to a product to add its photo. Every shop selling it shows that photo.
+- **Shop → Products:** tap a product's box to use the shop's own photo instead.
+- **Shop → Settings:** shop logo.
+
+Photos are shrunk automatically. Products without a photo show a category icon.
+In demo mode photos are saved in the browser, which has limited space (roughly 100+ photos).
+
 ## Not done yet
 
 - Supabase database + real Google/email login (data is per-browser for now)
-- Logo and product photo upload
 - Cloudflare Turnstile CAPTCHA on checkout
 - GitHub repo, Cloudflare Pages deploy, domain
 

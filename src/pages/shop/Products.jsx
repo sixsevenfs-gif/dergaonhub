@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { Plus, Search, Trash2 } from 'lucide-react'
 import Toggle from '../../components/Toggle.jsx'
-import { CategoryIcon } from '../../components/icons.jsx'
+import ProductThumb from '../../components/ProductThumb.jsx'
+import PhotoPicker from '../../components/PhotoPicker.jsx'
 import { lbtnDark, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { listCategories, listShopProducts, removeShopProduct, updateShopProduct } from '../../lib/store.js'
+import { listCategories, listShopProducts, removeShopProduct, setShopProductPhoto, updateShopProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { matches, rupee, timeAgo } from '../../lib/format.js'
 
@@ -56,6 +57,7 @@ export default function Products() {
         <div>
           <h1 className="text-2xl font-black">Products</h1>
           <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock</p>
+          <p className="text-xs text-neutral-400">Photo badalni ho toh product ke box pe tap karo.</p>
         </div>
       </div>
 
@@ -73,9 +75,12 @@ export default function Products() {
       <div className="mt-4 space-y-2">
         {shown.map((p) => (
           <div key={p.id} className={`${lcard} flex items-center gap-3 p-3`}>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-100">
-              <CategoryIcon id={p.category_id} size={22} className="text-neutral-600" />
-            </div>
+            <PhotoPicker
+              photoUrl={p.own_photo_url}
+              onSave={(url) => setShopProductPhoto(p.id, url)}
+              fallback={<ProductThumb product={p} size="h-full w-full" iconSize={22} />}
+              className="h-14 w-14"
+            />
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold leading-tight">{p.name}</div>
               <div className="text-sm text-neutral-500">{p.size}</div>

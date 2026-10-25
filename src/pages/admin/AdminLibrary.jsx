@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Upload } from 'lucide-react'
 import Field from '../../components/Field.jsx'
+import PhotoPicker from '../../components/PhotoPicker.jsx'
+import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
 import {
-  addLibraryProduct, adminListLibrary, importLibraryCSV, listCategories, listReviewQueue, reviewCustomProduct, setLibraryStatus,
+  addLibraryProduct, adminListLibrary, importLibraryCSV, listCategories, listReviewQueue, reviewCustomProduct, setLibraryPhoto, setLibraryStatus,
 } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { matches, rupee } from '../../lib/format.js'
@@ -110,6 +112,7 @@ export default function AdminLibrary() {
         <div className={`${lcard} mt-2 divide-y divide-neutral-100`}>
           {shown.map((l) => (
             <div key={l.id} className={`flex items-center gap-3 px-4 py-2 ${l.status !== 'active' ? 'opacity-50' : ''}`}>
+              <PhotoPicker photoUrl={l.photo_url} onSave={(url) => setLibraryPhoto(l.id, url)} fallback={<CategoryIcon id={l.category_id} size={20} />} className="h-12 w-12" />
               <span className="flex-1">
                 <span className="block text-sm font-semibold">{l.name} <span className="font-normal text-neutral-500">{l.size}</span></span>
                 <span className="text-xs text-neutral-500">{catName(l.category_id)} · {l.keywords} · {l.photo_url ? 'photo' : 'no photo'} · {l.shop_count} shops</span>

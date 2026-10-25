@@ -48,7 +48,7 @@ export default function Directory() {
             <div className="mt-3 grid grid-cols-2 gap-2">
               <a href={`tel:${d.phone}`} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-line font-semibold"><Phone size={18} /> Call</a>
               {d.whatsapp ? (
-                <a href={waLink(d.whatsapp, 'Namaste, dergaon. se aapka number mila.')} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-ink">
+                <a href={waLink(d.whatsapp, 'Namaste, Dergaon Hub se aapka number mila.')} target="_blank" rel="noreferrer" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-ink">
                   <WhatsAppIcon size={18} /> WhatsApp
                 </a>
               ) : (

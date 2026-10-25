@@ -27,12 +27,12 @@ export default function ShopArea() {
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
           <span className="flex items-baseline gap-2 [&_a]:text-neutral-900">
-            <Wordmark />
-            <span className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-neutral-500">for shops</span>
+            <Wordmark className="text-xl" />
+            <span className="hidden whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-neutral-500 min-[420px]:inline">for shops</span>
           </span>
           {shop && (
             <NavLink to="/shop/status" className="flex items-center gap-2 text-sm">
-              <span className="max-w-32 truncate font-semibold">{shop.name}</span>
+              <span className="max-w-36 truncate font-semibold">{shop.name}</span>
               <StatusBadge status={shop.paused && shop.status === 'live' ? 'hidden' : shop.status} />
             </NavLink>
           )}

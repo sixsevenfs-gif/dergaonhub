@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { BookOpen, Briefcase, ChevronRight, House, Plus, Search, Store } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import ShopCard from '../../components/ShopCard.jsx'
-import { CategoryIcon } from '../../components/icons.jsx'
+import ProductThumb from '../../components/ProductThumb.jsx'
 import { card, field } from '../../components/ui.js'
 import { listLiveShops, searchAll } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
@@ -64,9 +64,7 @@ export default function Home() {
         <section className="mt-5 space-y-3">
           {results.products.map((p) => (
             <Link key={p.id} to={`/s/${p.shop_id}?q=${encodeURIComponent(p.name)}`} className={`${card} flex items-center gap-3 p-3`}>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
-                <CategoryIcon id={p.category_id} size={22} />
-              </div>
+              <ProductThumb product={p} size="h-12 w-12" iconSize={22} className="bg-white/5" />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold">{p.name} <span className="font-normal text-muted">{p.size}</span></div>
                 <div className="text-sm text-muted">{p.shop_name}</div>

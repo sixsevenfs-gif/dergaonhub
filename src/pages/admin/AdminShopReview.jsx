@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ImageOff, Trash2 } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge.jsx'
+import ProductThumb from '../../components/ProductThumb.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
 import { adminGetShop, adminRemoveProduct, setShopStatus } from '../../lib/store.js'
@@ -32,7 +33,7 @@ export default function AdminShopReview() {
 
   const notifyText =
     shop.status === 'live'
-      ? `Namaste! ${shop.name} ab dergaon. pe live hai. Link: ${window.location.origin}/s/${shop.id}`
+      ? `Namaste! ${shop.name} ab Dergaon Hub pe live hai. Link: ${window.location.origin}/s/${shop.id}`
       : shop.status === 'rejected'
         ? `Namaste! ${shop.name} ki listing mein kuch theek karna hai: ${shop.reject_reason}. Theek karke dobara Go Live dabaiye.`
         : ''
@@ -85,6 +86,7 @@ export default function AdminShopReview() {
         <div className={`${lcard} mt-2 divide-y divide-neutral-100`}>
           {products.map((p) => (
             <div key={p.id} className="flex items-center gap-3 px-4 py-2">
+              <ProductThumb product={p} size="h-10 w-10" iconSize={18} className="bg-neutral-100 text-neutral-500" />
               <span className="flex-1">
                 <span className="block text-sm font-semibold">{p.name} <span className="font-normal text-neutral-500">{p.size}</span></span>
                 <span className="flex items-center gap-2 text-xs text-neutral-500">

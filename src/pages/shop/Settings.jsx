@@ -4,8 +4,9 @@ import { LogOut } from 'lucide-react'
 import ShopFields from './ShopFields.jsx'
 import { shopDefaults } from './shopDefaults.js'
 import Toggle from '../../components/Toggle.jsx'
+import PhotoPicker from '../../components/PhotoPicker.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
-import { resetDemo, saveMyShop, signOut } from '../../lib/store.js'
+import { resetDemo, saveMyShop, setShopLogo, signOut } from '../../lib/store.js'
 import { DEMO_MODE } from '../../config.js'
 
 export default function Settings() {
@@ -35,6 +36,14 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Settings</h1>
+
+      <section className={`${lcard} flex items-center gap-4 p-4`}>
+        <PhotoPicker photoUrl={shop.logo_url} onSave={setShopLogo} label="logo" className="h-20 w-20" />
+        <span>
+          <span className="block font-bold">Shop logo</span>
+          <span className="text-sm text-neutral-500">Logo ya shop ki photo. Customers ko shop list mein dikhegi.</span>
+        </span>
+      </section>
 
       <section className={`${lcard} flex items-center justify-between gap-3 p-4`}>
         <span>

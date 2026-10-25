@@ -57,8 +57,8 @@ export default function ShopPage() {
 
       <section className={`${card} mt-3 p-4`}>
         <div className="flex gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/5">
-            <Store size={30} />
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
+            {shop.logo_url ? <img src={shop.logo_url} alt="" className="h-full w-full object-cover" /> : <Store size={30} />}
           </div>
           <div className="min-w-0">
             <h1 className="text-xl font-bold leading-tight">{shop.name}</h1>
@@ -119,8 +119,8 @@ export default function ShopPage() {
           const qty = cartHere ? qtyOf(p.id) : 0
           return (
             <div key={p.id} className={`${card} flex flex-col p-3 ${p.available ? '' : 'opacity-60'}`}>
-              <div className="flex h-24 items-center justify-center rounded-xl bg-white/5">
-                {p.photo_url ? <img src={p.photo_url} alt="" loading="lazy" className="h-full object-contain" /> : <CategoryIcon id={p.category_id} size={40} strokeWidth={1.5} className="text-muted" />}
+              <div className={`flex h-28 items-center justify-center overflow-hidden rounded-xl ${p.photo_url ? 'bg-white p-1' : 'bg-white/5'}`}>
+                {p.photo_url ? <img src={p.photo_url} alt="" loading="lazy" className="h-full w-full object-contain" /> : <CategoryIcon id={p.category_id} size={40} strokeWidth={1.5} className="text-muted" />}
               </div>
               <h3 className="mt-2 font-semibold leading-tight">{p.name}</h3>
               <p className="text-sm text-muted">{p.size}</p>

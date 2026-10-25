@@ -49,7 +49,7 @@ export default function AddToHomeSheet({ show }) {
     <div className="fixed inset-0 z-20 flex items-end bg-black/60" onClick={close}>
       <div className="mx-auto w-full max-w-md rounded-t-3xl border border-line bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
-          <h2 className="text-xl font-bold">dergaon<span className="text-accent">.</span> ko apne phone pe app jaisa rakho</h2>
+          <h2 className="text-xl font-bold">Dergaon Hub ko apne phone pe app jaisa rakho</h2>
           <button type="button" aria-label="Band karo" onClick={close} className="-mr-2 -mt-1 flex h-10 w-10 items-center justify-center text-muted"><X size={22} /></button>
         </div>
         {isIOS() ? (

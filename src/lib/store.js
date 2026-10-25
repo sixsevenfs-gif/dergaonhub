@@ -23,13 +23,24 @@ let db = load()
 
 const notify = () => listeners.forEach((fn) => fn())
 
+// Returns false when the browser could not save (blocked, or full because of photos).
 function commit() {
+  let saved = true
   try {
     localStorage.setItem(KEY, JSON.stringify(db))
   } catch {
-    // storage blocked: changes live until the page reloads
+    saved = false // changes live until the page reloads
   }
   notify()
+  return saved
+}
+
+// Saves a photo; if the browser storage is full the change is undone.
+function commitPhoto(undo) {
+  if (commit()) return
+  undo()
+  commit()
+  fail('Photo save nahi hui: demo mode mein browser ki jagah bhar gayi. Database connect hone ke baad ye limit nahi rahegi.')
 }
 
 // Another tab changed the data (for example the shop dashboard open next to the customer site).
@@ -69,6 +80,7 @@ function joinProduct(sp) {
     category_id: lp?.category_id ?? sp.category_id,
     keywords: lp?.keywords ?? '',
     photo_url: sp.photo_url || lp?.photo_url || '',
+    own_photo_url: sp.photo_url,
   }
 }
 
@@ -356,6 +368,27 @@ export async function updateShopProduct(id, patch) {
   commit()
 }
 
+// Shop's own photo for a product (overrides the library photo). Empty string removes it.
+export async function setShopProductPhoto(id, photoUrl) {
+  const shop = myShopOrFail()
+  const sp = db.shop_products.find((p) => p.id === id && p.shop_id === shop.id) ?? fail('Product nahi mila.')
+  const before = sp.photo_url
+  sp.photo_url = photoUrl
+  sp.updated_at = now()
+  commitPhoto(() => {
+    sp.photo_url = before
+  })
+}
+
+export async function setShopLogo(logoUrl) {
+  const shop = myShopOrFail()
+  const before = shop.logo_url
+  shop.logo_url = logoUrl
+  commitPhoto(() => {
+    shop.logo_url = before
+  })
+}
+
 export async function removeShopProduct(id) {
   const shop = myShopOrFail()
   db.shop_products = db.shop_products.filter((p) => !(p.id === id && p.shop_id === shop.id))
@@ -579,6 +612,16 @@ export async function addLibraryProduct({ name, size, category_id, keywords }) {
   db.library.push(item)
   commit()
   return clone(item)
+}
+
+// Library photo: every shop selling this product shows it (unless the shop has its own).
+export async function setLibraryPhoto(id, photoUrl) {
+  const l = db.library.find((x) => x.id === id) ?? fail('Product nahi mila.')
+  const before = l.photo_url
+  l.photo_url = photoUrl
+  commitPhoto(() => {
+    l.photo_url = before
+  })
 }
 
 export async function setLibraryStatus(id, status) {

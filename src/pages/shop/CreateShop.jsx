@@ -55,7 +55,7 @@ export default function CreateShop() {
 
       <form onSubmit={step === 0 ? next : save} className={`${lcard} mt-4 space-y-4 p-4`}>
         <ShopFields values={values} onChange={setValues} part={step === 0 ? 'basic' : 'delivery'} />
-        <p className="text-xs text-neutral-500">Logo upload database connect hone ke baad aayega.</p>
+        <p className="text-xs text-neutral-500">Shop logo baad mein Settings mein add kar sakte ho.</p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2">
           {step === 1 && <button type="button" onClick={() => setStep(0)} className={lbtnOutline}>Back</button>}

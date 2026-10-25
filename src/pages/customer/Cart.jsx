@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, ChevronRight, FileText, ShoppingCart, Trash2, Truck } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import Stepper from '../../components/Stepper.jsx'
-import { CategoryIcon } from '../../components/icons.jsx'
+import ProductThumb from '../../components/ProductThumb.jsx'
 import { btnAccent, card } from '../../components/ui.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
 import { useCart } from '../../lib/cart-context.js'
@@ -41,9 +41,7 @@ export default function Cart() {
         {lines.map((l) => (
           <div key={l.id} className={`${card} p-3`}>
             <div className="flex gap-3">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/5">
-                <CategoryIcon id={l.product?.category_id} size={28} />
-              </div>
+              <ProductThumb product={l.product} className="bg-white/5" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
