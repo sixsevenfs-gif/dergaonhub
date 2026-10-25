@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, House, LayoutGrid, Leaf, MapPin, Search, ShoppingCart, Smartphone, Truck } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import Footer from '../../components/Footer.jsx'
+import HeroSlider from '../../components/HeroSlider.jsx'
 import Stepper from '../../components/Stepper.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { card, field } from '../../components/ui.js'
@@ -112,20 +113,7 @@ export default function Home() {
             Everything Dergaon needs, <span className="text-accent">in one place.</span>
           </h1>
 
-          <section className="relative mt-5 overflow-hidden rounded-2xl border border-accent/50 bg-gradient-to-br from-[#1E2B0F] via-[#131A0B] to-ink">
-            <img
-              src="/photos/hero-groceries.jpg"
-              alt="Atta, rice, oil, daal and fresh vegetables"
-              className="absolute inset-y-0 right-0 h-full w-[60%] object-cover [mask-image:linear-gradient(to_right,transparent,black_22%)]"
-            />
-            <div className="relative w-[50%] py-5 pl-4">
-              <p className="whitespace-nowrap text-[17px] font-black leading-tight">Fresh essentials.</p>
-              <p className="text-[17px] font-black leading-tight text-accent">Delivered to<br />your door.</p>
-              <button type="button" onClick={browseAll} className="mt-3 inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-full bg-accent px-3 text-[13px] font-bold text-ink">
-                Shop groceries <ArrowRight size={16} />
-              </button>
-            </div>
-          </section>
+          <HeroSlider onShop={browseAll} />
 
           {store.paused ? (
             <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">Store abhi band hai. Thodi der baad order karo.</p>
