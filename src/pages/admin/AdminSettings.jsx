@@ -19,7 +19,7 @@ function SettingsForm({ store }) {
     setLocMsg('')
     try {
       setV({ ...v, location: await currentPosition() })
-      setLocMsg('Location mil gayi. Pin check karke Save dabao.')
+      setLocMsg('Location found. Check the pin and tap Save.')
     } catch (err) {
       setLocMsg(err.message)
     }
@@ -55,7 +55,7 @@ function SettingsForm({ store }) {
       <section className={`${lcard} space-y-3 p-4`}>
         <h2 className="font-bold">Timing & delivery</h2>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Order cut-off" hint="Iske pehle ke order aaj, baad ke kal"><input type="time" value={v.cutoff_time} onChange={set('cutoff_time')} className={lfield} /></Field>
+          <Field label="Order cut-off" hint="Orders before this go today, later ones tomorrow"><input type="time" value={v.cutoff_time} onChange={set('cutoff_time')} className={lfield} /></Field>
           <div />
           <Field label="Delivery starts"><input type="time" value={v.slot_start} onChange={set('slot_start')} className={lfield} /></Field>
           <Field label="Delivery ends"><input type="time" value={v.slot_end} onChange={set('slot_end')} className={lfield} /></Field>
@@ -74,16 +74,16 @@ function SettingsForm({ store }) {
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-neutral-500">Naya area chahiye toh src/config.js mein AREAS mein jodo.</p>
+          <p className="mt-1 text-xs text-neutral-500">To add a new area, add it to AREAS in src/config.js.</p>
         </div>
       </section>
 
       <section className={`${lcard} space-y-3 p-4`}>
-        <h2 className="font-bold">Delivery charge (doori ke hisaab se)</h2>
-        <p className="text-sm text-neutral-500">Map pe apne ghar (Shantipur, Dergaon) pe pin lagao. Customer ki doori yahin se naapi jaati hai.</p>
+        <h2 className="font-bold">Delivery charge (by distance)</h2>
+        <p className="text-sm text-neutral-500">Put the pin on your home (Shantipur, Dergaon). Customer distance is measured from here.</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-neutral-500">{v.location.lat.toFixed(5)}, {v.location.lng.toFixed(5)}</span>
-          <button type="button" onClick={fetchMyLocation} className={`${lbtnDark} min-h-9 text-sm`}><LocateFixed size={16} /> Meri current location</button>
+          <button type="button" onClick={fetchMyLocation} className={`${lbtnDark} min-h-9 text-sm`}><LocateFixed size={16} /> Use my current location</button>
         </div>
         {locMsg && <p className="text-xs text-neutral-600">{locMsg}</p>}
         <LocationPicker value={v.location} onChange={(location) => setV({ ...v, location })} start={v.location} className="h-64" />
@@ -93,8 +93,8 @@ function SettingsForm({ store }) {
           <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
         </div>
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
-          Example: 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · 5 km → {rupee(example(5))} · {rates.max_delivery_km} km ke baad delivery nahi.
-          <span className="block text-xs text-neutral-500">Road doori = seedhi doori × 1.3 (andaza). Petrol ₹110/L, scooty ~40 km/L: aana-jaana ≈ ₹5.5 per km.</span>
+          Example: 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · 5 km → {rupee(example(5))} · no delivery beyond {rates.max_delivery_km} km.
+          <span className="block text-xs text-neutral-500">Road distance ≈ straight line × 1.3. Petrol ₹110/L, scooter ~40 km/L: a round trip costs about ₹5.5 per km.</span>
         </p>
       </section>
 
@@ -113,7 +113,7 @@ export default function AdminSettings() {
       <h1 className="text-2xl font-black">Settings</h1>
       <SettingsForm store={store} />
       {DEMO_MODE && (
-        <button type="button" onClick={() => window.confirm('Saara demo data reset karna hai?') && resetDemo()} className={`${lbtnDanger} w-full`}>
+        <button type="button" onClick={() => window.confirm('Reset all demo data?') && resetDemo()} className={`${lbtnDanger} w-full`}>
           Reset demo data
         </button>
       )}

@@ -23,7 +23,7 @@ export default function AdminOrderDetail() {
   const [error, setError] = useState('')
 
   if (data === undefined) return null
-  if (!data) return <p className="py-10 text-center text-neutral-500">Order nahi mila.</p>
+  if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
   const { order, items, store, hint, complaints } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
 
@@ -51,24 +51,24 @@ export default function AdminOrderDetail() {
         <div className="mt-1"><CustomerHint hint={hint} /></div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a href={`tel:${order.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-          <a href={waLink(toWa(order.customer_phone), `Namaste ${order.customer_name}, Dergaon Hub se. Aapka order #${order.order_number} mila hai.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+          <a href={waLink(toWa(order.customer_phone), `Hello ${order.customer_name}, this is Dergaon Hub. We have received your order #${order.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
             <WhatsAppIcon size={17} /> WhatsApp
           </a>
         </div>
         <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address}, {order.area} · {slotText(order.delivery_date, store)}</p>
         {order.location && (
           <a href={mapsLink(order.location)} target="_blank" rel="noreferrer" className={`${lbtnOutline} mt-2 w-full`}>
-            <Navigation size={17} /> Google Maps pe raasta · {order.distance_km} km
+            <Navigation size={17} /> Directions in Google Maps · {order.distance_km} km
           </a>
         )}
         <p className={`mt-2 flex gap-2 text-sm font-semibold ${order.allow_substitute ? 'text-green-700' : 'text-orange-600'}`}>
-          <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand chalega' : 'Sirf yahi brand chahiye'}
+          <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand is OK' : 'Only this brand'}
         </p>
       </section>
 
       <section className={`${lcard} p-4`}>
         <h2 className="font-bold">Items</h2>
-        {editable && <p className="text-xs text-neutral-500">Dukaan pe nahi mila toh item hatao. Total apne aap update hoga. Customer ko bata do.</p>}
+        {editable && <p className="text-xs text-neutral-500">If an item isn't available at the shop, remove it. The total updates automatically. Let the customer know.</p>}
         <div className="mt-2 divide-y divide-neutral-100">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-2 py-2">
@@ -78,7 +78,7 @@ export default function AdminOrderDetail() {
               </span>
               <span className="font-semibold">{rupee(i.line_total)}</span>
               {editable && items.length > 1 && (
-                <button type="button" aria-label="Item hatao" onClick={() => run(() => removeOrderItem(order.id, i.id))} className="flex h-10 w-10 items-center justify-center text-neutral-400">
+                <button type="button" aria-label="Remove item" onClick={() => run(() => removeOrderItem(order.id, i.id))} className="flex h-10 w-10 items-center justify-center text-neutral-400">
                   <Trash2 size={18} />
                 </button>
               )}
@@ -100,7 +100,7 @@ export default function AdminOrderDetail() {
 
       {complaints.length > 0 && (
         <Link to="/admin/complaints" className={`${lcard} block p-4 text-sm`}>
-          <b>{complaints.length} complaint</b> is order pe: {complaints.map((k) => `${k.type} (${k.status})`).join(', ')}
+          <b>{complaints.length} complaint(s)</b> on this order: {complaints.map((k) => `${k.type} (${k.status})`).join(', ')}
         </Link>
       )}
 
@@ -109,7 +109,7 @@ export default function AdminOrderDetail() {
       {editable && !cancelling && (
         <section className="space-y-2">
           {order.status === 'placed' && (
-            <button type="button" onClick={() => run(() => confirmOrder(order.id))} className={`${lbtnDark} h-12 w-full`}>Confirm order (call ke baad)</button>
+            <button type="button" onClick={() => run(() => confirmOrder(order.id))} className={`${lbtnDark} h-12 w-full`}>Confirm order (after calling)</button>
           )}
           {order.status === 'confirmed' && (
             <div className={`${lcard} space-y-2 p-4`}>
@@ -128,7 +128,7 @@ export default function AdminOrderDetail() {
       {order.status === 'completed' && (
         <div className="grid grid-cols-2 gap-2">
           <a href={waLink(toWa(order.customer_phone), billMessage({ order, items }))} target="_blank" rel="noreferrer" className={lbtnOutline}>
-            <WhatsAppIcon size={17} /> Bill dobara bhejo
+            <WhatsAppIcon size={17} /> Send bill again
           </a>
           <button type="button" onClick={() => run(() => reopenOrder(order.id))} className={lbtnOutline}>Undo delivered</button>
         </div>
@@ -136,7 +136,7 @@ export default function AdminOrderDetail() {
 
       {cancelling && (
         <section className={`${lcard} space-y-3 p-4`}>
-          <h2 className="font-bold">Cancel kyun?</h2>
+          <h2 className="font-bold">Why cancel?</h2>
           <div className="flex flex-wrap gap-2">
             {CONFIG.CANCEL_REASONS.map((r) => (
               <button key={r} type="button" onClick={() => setReason(r)} className={`h-10 rounded-full border px-3 text-sm font-semibold ${reason === r ? 'border-red-600 bg-red-600 text-white' : 'border-neutral-300'}`}>
@@ -144,7 +144,7 @@ export default function AdminOrderDetail() {
               </button>
             ))}
           </div>
-          {reason === 'No-show' && <p className="text-xs text-neutral-500">No-show count is number par +1 hoga. {CONFIG.NO_SHOW_LIMIT} no-show ke baad number online order nahi kar payega.</p>}
+          {reason === 'No-show' && <p className="text-xs text-neutral-500">This adds 1 no-show to this number. After {CONFIG.NO_SHOW_LIMIT} no-shows it can't order online.</p>}
           <div className="flex gap-2">
             <button type="button" onClick={() => setCancelling(false)} className={lbtnOutline}>Back</button>
             <button type="button" disabled={!reason} onClick={() => run(() => cancelOrder(order.id, reason)).then(() => setCancelling(false))} className={`${lbtnDanger} flex-1`}>

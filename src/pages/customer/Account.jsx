@@ -11,7 +11,7 @@ import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
 import { saveDetails, useSavedDelivery } from '../../lib/customerLocation.js'
 import { deliveryQuote } from '../../lib/delivery.js'
-import { dayLabel, fmtDateTime, rupee, statusLabel } from '../../lib/format.js'
+import { dayLabel, fmtDateTime, itemsText, rupee, statusLabel } from '../../lib/format.js'
 import { waLink } from '../../lib/whatsapp.js'
 
 const STATUS_STYLE = {
@@ -41,12 +41,12 @@ function Profile({ me }) {
       <div className="min-w-0 flex-1">
         {editing ? (
           <form onSubmit={save} className="flex gap-2">
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Apna naam" className={`${field} h-10`} />
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={`${field} h-10`} />
             <button type="submit" className="h-10 shrink-0 rounded-xl bg-accent px-3 text-sm font-bold text-ink">Save</button>
           </form>
         ) : (
           <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-2 text-left text-lg font-bold">
-            {me.name || 'Apna naam daalo'} <Pencil size={15} className="text-muted" />
+            {me.name || 'Add your name'} <Pencil size={15} className="text-muted" />
           </button>
         )}
         {error && <p className="text-xs text-red-300">{error}</p>}
@@ -76,22 +76,22 @@ function SavedAddress({ store }) {
       <button type="button" onClick={() => setOpen(true)} className="mt-3 flex w-full items-center gap-3 rounded-xl border border-line p-3 text-left">
         <MapPin size={22} className={location ? 'text-accent' : 'text-muted'} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{location ? location.label || 'Map pe chuni jagah' : 'Location set nahi hai'}</span>
+          <span className="block truncate font-semibold">{location ? location.label || 'Pinned on map' : 'No location set'}</span>
           <span className="block text-xs text-muted">
-            {quote ? (quote.tooFar ? `${quote.km} km · delivery area se bahar` : `${quote.km} km door · delivery fee ${rupee(quote.fee)}`) : 'Map se location chuno'}
+            {quote ? (quote.tooFar ? `${quote.km} km · outside delivery area` : `${quote.km} km away · delivery fee ${rupee(quote.fee)}`) : 'Choose your location on the map'}
           </span>
         </span>
-        <span className="text-sm font-semibold text-accent">{location ? 'Badlo' : 'Set karo'}</span>
+        <span className="text-sm font-semibold text-accent">{location ? 'Change' : 'Set'}</span>
       </button>
       <form onSubmit={save} className="mt-3 space-y-2">
-        <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} placeholder="Ghar no., landmark (jaise: Namghar ke paas)" className={field} />
+        <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} placeholder="House no., landmark (e.g. near the Namghar)" className={field} />
         <select value={area} onChange={(e) => { setArea(e.target.value); setSaved(false) }} className={field}>
-          <option value="">Area chuno</option>
+          <option value="">Choose area</option>
           {store.delivery_area.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
-        <button type="submit" className={`${btnOutline} w-full`}>{saved ? 'Saved ✓' : 'Address save karo'}</button>
+        <button type="submit" className={`${btnOutline} w-full`}>{saved ? 'Saved ✓' : 'Save address'}</button>
       </form>
-      <p className="mt-2 text-xs text-muted">Ye address checkout pe apne aap bhar jayega.</p>
+      <p className="mt-2 text-xs text-muted">This address is filled in automatically at checkout.</p>
       {open && <LocationSheet store={store} onClose={() => setOpen(false)} />}
     </section>
   )
@@ -122,7 +122,7 @@ export default function Account() {
       }
     }
     if (added) navigate('/cart')
-    else setNote('Is order ka saman abhi available nahi hai.')
+    else setNote('Items from this order are not available right now.')
   }
 
   return (
@@ -135,7 +135,7 @@ export default function Account() {
         <SavedAddress store={store} />
 
         <section>
-          <h2 className="text-lg font-bold">Mere orders ({orders.length})</h2>
+          <h2 className="text-lg font-bold">My orders ({orders.length})</h2>
           {note && <p className="mt-1 text-sm text-orange-300">{note}</p>}
           <div className="mt-2 space-y-3">
             {orders.map((o) => (
@@ -147,7 +147,7 @@ export default function Account() {
                       #{o.order_number}
                       <span className={cx('rounded-full px-2 py-0.5 text-xs font-bold', STATUS_STYLE[o.status])}>{statusLabel(o.status)}</span>
                     </span>
-                    <span className="block text-sm text-muted">{fmtDateTime(o.created_at)} · {o.item_count} items</span>
+                    <span className="block text-sm text-muted">{fmtDateTime(o.created_at)} · {itemsText(o.item_count)}</span>
                     <span className="block text-sm text-muted">Delivery {dayLabel(o.delivery_date)}</span>
                   </span>
                   <span className="font-bold">{rupee(o.total)}</span>
@@ -155,15 +155,15 @@ export default function Account() {
                 </Link>
                 <p className="mt-2 line-clamp-1 text-xs text-muted">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => reorder(o)} className={`${btnOutline} min-h-10 text-sm`}><RotateCcw size={16} /> Dobara order</button>
-                  <Link to={`/report/${o.order_number}`} className={`${btnOutline} min-h-10 text-sm`}>Problem batao</Link>
+                  <button type="button" onClick={() => reorder(o)} className={`${btnOutline} min-h-10 text-sm`}><RotateCcw size={16} /> Order again</button>
+                  <Link to={`/report/${o.order_number}`} className={`${btnOutline} min-h-10 text-sm`}>Report problem</Link>
                 </div>
               </div>
             ))}
             {!orders.length && (
               <div className={`${card} py-8 text-center`}>
-                <p className="text-muted">Abhi koi order nahi.</p>
-                <Link to="/" className={`${btnAccent} mx-auto mt-4 max-w-60`}>Shopping shuru karo</Link>
+                <p className="text-muted">No orders yet.</p>
+                <Link to="/" className={`${btnAccent} mx-auto mt-4 max-w-60`}>Start shopping</Link>
               </div>
             )}
           </div>
@@ -171,14 +171,14 @@ export default function Account() {
 
         {complaints.length > 0 && (
           <section>
-            <h2 className="text-lg font-bold">Meri complaints</h2>
+            <h2 className="text-lg font-bold">My complaints</h2>
             <div className="mt-2 space-y-2">
               {complaints.map((k) => (
                 <Link key={k.id} to={`/track/${k.order_number}`} className={`${card} block p-3 text-sm`}>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">#{k.order_number} · {k.type}</span>
                     <span className={cx('rounded-full px-2 py-0.5 text-xs font-bold', k.status === 'open' ? 'bg-orange-500/20 text-orange-300' : 'bg-green-500/20 text-green-300')}>
-                      {k.status === 'open' ? 'Dekh rahe hain' : 'Solved'}
+                      {k.status === 'open' ? 'Looking into it' : 'Solved'}
                     </span>
                   </div>
                   {k.admin_note && <p className="mt-1 text-accent">Reply: {k.admin_note}</p>}
@@ -192,7 +192,7 @@ export default function Account() {
           <h2 className="font-bold">Help</h2>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <a href={`tel:${store.phone}`} className={`${btnOutline} min-h-10 text-sm`}><Phone size={16} /> Call us</a>
-            <a href={waLink(store.whatsapp, `Namaste Dergaon Hub, main +91 ${me.phone} se baat kar raha hoon.`)} target="_blank" rel="noreferrer" className={`${btnOutline} min-h-10 text-sm`}>
+            <a href={waLink(store.whatsapp, `Hello Dergaon Hub, I'm writing from +91 ${me.phone}.`)} target="_blank" rel="noreferrer" className={`${btnOutline} min-h-10 text-sm`}>
               <WhatsAppIcon size={16} /> WhatsApp
             </a>
           </div>

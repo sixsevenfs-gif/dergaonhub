@@ -6,11 +6,11 @@ export default function Stepper({ value, onChange, className = '', compact = fal
   const icon = compact ? 15 : 18
   return (
     <div className={`flex items-center justify-between rounded-xl border border-line ${compact ? 'h-9 rounded-lg' : 'h-11'} ${className}`}>
-      <button type="button" aria-label="Kam karo" onClick={() => onChange(value - 1)} className={btn}>
+      <button type="button" aria-label="Decrease" onClick={() => onChange(value - 1)} className={btn}>
         <Minus size={icon} />
       </button>
       <span className={`text-center font-semibold ${compact ? 'min-w-4 text-sm' : 'min-w-6'}`}>{value}</span>
-      <button type="button" aria-label="Aur add karo" onClick={() => onChange(value + 1)} className={btn}>
+      <button type="button" aria-label="Increase" onClick={() => onChange(value + 1)} className={btn}>
         <Plus size={icon} />
       </button>
     </div>

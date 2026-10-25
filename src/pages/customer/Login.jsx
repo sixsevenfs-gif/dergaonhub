@@ -31,7 +31,7 @@ export default function Login() {
     <main className="mx-auto min-h-screen max-w-md px-4 pb-10 pt-4">
       <TopBar />
       <h1 className="mt-8 text-3xl font-black">Login</h1>
-      <p className="mt-1 text-muted">Apne orders dekhne aur complaint karne ke liye phone number daalo.</p>
+      <p className="mt-1 text-muted">Enter your phone number to see your orders and report problems.</p>
 
       <form onSubmit={submit} className={`${card} mt-5 space-y-3 p-4`}>
         <label className="flex items-center gap-3 rounded-xl border border-line px-3 focus-within:border-accent">
@@ -41,7 +41,7 @@ export default function Login() {
         </label>
         {error && <p className="text-sm text-red-300">{error}</p>}
         <button type="submit" className={`${btnAccent} h-14`}>{DEMO_MODE ? 'Continue' : 'Send OTP'}</button>
-        {DEMO_MODE && <p className="text-center text-xs text-muted">Demo mode: abhi OTP nahi aata. Database judne ke baad OTP se login hoga.</p>}
+        {DEMO_MODE && <p className="text-center text-xs text-muted">Demo mode: no OTP yet. Login will use an OTP once the database is connected.</p>}
       </form>
     </main>
   )

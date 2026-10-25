@@ -1,13 +1,13 @@
 // Shrinks a photo from the phone camera before saving it, so pages stay light on slow networks.
 // In demo mode photos are stored in the browser, so they are kept small (about 30 to 80 KB).
 export async function compressImage(file, maxSize = 600, quality = 0.75) {
-  if (!file.type.startsWith('image/')) throw new Error('Sirf photo (image) chuno.')
+  if (!file.type.startsWith('image/')) throw new Error('Please choose a photo (image file).')
   const url = URL.createObjectURL(file)
   try {
     const img = await new Promise((resolve, reject) => {
       const el = new Image()
       el.onload = () => resolve(el)
-      el.onerror = () => reject(new Error('Ye photo khul nahi rahi. Dusri photo try karo.'))
+      el.onerror = () => reject(new Error('This photo could not be opened. Please try another one.'))
       el.src = url
     })
     const scale = Math.min(1, maxSize / Math.max(img.width, img.height))

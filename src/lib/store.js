@@ -42,7 +42,7 @@ function commitPhoto(undo) {
   if (commit()) return
   undo()
   commit()
-  fail('Photo save nahi hui: demo mode mein browser ki jagah bhar gayi. Database connect hone ke baad ye limit nahi rahegi.')
+  fail('Photo not saved: the browser storage is full in demo mode. This limit goes away once the database is connected.')
 }
 
 // Another tab changed the data (for example admin open next to the customer site).
@@ -82,13 +82,13 @@ export async function getStore() {
 const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km']
 
 export async function saveStore(data) {
-  if (!data.name?.trim()) fail('Store ka naam daalo.')
-  if (cleanPhone(data.phone).length !== 10) fail('Sahi 10 digit phone number daalo.')
-  if (cleanPhone(data.whatsapp).length !== 10) fail('Sahi 10 digit WhatsApp number daalo.')
-  if (!data.delivery_area?.length) fail('Kam se kam ek delivery area chuno.')
-  if (!validPoint(data.location)) fail('Map pe apne ghar (store) ki location lagao.')
-  if (!(Number(data.per_km_fee) >= 0) || !(Number(data.min_delivery_fee) >= 0)) fail('Delivery charge sahi daalo.')
-  if (!(Number(data.max_delivery_km) > 0)) fail('Max delivery km sahi daalo.')
+  if (!data.name?.trim()) fail('Enter the store name.')
+  if (cleanPhone(data.phone).length !== 10) fail('Enter a valid 10-digit phone number.')
+  if (cleanPhone(data.whatsapp).length !== 10) fail('Enter a valid 10-digit WhatsApp number.')
+  if (!data.delivery_area?.length) fail('Choose at least one delivery area.')
+  if (!validPoint(data.location)) fail('Set the store location on the map.')
+  if (!(Number(data.per_km_fee) >= 0) || !(Number(data.min_delivery_fee) >= 0)) fail('Enter valid delivery charges.')
+  if (!(Number(data.max_delivery_km) > 0)) fail('Enter a valid max delivery distance.')
   for (const f of STORE_FIELDS) if (f in data) db.store[f] = data[f]
   db.store.name = db.store.name.trim()
   db.store.phone = cleanPhone(db.store.phone)
@@ -123,12 +123,12 @@ export async function listProducts({ q = '', categoryId = '', includeHidden = fa
   )
 }
 
-const productOrFail = (id) => db.products.find((p) => p.id === id) ?? fail('Product nahi mila.')
+const productOrFail = (id) => db.products.find((p) => p.id === id) ?? fail('Product not found.')
 
 export async function addProduct({ name, size, category_id, keywords, price }) {
-  if (!name?.trim()) fail('Product ka naam daalo.')
-  if (!db.categories.some((c) => c.id === category_id)) fail('Category chuno.')
-  if (!(Number(price) > 0)) fail('Sahi price daalo.')
+  if (!name?.trim()) fail('Enter the product name.')
+  if (!db.categories.some((c) => c.id === category_id)) fail('Choose a category.')
+  if (!(Number(price) > 0)) fail('Enter a valid price.')
   const p = {
     id: newId(), name: name.trim(), size: size?.trim() ?? '', category_id, keywords: keywords?.trim() ?? '',
     price: Number(price), photo_url: '', featured: false, available: true, status: 'active', updated_at: now(),
@@ -141,7 +141,7 @@ export async function addProduct({ name, size, category_id, keywords, price }) {
 export async function updateProduct(id, patch) {
   const p = productOrFail(id)
   if ('price' in patch) {
-    if (!(Number(patch.price) > 0)) fail('Sahi price daalo.')
+    if (!(Number(patch.price) > 0)) fail('Enter a valid price.')
     p.price = Number(patch.price)
   }
   if ('available' in patch) p.available = !!patch.available
@@ -205,7 +205,7 @@ export async function importProductsCSV(text) {
       continue
     }
     if (db.products.some((p) => p.name.toLowerCase() === name.trim().toLowerCase() && p.size === size.trim())) {
-      skipped.push(`${name} (pehle se hai)`)
+      skipped.push(`${name} (already added)`)
       continue
     }
     db.products.push({
@@ -230,13 +230,13 @@ export function currentCustomer() {
 
 export async function customerSignIn(phone, name = '') {
   const ph = cleanPhone(phone)
-  if (ph.length !== 10) fail('Sahi 10 digit phone number daalo.')
+  if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   const known = db.customers.find((c) => c.phone === ph)
   const session = { phone: ph, name: name.trim() || known?.name || '' }
   try {
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(session))
   } catch {
-    fail('Is browser mein login save nahi ho pa raha.')
+    fail('Could not save your login in this browser.')
   }
   notify()
   return session
@@ -244,13 +244,13 @@ export async function customerSignIn(phone, name = '') {
 
 // Customer changes their name on My account; past orders keep the name they were placed with.
 export async function updateMyName(name) {
-  const me = currentCustomer() ?? fail('Pehle login karo.')
-  if (!name.trim()) fail('Naam daalo.')
+  const me = currentCustomer() ?? fail('Please log in first.')
+  if (!name.trim()) fail('Enter your name.')
   const session = { ...me, name: name.trim() }
   try {
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(session))
   } catch {
-    fail('Is browser mein naam save nahi ho pa raha.')
+    fail('Could not save your name in this browser.')
   }
   const c = db.customers.find((x) => x.phone === me.phone)
   if (c) c.name = session.name
@@ -283,37 +283,37 @@ function pickDate() {
 
 export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute }) {
   const store = db.store
-  if (store.paused) fail('Store abhi orders nahi le raha. Thodi der baad try karo.')
+  if (store.paused) fail('The store is not taking orders right now. Please try again later.')
   const ph = cleanPhone(phone)
-  if (!name.trim()) fail('Apna naam daalo.')
-  if (ph.length !== 10) fail('Sahi 10 digit phone number daalo.')
-  if (!address.trim()) fail('Address ya landmark daalo.')
-  if (!store.delivery_area.includes(area)) fail('Apna area chuno.')
-  if (!validPoint(location)) fail('Map pe apne ghar ki location lagao.')
+  if (!name.trim()) fail('Enter your name.')
+  if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
+  if (!address.trim()) fail('Enter your address or a landmark.')
+  if (!store.delivery_area.includes(area)) fail('Choose your area.')
+  if (!validPoint(location)) fail('Set your home location on the map.')
   const quote = deliveryQuote(store, location)
   if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
   let customer = customerByPhone(ph)
   if (customer?.blocked || (customer?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) {
-    fail('Is number se online order abhi band hai. Hume call karke order karo.')
+    fail('Online ordering is blocked for this number. Please call us to order.')
   }
 
   const items = []
   for (const line of lines) {
     const p = db.products.find((x) => x.id === line.productId)
-    if (!p || !p.available || p.status !== 'active') fail('Kuch items ab available nahi hain. Cart check karo.')
+    if (!p || !p.available || p.status !== 'active') fail('Some items are no longer available. Please check your cart.')
     items.push({
       id: newId(), product_id: p.id, name_snapshot: `${p.name} ${p.size}`.trim(), price_snapshot: p.price,
       quantity: line.qty, note: line.note || '', line_total: p.price * line.qty,
     })
   }
-  if (!items.length) fail('Cart khaali hai.')
+  if (!items.length) fail('Your cart is empty.')
 
   const subtotal = sum(items, (i) => i.line_total)
-  if (subtotal < store.min_order) fail(`Minimum order ${rupee(store.min_order)} hai.`)
+  if (subtotal < store.min_order) fail(`Minimum order is ${rupee(store.min_order)}.`)
   const total = subtotal + quote.fee
   if ((!customer || completedCount(customer.id) === 0) && total > CONFIG.FIRST_ORDER_LIMIT) {
-    fail(`Pehle order ki limit ${rupee(CONFIG.FIRST_ORDER_LIMIT)} hai. Thode items kam karo, ya hume call karo.`)
+    fail(`The limit for a first order is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. Remove a few items, or call us.`)
   }
 
   if (!customer) {
@@ -382,7 +382,7 @@ export async function ordersByPhone(phone) {
 // "Notify me": someone outside the delivery area leaves their number to hear when we start there.
 export async function joinWaitlist({ phone, name, location, label, km }) {
   const ph = cleanPhone(phone)
-  if (ph.length !== 10) fail('Sahi 10 digit phone number daalo.')
+  if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   db.waitlist ??= []
   const existing = db.waitlist.find((w) => w.phone === ph && !w.notified)
   const entry = {
@@ -398,7 +398,7 @@ export async function adminListWaitlist() {
 }
 
 export async function setWaitlistNotified(id, notified) {
-  const w = (db.waitlist ?? []).find((x) => x.id === id) ?? fail('Entry nahi mili.')
+  const w = (db.waitlist ?? []).find((x) => x.id === id) ?? fail('Entry not found.')
   w.notified = notified
   commit()
 }
@@ -407,10 +407,10 @@ export async function setWaitlistNotified(id, notified) {
 
 // Customer reports a problem with one of their own orders.
 export async function submitComplaint({ orderNumber, type, message }) {
-  const me = currentCustomer() ?? fail('Pehle apne phone number se login karo.')
-  const o = db.orders.find((x) => x.order_number === orderNumber) ?? fail('Order nahi mila.')
-  if (o.customer_phone !== me.phone) fail('Ye order is phone number ka nahi hai.')
-  if (!type) fail('Problem ka type chuno.')
+  const me = currentCustomer() ?? fail('Please log in with your phone number first.')
+  const o = db.orders.find((x) => x.order_number === orderNumber) ?? fail('Order not found.')
+  if (o.customer_phone !== me.phone) fail('This order does not belong to this phone number.')
+  if (!type) fail('Choose the type of problem.')
   db.complaints.push({
     id: newId(), order_id: o.id, order_number: o.order_number, customer_phone: o.customer_phone, customer_name: o.customer_name,
     type, message: message?.trim() ?? '', status: 'open', admin_note: '', created_at: now(), resolved_at: null,
@@ -433,7 +433,7 @@ export async function adminListComplaints({ status = '' } = {}) {
 }
 
 export async function resolveComplaint(id, note) {
-  const k = db.complaints.find((x) => x.id === id) ?? fail('Complaint nahi mili.')
+  const k = db.complaints.find((x) => x.id === id) ?? fail('Complaint not found.')
   k.status = 'resolved'
   k.admin_note = note?.trim() ?? ''
   k.resolved_at = now()
@@ -441,7 +441,7 @@ export async function resolveComplaint(id, note) {
 }
 
 export async function reopenComplaint(id) {
-  const k = db.complaints.find((x) => x.id === id) ?? fail('Complaint nahi mili.')
+  const k = db.complaints.find((x) => x.id === id) ?? fail('Complaint not found.')
   k.status = 'open'
   k.resolved_at = null
   commit()
@@ -476,11 +476,11 @@ export async function getOrderById(orderId) {
   })
 }
 
-const orderOrFail = (id) => db.orders.find((o) => o.id === id) ?? fail('Order nahi mila.')
+const orderOrFail = (id) => db.orders.find((o) => o.id === id) ?? fail('Order not found.')
 
 export async function confirmOrder(id) {
   const o = orderOrFail(id)
-  if (o.status !== 'placed') fail('Sirf naye order confirm ho sakte hain.')
+  if (o.status !== 'placed') fail('Only new orders can be confirmed.')
   o.status = 'confirmed'
   o.confirmed_at = now()
   commit()
@@ -489,7 +489,7 @@ export async function confirmOrder(id) {
 // Delivered and paid.
 export async function completeOrder(id, cashCollected) {
   const o = orderOrFail(id)
-  if (o.status === 'cancelled') fail('Cancelled order deliver nahi ho sakta.')
+  if (o.status === 'cancelled') fail('A cancelled order cannot be delivered.')
   o.status = 'completed'
   o.completed_at = now()
   o.cash_collected = o.payment_method === 'cash' ? Number(cashCollected ?? o.total) || 0 : 0
@@ -507,8 +507,8 @@ export async function reopenOrder(id) {
 
 export async function cancelOrder(id, reason) {
   const o = orderOrFail(id)
-  if (o.status === 'completed') fail('Delivered order cancel nahi ho sakta.')
-  if (!reason) fail('Cancel ka reason chuno.')
+  if (o.status === 'completed') fail('A delivered order cannot be cancelled.')
+  if (!reason) fail('Choose a reason for cancelling.')
   o.status = 'cancelled'
   o.cancel_reason = reason
   if (reason === 'No-show') {
@@ -521,9 +521,9 @@ export async function cancelOrder(id, reason) {
 // An item was not found at the shop: remove it and recalculate the total.
 export async function removeOrderItem(orderId, itemId) {
   const o = orderOrFail(orderId)
-  if (o.status !== 'placed' && o.status !== 'confirmed') fail('Ab ye order badla nahi ja sakta.')
+  if (o.status !== 'placed' && o.status !== 'confirmed') fail('This order can no longer be changed.')
   const remaining = itemsOf(orderId).filter((i) => i.id !== itemId)
-  if (!remaining.length) fail('Aakhri item nahi hata sakte. Order cancel karo.')
+  if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
   o.total = o.subtotal + o.delivery_fee
@@ -596,7 +596,7 @@ export async function dailySummary(date) {
 
 export async function setDailyExpense(date, amount, note = '') {
   const value = Number(amount)
-  if (!(value >= 0)) fail('Sahi amount daalo.')
+  if (!(value >= 0)) fail('Enter a valid amount.')
   db.daily_expenses = db.daily_expenses.filter((e) => e.date !== date)
   db.daily_expenses.push({ date, amount: value, note: note.trim() })
   commit()
@@ -613,13 +613,13 @@ export async function adminListCustomers() {
 }
 
 export async function setCustomerBlocked(id, blocked) {
-  const c = db.customers.find((x) => x.id === id) ?? fail('Customer nahi mila.')
+  const c = db.customers.find((x) => x.id === id) ?? fail('Customer not found.')
   c.blocked = blocked
   commit()
 }
 
 export async function resetNoShows(id) {
-  const c = db.customers.find((x) => x.id === id) ?? fail('Customer nahi mila.')
+  const c = db.customers.find((x) => x.id === id) ?? fail('Customer not found.')
   c.no_show_count = 0
   commit()
 }

@@ -12,7 +12,7 @@ export default function OrderPlaced() {
   const { orderNumber } = useParams()
   const { data, loading } = useData(() => getOrder(orderNumber), [orderNumber])
   if (loading) return null
-  if (!data) return <p className="p-10 text-center text-muted">Order nahi mila.</p>
+  if (!data) return <p className="p-10 text-center text-muted">Order not found.</p>
   const { order, items, store } = data
   const trackUrl = `${window.location.host}/track/${order.order_number}`
 
@@ -35,7 +35,7 @@ export default function OrderPlaced() {
         </div>
         <h1 className="mt-5 text-4xl font-black">Order placed!</h1>
         <p className="mt-1 text-2xl font-bold text-muted">#{order.order_number}</p>
-        <p className="mt-1 text-muted">Aapka order hume mil gaya hai.</p>
+        <p className="mt-1 text-muted">We have received your order.</p>
       </div>
 
       <section className={`${card} mt-6 p-4`}>
@@ -67,8 +67,8 @@ export default function OrderPlaced() {
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <Phone size={24} className="shrink-0 text-accent" />
         <span className="border-l border-line pl-3">
-          <span className="block font-semibold">Hum aapko call karke confirm karenge.</span>
-          <span className="text-sm text-muted">Confirm hone ke baad saman kharid ke shaam ko pahuncha denge.</span>
+          <span className="block font-semibold">We will call you to confirm.</span>
+          <span className="text-sm text-muted">After confirming, we buy your items and deliver them in the evening.</span>
         </span>
       </div>
 
@@ -81,7 +81,7 @@ export default function OrderPlaced() {
 
       <p className="mt-4 flex gap-3 px-1 text-sm text-muted">
         <Bookmark size={20} className="shrink-0" />
-        <span>Ye link save kar lo, baad mein order track karne ke liye<br /><span className="text-accent">{trackUrl}</span></span>
+        <span>Save this link to track your order later<br /><span className="text-accent">{trackUrl}</span></span>
       </p>
     </main>
   )

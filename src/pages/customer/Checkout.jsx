@@ -112,7 +112,7 @@ export default function Checkout() {
         <Link to="/cart" className="flex items-center gap-2 text-muted"><ArrowLeft size={20} /> Back</Link>
       </header>
       <h1 className="mt-5 text-3xl font-black">Checkout</h1>
-      <p className="text-muted">Apni details bharo aur order place karo</p>
+      <p className="text-muted">Fill in your details and place your order</p>
 
       <form onSubmit={submit} className="mt-4 space-y-3">
         <section className={`${card} space-y-3 p-3`}>
@@ -139,12 +139,12 @@ export default function Checkout() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Delivery location</span>
               <button type="button" onClick={locate} disabled={locating} className="flex h-9 items-center gap-1.5 rounded-full border border-accent/60 px-3 text-xs font-semibold text-accent disabled:opacity-50">
-                <LocateFixed size={15} /> {locating ? 'Dhundh rahe hain...' : 'Meri location'}
+                <LocateFixed size={15} /> {locating ? 'Finding...' : 'My location'}
               </button>
             </div>
             <LocationPicker value={location} onChange={setLocation} start={store.location} home={store.location} />
             <p className="text-xs text-muted">
-              {location ? 'Pin galat jagah hai? Pin ko khiska ke ya map pe tap karke apna ghar chuno.' : locError || 'Location aa rahi hai... Ya map pe tap karke apna ghar chuno.'}
+              {location ? 'Pin in the wrong place? Drag it or tap the map to choose your home.' : locError || 'Getting your location... Or tap the map to choose your home.'}
             </p>
             {quote && (
               quote.tooFar ? (
@@ -167,8 +167,8 @@ export default function Checkout() {
         <button type="button" onClick={() => setSubstitute(!substitute)} className={`${card} flex w-full items-center gap-3 p-4 text-left`}>
           <Repeat size={22} className="shrink-0 text-muted" />
           <span className="flex-1">
-            <span className="block font-semibold">Ye brand na mile toh similar brand chalega</span>
-            <span className="text-xs text-muted">Same type aur size, price lagbhag same</span>
+            <span className="block font-semibold">If this brand isn't available, a similar brand is OK</span>
+            <span className="text-xs text-muted">Same type and size, about the same price</span>
           </span>
           <span className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', substitute ? 'bg-accent' : 'bg-white/20')}>
             <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-ink transition-all', substitute ? 'left-[22px]' : 'left-0.5 bg-white')} />
@@ -178,8 +178,8 @@ export default function Checkout() {
         <section className={`${card} space-y-2 p-3`}>
           <h2 className="px-1 pt-1 font-bold">Payment method</h2>
           {[
-            ['cash', Banknote, 'Cash on delivery', 'Saman milne pe cash do'],
-            ['upi', Smartphone, 'UPI on delivery', 'Delivery pe QR scan karke pay karo'],
+            ['cash', Banknote, 'Cash on delivery', 'Pay cash when you receive your items'],
+            ['upi', Smartphone, 'UPI on delivery', 'Scan our QR and pay at delivery'],
           ].map(([value, Icon, title, note]) => (
             <button key={value} type="button" onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', payment === value ? 'border-accent' : 'border-line')}>
               <Radio on={payment === value} />
@@ -195,7 +195,7 @@ export default function Checkout() {
         <section className={`${card} p-4`}>
           <h2 className="font-bold">Bill summary</h2>
           <div className="mt-2 flex justify-between text-muted"><span>Items ({lines.reduce((s, l) => s + l.qty, 0)})</span><span>{rupee(subtotal)}</span></div>
-          <div className="mt-1 flex justify-between text-muted"><span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span><span>{fee === null ? 'Location chuno' : rupee(fee)}</span></div>
+          <div className="mt-1 flex justify-between text-muted"><span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span><span>{fee === null ? 'Choose location' : rupee(fee)}</span></div>
           <p className="mt-1 text-xs text-muted">{feeRuleText(store)}</p>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>
         </section>
@@ -205,12 +205,12 @@ export default function Checkout() {
         {error && <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">{error}</p>}
         <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>{busy ? 'Placing...' : 'Place order'}</button>
         <p className="text-center text-xs text-muted">
-          Hum aapko call karke order confirm karenge. Confirm hone ke baad saman kharid liya jaata hai, isliye uske baad cancel nahi hoga.
+          We will call you to confirm your order. Once confirmed, we buy your items, so the order can't be cancelled after that.
         </p>
         <p className="text-center text-xs text-muted">
-          Order karke aap hamari <Link to="/policy/terms" className="underline">Terms</Link>,{' '}
-          <Link to="/policy/refund" className="underline">Refund policy</Link> aur{' '}
-          <Link to="/policy/privacy" className="underline">Privacy policy</Link> se agree karte ho.
+          By placing an order you agree to our <Link to="/policy/terms" className="underline">Terms</Link>,{' '}
+          <Link to="/policy/refund" className="underline">Refund policy</Link> and{' '}
+          <Link to="/policy/privacy" className="underline">Privacy policy</Link>.
         </p>
       </form>
     </main>

@@ -86,3 +86,6 @@ export function matches(text, query) {
 }
 
 export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', completed: 'Delivered', cancelled: 'Cancelled' })[s] ?? s
+
+// "1 item", "3 items"
+export const itemsText = (n) => `${n} item${n === 1 ? '' : 's'}`

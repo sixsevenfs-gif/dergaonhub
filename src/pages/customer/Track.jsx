@@ -11,9 +11,9 @@ import { cleanPhone, fmtDateTime, rupee, slotText, statusLabel } from '../../lib
 import { waLink } from '../../lib/whatsapp.js'
 
 const STEPS = [
-  ['placed', 'Placed', 'Order hume mil gaya'],
-  ['confirmed', 'Confirmed', 'Confirm ho gaya, saman shaam ko aayega'],
-  ['completed', 'Delivered', 'Saman mil gaya. Thank you!'],
+  ['placed', 'Placed', 'We have received your order'],
+  ['confirmed', 'Confirmed', 'Confirmed, arriving this evening'],
+  ['completed', 'Delivered', 'Delivered. Thank you!'],
 ]
 
 function FindByPhone() {
@@ -25,7 +25,7 @@ function FindByPhone() {
   }
   return (
     <section className={`${card} p-4`}>
-      <h2 className="font-bold">Phone number se order dhundo</h2>
+      <h2 className="font-bold">Find an order by phone number</h2>
       <form onSubmit={find} className="mt-3 flex gap-2">
         <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="10 digit number" className={field} />
         <button type="submit" disabled={cleanPhone(phone).length !== 10} className="h-12 shrink-0 rounded-xl bg-accent px-5 font-bold text-ink disabled:opacity-40">Find</button>
@@ -41,7 +41,7 @@ function FindByPhone() {
               <ChevronRight size={18} className="text-muted" />
             </Link>
           ))}
-          {!list.length && <p className="text-sm text-muted">Is number se koi order nahi mila.</p>}
+          {!list.length && <p className="text-sm text-muted">No orders found for this number.</p>}
         </div>
       )}
     </section>
@@ -58,7 +58,7 @@ export default function Track() {
       <h1 className="mt-5 text-3xl font-black">Order status</h1>
 
       {data && <OrderView data={data} />}
-      {orderNumber && data === null && <p className="mt-4 text-muted">Order #{orderNumber} nahi mila.</p>}
+      {orderNumber && data === null && <p className="mt-4 text-muted">Order #{orderNumber} not found.</p>}
 
       <div className="mt-5">
         <FindByPhone />
@@ -121,13 +121,13 @@ function OrderView({ data }) {
 
       {complaints.length > 0 && (
         <section className={`${card} mt-3 space-y-2 p-4`}>
-          <h2 className="font-bold">Aapki complaint</h2>
+          <h2 className="font-bold">Your complaint</h2>
           {complaints.map((k) => (
             <div key={k.id} className="rounded-xl border border-line p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{k.type}</span>
                 <span className={cx('rounded-full px-2 py-0.5 text-xs font-bold', k.status === 'open' ? 'bg-orange-500/20 text-orange-300' : 'bg-green-500/20 text-green-300')}>
-                  {k.status === 'open' ? 'Dekh rahe hain' : 'Solved'}
+                  {k.status === 'open' ? 'Looking into it' : 'Solved'}
                 </span>
               </div>
               {k.message && <p className="mt-1 text-muted">{k.message}</p>}
@@ -143,7 +143,7 @@ function OrderView({ data }) {
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <a href={`tel:${store.phone}`} className={btnOutline}><Phone size={18} /> Call us</a>
-        <a href={waLink(store.whatsapp, `Order #${order.order_number} ke baare mein`)} target="_blank" rel="noreferrer" className={`${btnAccent} min-h-11 text-base`}>
+        <a href={waLink(store.whatsapp, `About order #${order.order_number}`)} target="_blank" rel="noreferrer" className={`${btnAccent} min-h-11 text-base`}>
           <WhatsAppIcon size={18} /> WhatsApp
         </a>
       </div>

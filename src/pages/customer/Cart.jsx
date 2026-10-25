@@ -9,7 +9,7 @@ import { deliveryQuote, feeRuleText } from '../../lib/delivery.js'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { useCart } from '../../lib/cart-context.js'
-import { rupee, slotDate, slotText } from '../../lib/format.js'
+import { itemsText, rupee, slotDate, slotText } from '../../lib/format.js'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -24,9 +24,9 @@ export default function Cart() {
         <TopBar />
         <div className="mt-20 flex flex-col items-center text-center">
           <ShoppingCart size={56} className="text-muted" strokeWidth={1.5} />
-          <h1 className="mt-4 text-2xl font-bold">Cart khaali hai</h1>
-          <p className="mt-1 text-muted">Store se saman add karo.</p>
-          <Link to="/" className={`${btnAccent} mt-6 max-w-60`}>Saman dekho</Link>
+          <h1 className="mt-4 text-2xl font-bold">Your cart is empty</h1>
+          <p className="mt-1 text-muted">Add items from the store.</p>
+          <Link to="/" className={`${btnAccent} mt-6 max-w-60`}>Browse items</Link>
         </div>
       </main>
     )
@@ -51,10 +51,10 @@ export default function Cart() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-semibold leading-tight">{l.product?.name ?? 'Item ab nahi hai'}</h3>
+                    <h3 className="font-semibold leading-tight">{l.product?.name ?? 'Item no longer available'}</h3>
                     <p className="text-sm text-muted">{l.product?.size}</p>
                   </div>
-                  <button type="button" aria-label="Hatao" onClick={() => setQty(l.id, 0)} className="-mr-1 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center text-muted">
+                  <button type="button" aria-label="Remove" onClick={() => setQty(l.id, 0)} className="-mr-1 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center text-muted">
                     <Trash2 size={20} />
                   </button>
                 </div>
@@ -64,11 +64,11 @@ export default function Cart() {
                 </div>
               </div>
             </div>
-            {l.product && !l.product.available && <p className="mt-2 text-sm text-red-400">Ye item ab out of stock hai. Isse hatao.</p>}
+            {l.product && !l.product.available && <p className="mt-2 text-sm text-red-400">This item is now out of stock. Please remove it.</p>}
             <input
               value={l.note}
               onChange={(e) => setLineNote(l.id, e.target.value)}
-              placeholder="Note (optional), jaise: fresh wala dena"
+              placeholder="Note (optional), e.g. please pick a fresh one"
               className="mt-3 h-11 w-full rounded-xl border border-line bg-transparent px-3 text-sm placeholder:text-muted/70 focus:border-accent focus:outline-none"
             />
           </div>
@@ -83,7 +83,7 @@ export default function Cart() {
             value={cart.note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="Koi aur cheez add karna ho toh likho..."
+            placeholder="Anything else you need? Write it here..."
             className="mt-1 w-full resize-none bg-transparent text-sm placeholder:text-muted/70 focus:outline-none"
           />
         </span>
@@ -93,8 +93,8 @@ export default function Cart() {
         <Link to="/" className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-4">
           <AlertCircle size={28} className="shrink-0 text-accent" />
           <span className="flex-1">
-            <span className="block font-bold text-accent">{rupee(shortBy)} aur add karo</span>
-            <span className="text-sm text-muted">Minimum order {rupee(store.min_order)} hai.</span>
+            <span className="block font-bold text-accent">Add {rupee(shortBy)} more</span>
+            <span className="text-sm text-muted">Minimum order is {rupee(store.min_order)}.</span>
           </span>
           <ChevronRight size={20} className="text-accent" />
         </Link>
@@ -111,12 +111,12 @@ export default function Cart() {
       {quote?.tooFar && <div className="mt-3"><OutOfArea location={location} label={location.label} km={quote.km} /></div>}
 
       <div className={`${card} mt-3 p-4`}>
-        <div className="flex justify-between text-muted"><span>Subtotal ({lines.reduce((s, l) => s + l.qty, 0)} items)</span><span>{rupee(subtotal)}</span></div>
+        <div className="flex justify-between text-muted"><span>Subtotal ({itemsText(lines.reduce((s, l) => s + l.qty, 0))})</span><span>{rupee(subtotal)}</span></div>
         <div className="mt-1 flex justify-between text-muted">
           <span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span>
-          <span>{fee === null ? 'Checkout pe' : rupee(fee)}</span>
+          <span>{fee === null ? 'At checkout' : rupee(fee)}</span>
         </div>
-        <p className="mt-1 text-xs text-muted">Ghar ki doori se: {feeRuleText(store)}</p>
+        <p className="mt-1 text-xs text-muted">Based on distance: {feeRuleText(store)}</p>
         <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>{fee === null ? 'Items total' : 'Total'}</span><span>{rupee(subtotal + (fee ?? 0))}</span></div>
         <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused || quote?.tooFar} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout

@@ -5,8 +5,8 @@ export default function NotFound() {
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pt-4">
       <Wordmark />
-      <h1 className="mt-16 text-center text-2xl font-bold">Ye page nahi mila</h1>
-      <Link to="/" className="mt-4 block text-center text-accent underline">Home par jao</Link>
+      <h1 className="mt-16 text-center text-2xl font-bold">Page not found</h1>
+      <Link to="/" className="mt-4 block text-center text-accent underline">Go to home</Link>
     </main>
   )
 }

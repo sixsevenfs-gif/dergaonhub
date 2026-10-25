@@ -30,11 +30,11 @@ export const mapsLink = (p) => `https://www.google.com/maps/dir/?api=1&destinati
 export const validPoint = (p) =>
   !!p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180
 
-// Browser location. Resolves to { lat, lng } or rejects with a Hinglish message.
+// Browser location. Resolves to { lat, lng } or rejects with a message for the customer.
 export function currentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Is phone/browser mein location nahi milti. Map pe pin khud lagao.'))
+      reject(new Error('Location is not available on this phone/browser. Please place the pin on the map.'))
       return
     }
     navigator.geolocation.getCurrentPosition(
@@ -43,8 +43,8 @@ export function currentPosition() {
         reject(
           new Error(
             err.code === 1
-              ? 'Location ki permission nahi mili. Map pe pin ko apne ghar pe khiskao.'
-              : 'Location nahi mil paayi. Map pe pin ko apne ghar pe khiskao.',
+              ? 'Location permission was not given. Drag the pin to your home on the map.'
+              : 'Could not get your location. Drag the pin to your home on the map.',
           ),
         ),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },

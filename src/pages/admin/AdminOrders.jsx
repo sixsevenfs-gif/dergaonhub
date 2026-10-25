@@ -7,7 +7,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
 import { adminListOrders, confirmOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { dayLabel, fmtClock, rupee } from '../../lib/format.js'
+import { dayLabel, fmtClock, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 
 const FILTERS = [
@@ -56,7 +56,7 @@ export default function AdminOrders() {
   return (
     <div>
       <h1 className="text-2xl font-black">Orders</h1>
-      <p className="text-sm text-neutral-500">Naya order: customer ko call karo, confirm karo, phir saman kharido.</p>
+      <p className="text-sm text-neutral-500">New order: call the customer, confirm, then buy the items.</p>
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
         {FILTERS.map(([key, label]) => (
           <button
@@ -85,7 +85,7 @@ export default function AdminOrders() {
                 </span>
                 <span className="text-right">
                   <span className="block text-lg font-bold">{rupee(o.total)}</span>
-                  <span className="text-sm text-neutral-500">{o.item_count} items · {o.payment_method === 'cash' ? 'Cash' : 'UPI'}</span>
+                  <span className="text-sm text-neutral-500">{itemsText(o.item_count)} · {o.payment_method === 'cash' ? 'Cash' : 'UPI'}</span>
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
@@ -97,7 +97,7 @@ export default function AdminOrders() {
             {o.status === 'placed' && (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <a href={`tel:${o.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-                <a href={waLink(toWa(o.customer_phone), `Namaste ${o.customer_name}, Dergaon Hub se. Aapka order #${o.order_number} mila hai.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+                <a href={waLink(toWa(o.customer_phone), `Hello ${o.customer_name}, this is Dergaon Hub. We have received your order #${o.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
                   <WhatsAppIcon size={17} />
                 </a>
                 <button type="button" onClick={() => confirmOrder(o.id)} className={lbtnDark}>Confirm</button>
@@ -107,7 +107,7 @@ export default function AdminOrders() {
         ))}
         {!shown.length && (
           <p className="py-10 text-center text-neutral-500">
-            {filter === 'placed' ? 'Koi naya order nahi. Naya order aate hi yahan dikhega (sound ke saath).' : 'Yahan koi order nahi.'}
+            {filter === 'placed' ? 'No new orders. New orders show up here with a sound.' : 'No orders here.'}
           </p>
         )}
       </div>

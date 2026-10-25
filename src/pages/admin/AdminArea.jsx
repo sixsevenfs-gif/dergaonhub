@@ -45,7 +45,7 @@ export default function AdminArea() {
       </header>
       {DEMO_MODE && (
         <p className="bg-amber-100 px-4 py-2 text-center text-xs text-amber-900 print:hidden">
-          Demo mode: admin abhi bina login ke khulta hai. Database connect hone ke baad sirf aapka admin login chalega.
+          Demo mode: admin opens without a login for now. Once the database is connected, only your admin login will work.
         </p>
       )}
       <main className="mx-auto max-w-3xl px-4 pb-16 pt-4">

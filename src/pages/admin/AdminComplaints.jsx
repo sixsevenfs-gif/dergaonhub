@@ -25,13 +25,13 @@ function Complaint({ k, orderId }) {
       {k.message && <p className="rounded-xl bg-neutral-100 p-3 text-sm">{k.message}</p>}
       <div className="grid grid-cols-2 gap-2">
         <a href={`tel:${k.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-        <a href={waLink(toWa(k.customer_phone), `Namaste ${k.customer_name}, Dergaon Hub se. Order #${k.order_number} ki complaint mili.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+        <a href={waLink(toWa(k.customer_phone), `Hello ${k.customer_name}, this is Dergaon Hub. We received your complaint about order #${k.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
           <WhatsAppIcon size={17} /> WhatsApp
         </a>
       </div>
       {k.status === 'open' ? (
         <div className="flex gap-2">
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Customer ko reply, jaise: kal naya packet de denge" className={lfield} />
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reply to the customer, e.g. We will send a new pack tomorrow" className={lfield} />
           <button type="button" onClick={() => resolveComplaint(k.id, note)} className={`${lbtnDark} shrink-0`}>Resolve</button>
         </div>
       ) : (
@@ -53,7 +53,7 @@ export default function AdminComplaints() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Complaints</h1>
-      <p className="text-sm text-neutral-500">Customer "Report a problem" se bhejte hain. Reply likh ke Resolve karo, customer ko apne order page pe dikhega.</p>
+      <p className="text-sm text-neutral-500">Sent by customers with "Report a problem". Write a reply and tap Resolve; the customer sees it on their order page.</p>
       <div className="flex gap-2">
         {[['open', 'Open'], ['resolved', 'Resolved'], ['', 'All']].map(([key, label]) => (
           <button key={label} type="button" onClick={() => setFilter(key)} className={`h-9 rounded-full border px-3 text-sm font-semibold ${filter === key ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
@@ -63,7 +63,7 @@ export default function AdminComplaints() {
       </div>
       <div className="space-y-3">
         {complaints.map((k) => <Complaint key={k.id} k={k} orderId={orderId(k.order_number)} />)}
-        {!complaints.length && <p className={`${lcard} p-6 text-center text-neutral-500`}>Koi complaint nahi. Badhiya!</p>}
+        {!complaints.length && <p className={`${lcard} p-6 text-center text-neutral-500`}>No complaints. Great!</p>}
       </div>
     </div>
   )

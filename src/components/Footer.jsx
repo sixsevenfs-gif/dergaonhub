@@ -17,9 +17,9 @@ export default function Footer({ store }) {
     <footer className="mt-10 space-y-3 border-t border-line pt-6 text-sm text-muted">
       <img src="/brand/png/dergaon-hub-logo-footer.png" alt="Dergaon Hub, powered by Malchetra Groups" className="mb-5 h-auto w-full max-w-[340px]" loading="lazy" />
       <p>
-        <Link to="/track" className="underline underline-offset-4">Order track karo</Link>
+        <Link to="/track" className="underline underline-offset-4">Track order</Link>
         {' · '}
-        <Link to="/account" className="underline underline-offset-4">Mere orders</Link>
+        <Link to="/account" className="underline underline-offset-4">My orders</Link>
       </p>
       <nav className="grid grid-cols-2 gap-x-4 gap-y-2 py-2">
         {POLICY_LINKS.map(([slug, label]) => (
@@ -27,9 +27,9 @@ export default function Footer({ store }) {
         ))}
       </nav>
       <p>
-        Apni dukaan ki website banwani hai?{' '}
-        <a href={waLink(store.whatsapp, 'Namaste, mujhe apni dukaan ki website banwani hai.')} target="_blank" rel="noreferrer" className="font-semibold text-accent underline underline-offset-4">
-          WhatsApp karo
+        Want a website for your shop?{' '}
+        <a href={waLink(store.whatsapp, 'Hello, I would like a website for my shop.')} target="_blank" rel="noreferrer" className="font-semibold text-accent underline underline-offset-4">
+          WhatsApp us
         </a>
       </p>
       <p className="pt-2 text-xs">© {new Date().getFullYear()} {LEGAL.COMPANY} · FSSAI: {LEGAL.FSSAI}</p>

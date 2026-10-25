@@ -35,13 +35,13 @@ export default function DeliverySheet() {
 
       {unconfirmed > 0 && (
         <Link to="/admin/orders" className="block rounded-xl bg-orange-50 p-3 text-sm text-orange-800 print:hidden">
-          {unconfirmed} order abhi confirm nahi hue. Pehle call karke confirm karo, phir saman kharido.
+          {unconfirmed} order(s) not confirmed yet. Call and confirm them before buying the items.
         </Link>
       )}
 
       {data.shopping.length > 0 && (
         <section className={`${lcard} p-4`}>
-          <h2 className="flex items-center gap-2 font-bold"><ShoppingBasket size={20} /> Shopping list (ek baar mein sab kharido)</h2>
+          <h2 className="flex items-center gap-2 font-bold"><ShoppingBasket size={20} /> Shopping list (buy everything in one trip)</h2>
           <div className="mt-2 divide-y divide-neutral-100 text-sm">
             {data.shopping.map((s) => (
               <label key={s.name} className="flex items-center gap-3 py-2">
@@ -52,7 +52,7 @@ export default function DeliverySheet() {
               </label>
             ))}
           </div>
-          <p className="mt-2 text-right text-sm text-neutral-500">Site price se total: {rupee(data.shopping.reduce((t, s) => t + s.cost, 0))}</p>
+          <p className="mt-2 text-right text-sm text-neutral-500">Total at site prices: {rupee(data.shopping.reduce((t, s) => t + s.cost, 0))}</p>
         </section>
       )}
 
@@ -74,11 +74,11 @@ export default function DeliverySheet() {
                       <p className="text-sm">{o.address}</p>
                       {o.location && (
                         <a href={mapsLink(o.location)} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-blue-700 underline print:hidden">
-                          <Navigation size={14} /> Raasta · {o.distance_km} km
+                          <Navigation size={14} /> Directions · {o.distance_km} km
                         </a>
                       )}
                       <p className="mt-1 text-sm text-neutral-600">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>
-                      {!o.allow_substitute && <p className="flex items-center gap-1 text-xs font-semibold text-orange-600"><Repeat size={12} /> Sirf yahi brand</p>}
+                      {!o.allow_substitute && <p className="flex items-center gap-1 text-xs font-semibold text-orange-600"><Repeat size={12} /> Only this brand</p>}
                       {o.note && <p className="text-sm text-neutral-600">Note: {o.note}</p>}
                     </div>
                     <div className="text-right">
@@ -91,7 +91,7 @@ export default function DeliverySheet() {
                   <div className="mt-3 print:hidden">
                     {o.status === 'confirmed' && <DeliveredButton order={o} items={o.items} className="w-full" />}
                     {done && <button type="button" onClick={() => reopenOrder(o.id)} className={`${lbtnOutline} w-full`}>Undo delivered</button>}
-                    {o.status === 'placed' && <p className="text-xs text-orange-600">Pehle confirm karo.</p>}
+                    {o.status === 'placed' && <p className="text-xs text-orange-600">Confirm first.</p>}
                   </div>
                 </div>
               )
@@ -99,7 +99,7 @@ export default function DeliverySheet() {
           </div>
         </section>
       ))}
-      {!data.count && <p className={`${lcard} p-6 text-center text-neutral-500`}>Is din koi delivery nahi.</p>}
+      {!data.count && <p className={`${lcard} p-6 text-center text-neutral-500`}>No deliveries on this day.</p>}
     </div>
   )
 }

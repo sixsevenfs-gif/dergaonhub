@@ -157,7 +157,7 @@ export function makeSeed() {
   orders[0].cash_collected = orders[0].total
 
   const complaints = [
-    { id: 'k1', order_id: 'o1001', order_number: 'DG-1001', customer_phone: '9000000101', customer_name: 'Ritu Das', type: 'Missing item', message: 'Chai ka packet nahi mila.', status: 'open', admin_note: '', created_at: now, resolved_at: null },
+    { id: 'k1', order_id: 'o1001', order_number: 'DG-1001', customer_phone: '9000000101', customer_name: 'Ritu Das', type: 'Missing item', message: 'The tea pack was missing.', status: 'open', admin_note: '', created_at: now, resolved_at: null },
   ]
 
   return {

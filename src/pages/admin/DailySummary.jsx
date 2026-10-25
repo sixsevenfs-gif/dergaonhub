@@ -29,11 +29,11 @@ function ExpenseForm({ date, summary }) {
   }
   return (
     <form onSubmit={save} className={`${lcard} space-y-3 p-4`}>
-      <h2 className="font-bold">Aaj dukaan pe kitna kharch hua?</h2>
-      <p className="text-sm text-neutral-500">Saare dukaan ke bill jod ke daalo. Petrol bhi jod sakte ho.</p>
+      <h2 className="font-bold">How much did you spend at the shops?</h2>
+      <p className="text-sm text-neutral-500">Add up all shop bills. You can include petrol too.</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Amount (₹)"><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={lfield} /></Field>
-        <Field label="Note"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Sharma + Nath store" className={lfield} /></Field>
+        <Field label="Note"><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Sharma + Nath store" className={lfield} /></Field>
       </div>
       <div className="flex items-center gap-3">
         <button type="submit" className={lbtnDark}>Save</button>
@@ -54,7 +54,7 @@ export default function DailySummary() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">Daily summary · {dayLabel(date)}</h1>
-          <p className="text-sm text-neutral-600">Sirf delivered orders gine jaate hain.</p>
+          <p className="text-sm text-neutral-600">Only delivered orders are counted.</p>
         </div>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${lfieldBase} w-40`} />
       </div>
@@ -64,10 +64,10 @@ export default function DailySummary() {
         <Row label="Cancelled (no-show)" value={`${s.cancelled} (${s.noShows})`} />
         <Row label="Cash collected" value={rupee(s.cash)} />
         <Row label="UPI received" value={rupee(s.upi)} />
-        <Row label="Delivery fees (inme shaamil)" value={rupee(s.fees)} />
-        <Row label="Total aaya" value={rupee(s.collected)} strong />
-        <Row label="Dukaan pe kharch" value={`− ${rupee(s.spent)}`} />
-        <Row label={s.profit >= 0 ? 'Aaj ki kamai' : 'Aaj ka ghata'} value={rupee(s.profit)} strong />
+        <Row label="Delivery fees (included above)" value={rupee(s.fees)} />
+        <Row label="Total received" value={rupee(s.collected)} strong />
+        <Row label="Spent at shops" value={`− ${rupee(s.spent)}`} />
+        <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />
       </section>
 
       <ExpenseForm key={date} date={date} summary={s} />

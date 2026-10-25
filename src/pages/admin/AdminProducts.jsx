@@ -59,7 +59,7 @@ function AddProduct({ categories, onDone }) {
   }
   return (
     <form onSubmit={submit} className={`${lcard} space-y-3 p-4`}>
-      <h2 className="font-bold">Naya product</h2>
+      <h2 className="font-bold">New product</h2>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Name"><input required value={form.name} onChange={set('name')} className={lfield} /></Field>
         <Field label="Size"><input value={form.size} onChange={set('size')} placeholder="1 kg" className={lfield} /></Field>
@@ -70,7 +70,7 @@ function AddProduct({ categories, onDone }) {
         </Field>
         <Field label="Price (₹)"><input required type="number" min="1" value={form.price} onChange={set('price')} className={lfield} /></Field>
       </div>
-      <Field label="Search keywords" hint="Hindi/English spellings, jaise: atta, aata, flour, gehu">
+      <Field label="Search keywords" hint="Hindi/English spellings, e.g. atta, aata, flour, gehu">
         <input value={form.keywords} onChange={set('keywords')} className={lfield} />
       </Field>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -88,8 +88,8 @@ function ImportCSV() {
   }
   return (
     <section className={`${lcard} space-y-2 p-4`}>
-      <h2 className="font-bold">Bahut saare products ek saath (CSV)</h2>
-      <p className="text-sm text-neutral-500">Google Sheet ko CSV mein download karo. Columns: <code>name,size,category,keywords,price</code></p>
+      <h2 className="font-bold">Add many products at once (CSV)</h2>
+      <p className="text-sm text-neutral-500">Download your Google Sheet as CSV. Columns: <code>name,size,category,keywords,price</code></p>
       <input type="file" accept=".csv,text/csv" onChange={readFile} className="block text-sm" />
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder={'name,size,category,keywords,price\nSaffola Gold Oil,1 L,oil,"oil tel saffola",190'} className={`${lfield} h-auto py-2 font-mono text-sm`} />
       <button type="button" disabled={!text.trim()} onClick={async () => setResult(await importProductsCSV(text))} className={lbtnDark}><Upload size={17} /> Import</button>
@@ -113,7 +113,7 @@ export default function AdminProducts() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">Products</h1>
-          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · photo badalne ke liye box pe tap karo · ⭐ = home pe Popular</p>
+          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · tap the box to change a photo · ⭐ = shown in Popular on home</p>
         </div>
         <button type="button" onClick={() => setAdding(!adding)} className={adding ? lbtnOutline : lbtnDark}><Plus size={18} /> {adding ? 'Close' : 'Add'}</button>
       </div>
@@ -152,7 +152,7 @@ export default function AdminProducts() {
               type="button"
               onClick={() => updateProduct(p.id, { featured: !p.featured })}
               aria-label={p.featured ? 'Remove from popular' : 'Show in popular'}
-              title="Home pe 'Popular essentials' mein dikhao"
+              title="Show in 'Popular essentials' on home"
               className={`flex h-10 w-10 items-center justify-center rounded-lg border ${p.featured ? 'border-amber-300 bg-amber-50 text-amber-500' : 'border-neutral-200 text-neutral-300'}`}
             >
               <Star size={18} fill={p.featured ? 'currentColor' : 'none'} />
@@ -167,7 +167,7 @@ export default function AdminProducts() {
             </div>
           </div>
         ))}
-        {!shown.length && <p className="py-8 text-center text-neutral-500">Koi product nahi mila.</p>}
+        {!shown.length && <p className="py-8 text-center text-neutral-500">No products found.</p>}
       </div>
     </div>
   )

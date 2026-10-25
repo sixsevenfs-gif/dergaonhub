@@ -13,7 +13,7 @@ import { card, field } from '../../components/ui.js'
 import { getStore, listCategories, listProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
-import { matches, rupee } from '../../lib/format.js'
+import { itemsText, matches, rupee } from '../../lib/format.js'
 
 function ProductCard({ p, qty, onQty, disabled }) {
   return (
@@ -125,7 +125,7 @@ export default function Home() {
           <HeroSlider onShop={browseAll} />
 
           {store.paused ? (
-            <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">Store abhi band hai. Thodi der baad order karo.</p>
+            <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">The store is closed right now. Please order a little later.</p>
           ) : (
             <div className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
               <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />
@@ -171,11 +171,11 @@ export default function Home() {
           <ProductCard key={p.id} p={p} qty={qtyOf(p.id)} onQty={(v) => setQty(p.id, v)} disabled={store.paused} />
         ))}
       </div>
-      {!list.length && <p className="py-10 text-center text-muted">Koi product nahi mila. Dusra naam try karo.</p>}
+      {!list.length && <p className="py-10 text-center text-muted">No products found. Try another name.</p>}
 
       {!browsing && (
         <button type="button" onClick={browseAll} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-line font-semibold">
-          Saare {products.length} products dekho <ArrowRight size={18} />
+          See all {products.length} products <ArrowRight size={18} />
         </button>
       )}
 
@@ -194,7 +194,7 @@ export default function Home() {
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-0 px-4 pb-4">
           <Link to="/cart" className="mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl bg-accent px-5 text-ink shadow-lg">
-            <span className="flex items-center gap-3 text-lg font-bold"><ShoppingCart size={22} /> {count} items · {rupee(cartTotal)}</span>
+            <span className="flex items-center gap-3 text-lg font-bold"><ShoppingCart size={22} /> {itemsText(count)} · {rupee(cartTotal)}</span>
             <span className="flex items-center gap-1 font-bold">View cart <ArrowRight size={20} /></span>
           </Link>
         </div>

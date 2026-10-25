@@ -27,7 +27,7 @@ export function orderMessage({ order, items, store }) {
     `Delivery fee: ${rupee(order.delivery_fee)}`,
     `Total: ${rupee(order.total)}`,
     `Payment: ${order.payment_method === 'cash' ? 'Cash on delivery' : 'UPI on delivery'}`,
-    `Similar brand chalega: ${order.allow_substitute ? 'Haan' : 'Nahi'}`,
+    `Similar brand OK: ${order.allow_substitute ? 'Yes' : 'No'}`,
     ...(order.note ? [`Note: ${order.note}`] : []),
     '',
     `Track: ${trackUrl(order)}`,
@@ -47,7 +47,7 @@ export function billMessage({ order, items }) {
     `*Total: ${rupee(order.total)}*`,
     `Paid: ${paid} ✅`,
     '',
-    'Thank you! Koi problem ho toh is link pe report karo:',
+    'Thank you! If anything is wrong, report it here:',
     trackUrl(order),
   ].join('\n')
 }

@@ -44,11 +44,11 @@ export default function TopBar() {
         <MapPin size={13} className="shrink-0 text-accent" />
         {location ? (
           <span className="truncate">
-            Deliver to <b className="text-white">{location.label || 'aapki location'}</b>
+            Deliver to <b className="text-white">{location.label || 'your location'}</b>
             {quote?.tooFar && <span className="text-orange-300"> · not available yet</span>}
           </span>
         ) : (
-          <span>Delivery location set karo · <span className="text-accent underline">Set karo</span></span>
+          <span>Set your delivery location · <span className="text-accent underline">Set now</span></span>
         )}
       </button>
 
