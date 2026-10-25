@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
-import { adminStats } from '../../lib/store.js'
+import AdminLogin from './AdminLogin.jsx'
+import { adminSession, adminSignOut, adminStats } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { DEMO_MODE } from '../../config.js'
 
@@ -16,8 +18,15 @@ const NAV = [
   ['/admin/settings', 'Settings'],
 ]
 
-// Founder-only area. With the database, only the admin login can open it.
+// Founder-only area. With the database, only the admin login can open it (demo mode skips the login).
 export default function AdminArea() {
+  const { data: session, error, reload } = useData(adminSession)
+  if (session === undefined && !error) return null
+  if (!session?.isAdmin) return <AdminLogin onDone={reload} />
+  return <AdminShell email={session.email} />
+}
+
+function AdminShell({ email }) {
   const { data: stats } = useData(adminStats)
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
@@ -26,6 +35,11 @@ export default function AdminArea() {
           <Wordmark theme="light" />
           <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase text-white">Admin</span>
           {stats?.paused && <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">Store paused</span>}
+          {!DEMO_MODE && (
+            <button type="button" onClick={adminSignOut} title={email} className="ml-auto flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-neutral-600">
+              <LogOut size={16} /> Log out
+            </button>
+          )}
         </div>
         <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
           {NAV.map(([to, label, countKey]) => (

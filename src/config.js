@@ -10,8 +10,8 @@ export const CONFIG = {
   COMPLAINT_TYPES: ['Wrong item', 'Missing item', 'Damaged / expired', 'Late delivery', 'Payment issue', 'Other'],
 }
 
-// Demo mode: data is saved in this browser only (localStorage) until the database is connected.
-export const DEMO_MODE = true
+// Demo mode: no Supabase keys in .env, so data is saved in this browser only (localStorage).
+export const DEMO_MODE = !(import.meta.env?.VITE_SUPABASE_URL && import.meta.env?.VITE_SUPABASE_ANON_KEY)
 
 // Business details shown on the policy pages (/policy/...). Fill the [TBD] ones before launch.
 // Phone and WhatsApp come from Admin → Settings.
