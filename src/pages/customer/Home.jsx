@@ -60,12 +60,14 @@ export default function Home() {
   const { cart, count, qtyOf, setQty } = useCart()
 
   const usedCats = categories.filter((c) => products.some((p) => p.category_id === c.id))
-  const browsing = showAll || cat || q.trim()
+  const searching = q.trim() !== ''
+  const browsing = showAll || cat || searching
   // Popular items follow the category order (atta, rice, daal, oil...), like the shelf in a shop.
   const catOrder = (p) => categories.findIndex((c) => c.id === p.category_id)
   const popular = products.filter((p) => p.featured).sort((a, b) => catOrder(a) - catOrder(b))
   const shown = useMemo(
-    () => products.filter((p) => (!cat || p.category_id === cat) && (!q.trim() || matches(`${p.name} ${p.size} ${p.keywords}`, q))),
+    // While searching, every category is searched; otherwise the chosen category is shown.
+    () => products.filter((p) => (q.trim() ? matches(`${p.name} ${p.size} ${p.keywords}`, q) : !cat || p.category_id === cat)),
     [products, cat, q],
   )
   const list = browsing ? shown : (popular.length ? popular : products.slice(0, 4))
@@ -87,50 +89,65 @@ export default function Home() {
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pb-28 pt-4">
       <TopBar />
-
-      <h1 className="mt-5 text-[32px] font-black leading-[1.05] tracking-tight">
-        Everything Dergaon needs, <span className="text-accent">in one place.</span>
-      </h1>
-
-      <section className="relative mt-5 overflow-hidden rounded-2xl border border-accent/50 bg-gradient-to-br from-[#1E2B0F] via-[#131A0B] to-ink">
-        <img
-          src="/photos/hero-groceries.jpg"
-          alt="Atta, rice, oil, daal and fresh vegetables"
-          className="absolute inset-y-0 right-0 h-full w-[60%] object-cover [mask-image:linear-gradient(to_right,transparent,black_22%)]"
-        />
-        <div className="relative w-[50%] py-5 pl-4">
-          <p className="whitespace-nowrap text-[17px] font-black leading-tight">Fresh essentials.</p>
-          <p className="text-[17px] font-black leading-tight text-accent">Delivered to<br />your door.</p>
-          <button type="button" onClick={browseAll} className="mt-3 inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-full bg-accent px-3 text-[13px] font-bold text-ink">
-            Shop groceries <ArrowRight size={16} />
-          </button>
-        </div>
-      </section>
-
-      {store.paused ? (
-        <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">Store abhi band hai. Thodi der baad order karo.</p>
-      ) : (
-        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
-          <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold leading-tight">Same-day delivery on eligible orders</span>
-            <span className="mt-0.5 flex items-center gap-1 text-sm text-muted">
-              <MapPin size={14} className="shrink-0 text-accent" /> {store.delivery_area.join(' • ')}
-            </span>
-          </span>
-        </div>
-      )}
-
-      <div className="relative mt-4">
+      <div className="relative mt-3">
         <Search size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search groceries, staples, household..." className={`${field} h-14 bg-transparent pl-12`} />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value)
+            setCat('') // search always looks in every category
+          }}
+          placeholder="Search groceries, staples, household..."
+          className={`${field} h-14 bg-transparent pl-12`}
+        />
       </div>
+
+      {!searching && (
+        <>
+          <h1 className="mt-5 text-[32px] font-black leading-[1.05] tracking-tight">
+            Everything Dergaon needs, <span className="text-accent">in one place.</span>
+          </h1>
+
+          <section className="relative mt-5 overflow-hidden rounded-2xl border border-accent/50 bg-gradient-to-br from-[#1E2B0F] via-[#131A0B] to-ink">
+            <img
+              src="/photos/hero-groceries.jpg"
+              alt="Atta, rice, oil, daal and fresh vegetables"
+              className="absolute inset-y-0 right-0 h-full w-[60%] object-cover [mask-image:linear-gradient(to_right,transparent,black_22%)]"
+            />
+            <div className="relative w-[50%] py-5 pl-4">
+              <p className="whitespace-nowrap text-[17px] font-black leading-tight">Fresh essentials.</p>
+              <p className="text-[17px] font-black leading-tight text-accent">Delivered to<br />your door.</p>
+              <button type="button" onClick={browseAll} className="mt-3 inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-full bg-accent px-3 text-[13px] font-bold text-ink">
+                Shop groceries <ArrowRight size={16} />
+              </button>
+            </div>
+          </section>
+
+          {store.paused ? (
+            <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">Store abhi band hai. Thodi der baad order karo.</p>
+          ) : (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
+              <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold leading-tight">Same-day delivery on eligible orders</span>
+                <span className="mt-0.5 flex items-center gap-1 text-sm text-muted">
+                  <MapPin size={14} className="shrink-0 text-accent" /> {store.delivery_area.join(' • ')}
+                </span>
+              </span>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="-mx-4 mt-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         {[{ id: '', short: 'All' }, ...usedCats].map((c) => {
           const active = cat === c.id
           return (
-            <button key={c.id || 'all'} type="button" onClick={() => setCat(c.id)} className="flex w-16 shrink-0 flex-col items-center gap-1.5">
+            <button key={c.id || 'all'} type="button" onClick={() => {
+                setCat(c.id)
+                setQ('')
+              }} className="flex w-16 shrink-0 flex-col items-center gap-1.5">
               <span className={`flex h-14 w-14 items-center justify-center rounded-full ${active ? 'bg-accent text-ink' : 'border border-line'}`}>
                 {c.id ? <CategoryIcon id={c.id} size={24} /> : <LayoutGrid size={24} />}
               </span>

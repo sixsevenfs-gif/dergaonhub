@@ -75,9 +75,14 @@ export function normalize(s) {
 }
 
 // Every typed word must be the start of some word in the text ("ata" finds "Atta", not "Patanjali").
+// A plural also finds the single word: "drinks" finds "drink", "biscuits" finds "biscuit".
 export function matches(text, query) {
   const words = normalize(text).split(/\s+/)
-  return normalize(query).split(/\s+/).filter(Boolean).every((q) => words.some((w) => w.startsWith(q)))
+  const found = (q) => words.some((w) => w.startsWith(q))
+  return normalize(query)
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((q) => found(q) || (q.length > 3 && q.endsWith('s') && found(q.slice(0, -1))))
 }
 
 export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', completed: 'Delivered', cancelled: 'Cancelled' })[s] ?? s
