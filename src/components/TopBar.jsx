@@ -8,7 +8,6 @@ import { getStore } from '../lib/store.js'
 import { useData } from '../lib/useData.js'
 import { useSavedDelivery } from '../lib/customerLocation.js'
 import { deliveryQuote } from '../lib/delivery.js'
-import { rupee } from '../lib/format.js'
 
 // Customer header: logo, then location, account and cart. Below it, where we deliver to.
 export default function TopBar() {
@@ -46,7 +45,7 @@ export default function TopBar() {
         {location ? (
           <span className="truncate">
             Deliver to <b className="text-white">{location.label || 'aapki location'}</b>
-            {quote && (quote.tooFar ? <span className="text-orange-300"> · not available yet</span> : ` · ${quote.km} km · fee ${rupee(quote.fee)}`)}
+            {quote?.tooFar && <span className="text-orange-300"> · not available yet</span>}
           </span>
         ) : (
           <span>Delivery location set karo · <span className="text-accent underline">Set karo</span></span>
