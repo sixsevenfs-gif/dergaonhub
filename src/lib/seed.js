@@ -91,12 +91,25 @@ export function makeSeed() {
   const now = new Date().toISOString()
   const today = dateStr()
 
-  // Demo pictures come from scripts/make-demo-photos.mjs; real photos replace them before launch.
-  const products = LIB.map(([name, size, category_id, keywords, price], i) => ({
-    id: `p${i + 1}`, name, size, category_id, keywords, price,
-    photo_url: `/demo/products/p${i + 1}.svg`,
-    available: name !== 'Dove Shampoo', status: 'active', updated_at: now,
-  }))
+  // Founder's own photos (public/photos). Products without one get a demo drawing
+  // from scripts/make-demo-photos.mjs until a real photo is added in Admin → Products.
+  const PHOTOS = {
+    'Aashirvaad Atta 5 kg': 'aashirvaad-atta-5kg.jpg',
+    'India Gate Basmati Rice 1 kg': 'india-gate-basmati-rice.jpg',
+    'India Gate Basmati Rice 5 kg': 'india-gate-basmati-rice.jpg',
+    'Toor Daal 1 kg': 'toor-dal-1kg.jpg',
+    'Fortune Sunflower Oil 1 L': 'sunflower-oil-1l.jpg',
+  }
+  const POPULAR = ['Aashirvaad Atta 5 kg', 'India Gate Basmati Rice 5 kg', 'Toor Daal 1 kg', 'Fortune Sunflower Oil 1 L']
+  const products = LIB.map(([name, size, category_id, keywords, price], i) => {
+    const key = `${name} ${size}`
+    return {
+      id: `p${i + 1}`, name, size, category_id, keywords, price,
+      photo_url: PHOTOS[key] ? `/photos/${PHOTOS[key]}` : `/demo/products/p${i + 1}.svg`,
+      featured: POPULAR.includes(key),
+      available: name !== 'Dove Shampoo', status: 'active', updated_at: now,
+    }
+  })
   const pid = (name, size) => products.find((p) => p.name === name && p.size === size)
 
   const store = {

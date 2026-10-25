@@ -63,8 +63,11 @@ Change the numbers in `src/config.js`; store timings and fees in Admin → Setti
 
 ## Photos
 
-Product photos are not copied from other sites (copyright). In **Admin → Products**,
-tap the box next to a product to add your own photo (it is shrunk automatically).
+In **Admin → Products**, tap the box next to a product to add a photo (it is shrunk
+automatically), and tap ⭐ to show it in "Popular essentials" on the home page.
+
+`public/photos/` holds the founder's own photos (home banner, and atta, rice, toor dal,
+sunflower oil).
 
 **Demo pictures:** every demo product has a simple drawing (marked DEMO) in
 `public/demo/products/`, made by `node scripts/make-demo-photos.mjs`. They are not real

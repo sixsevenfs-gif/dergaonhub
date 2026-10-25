@@ -6,7 +6,7 @@ import { CONFIG } from '../config.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
 
-const KEY = 'dergaonhub-demo-v3' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v4' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
@@ -125,7 +125,7 @@ export async function addProduct({ name, size, category_id, keywords, price }) {
   if (!(Number(price) > 0)) fail('Sahi price daalo.')
   const p = {
     id: newId(), name: name.trim(), size: size?.trim() ?? '', category_id, keywords: keywords?.trim() ?? '',
-    price: Number(price), photo_url: '', available: true, status: 'active', updated_at: now(),
+    price: Number(price), photo_url: '', featured: false, available: true, status: 'active', updated_at: now(),
   }
   db.products.push(p)
   commit()
@@ -139,6 +139,7 @@ export async function updateProduct(id, patch) {
     p.price = Number(patch.price)
   }
   if ('available' in patch) p.available = !!patch.available
+  if ('featured' in patch) p.featured = !!patch.featured
   if ('status' in patch) p.status = patch.status
   p.updated_at = now()
   commit()
@@ -203,7 +204,7 @@ export async function importProductsCSV(text) {
     }
     db.products.push({
       id: newId(), name: name.trim(), size: size.trim(), category_id: cat.id, keywords: keywords.trim(),
-      price: Number(price), photo_url: '', available: true, status: 'active', updated_at: now(),
+      price: Number(price), photo_url: '', featured: false, available: true, status: 'active', updated_at: now(),
     })
     added++
   }

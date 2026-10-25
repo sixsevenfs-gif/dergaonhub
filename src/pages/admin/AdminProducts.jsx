@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, Upload } from 'lucide-react'
+import { Plus, Search, Star, Upload } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
@@ -113,7 +113,7 @@ export default function AdminProducts() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">Products</h1>
-          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · photo badalne ke liye box pe tap karo</p>
+          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · photo badalne ke liye box pe tap karo · ⭐ = home pe Popular</p>
         </div>
         <button type="button" onClick={() => setAdding(!adding)} className={adding ? lbtnOutline : lbtnDark}><Plus size={18} /> {adding ? 'Close' : 'Add'}</button>
       </div>
@@ -148,6 +148,15 @@ export default function AdminProducts() {
               <div className="text-sm text-neutral-500">{p.size}</div>
               <div className="text-xs text-neutral-400">Updated {timeAgo(p.updated_at)}{p.status !== 'active' && ' · hidden from customers'}</div>
             </div>
+            <button
+              type="button"
+              onClick={() => updateProduct(p.id, { featured: !p.featured })}
+              aria-label={p.featured ? 'Remove from popular' : 'Show in popular'}
+              title="Home pe 'Popular essentials' mein dikhao"
+              className={`flex h-10 w-10 items-center justify-center rounded-lg border ${p.featured ? 'border-amber-300 bg-amber-50 text-amber-500' : 'border-neutral-200 text-neutral-300'}`}
+            >
+              <Star size={18} fill={p.featured ? 'currentColor' : 'none'} />
+            </button>
             <PriceEdit key={p.price} product={p} />
             <div className="flex items-center gap-2">
               <span className={`w-14 text-right text-xs font-semibold ${p.available ? 'text-green-700' : 'text-neutral-500'}`}>{p.available ? 'In stock' : 'Out'}</span>

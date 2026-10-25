@@ -1,9 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" font-family="Arial, Helvetica, sans-serif">
-<rect width="400" height="400" fill="#F4F3EF"/>
-<ellipse cx="200" cy="355" rx="110" ry="12" fill="#000" opacity=".08"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" font-family="Arial, Helvetica, sans-serif">
+<defs><radialGradient id="g" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2A2A27"/><stop offset="1" stop-color="#141413"/></radialGradient></defs>
+<rect width="480" height="300" fill="url(#g)"/>
+<g transform="translate(96 8) scale(.72)">
+<ellipse cx="200" cy="355" rx="120" ry="14" fill="#000" opacity=".45"/>
 <path d="M130 110 L200 70 L270 110 L270 345 L130 345 Z" fill="#3B8FD9"/><path d="M130 110 L200 70 L270 110 Z" fill="#fff" opacity=".35"/>
 <rect x="92" y="158" width="216" height="104" rx="14" fill="#fff" opacity=".94"/>
 <g fill="#1C1C1A"><text x="200" y="200" text-anchor="middle" font-size="33" font-weight="800">Amul Butter</text></g>
 <text x="200" y="244" text-anchor="middle" font-size="26" font-weight="700" fill="#555">100 g</text>
-<text x="388" y="388" text-anchor="end" font-size="13" fill="#999">DEMO</text>
+</g>
+<text x="468" y="290" text-anchor="end" font-size="12" fill="#777">DEMO</text>
 </svg>
