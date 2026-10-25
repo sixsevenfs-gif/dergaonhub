@@ -54,8 +54,11 @@ export default function OrderPlaced() {
               <span className="w-14 text-right">{rupee(i.line_total)}</span>
             </div>
           ))}
+          {order.packaging_fee > 0 && (
+            <div className="flex text-sm"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>
+          )}
           {order.delivery_fee > 0 && (
-            <div className="flex text-sm"><span className="flex-1 text-muted">Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>
+            <div className="flex text-sm"><span className="flex-1 text-muted">Delivery charge</span><span>{rupee(order.delivery_fee)}</span></div>
           )}
         </div>
         <div className="flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(order.total)}</span></div>

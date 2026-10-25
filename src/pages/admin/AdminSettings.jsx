@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LocateFixed } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import { lbtnDanger, lbtnDark, lcard, lfield } from '../../components/ui.js'
 import { getStore, resetDemo, saveStore } from '../../lib/store.js'
-import { currentPosition } from '../../lib/delivery.js'
+import { currentPosition, packagingFee } from '../../lib/delivery.js'
+import { placeName } from '../../lib/customerLocation.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG, DEMO_MODE } from '../../config.js'
@@ -27,6 +28,16 @@ function SettingsForm({ store }) {
   // Example fees with the rates typed so far (before saving).
   const rates = { ...v, per_km_fee: Number(v.per_km_fee) || 0, min_delivery_fee: Number(v.min_delivery_fee) || 0, max_delivery_km: Number(v.max_delivery_km) || 0 }
   const example = (km) => Math.max(rates.min_delivery_fee, Math.ceil(km) * rates.per_km_fee)
+  // Place name of the delivery center pin.
+  const [centerName, setCenterName] = useState('')
+  useEffect(() => {
+    let live = true
+    placeName(v.location).then((n) => live && setCenterName(n))
+    return () => {
+      live = false
+    }
+  }, [v.location])
+  const packs = { ...v, ...Object.fromEntries(['pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from'].map((k) => [k, Number(v[k]) || 0])) }
   const toggleArea = (a) => setV({ ...v, delivery_area: v.delivery_area.includes(a) ? v.delivery_area.filter((x) => x !== a) : [...v.delivery_area, a] })
 
   const save = async (e) => {
@@ -79,10 +90,13 @@ function SettingsForm({ store }) {
       </section>
 
       <section className={`${lcard} space-y-3 p-4`}>
-        <h2 className="font-bold">Delivery charge (by distance)</h2>
-        <p className="text-sm text-neutral-500">Put the pin on your home (Shantipur, Dergaon). Customer distance is measured from here.</p>
+        <h2 className="font-bold">Delivery center and delivery charge</h2>
+        <p className="text-sm text-neutral-500">The delivery center is where distance is counted from (your home in Shantipur, Dergaon). Drag the pin or tap the map to move it, then Save.</p>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-neutral-500">{v.location.lat.toFixed(5)}, {v.location.lng.toFixed(5)}</span>
+          <span className="text-sm">
+            <b>Delivery center:</b> {centerName || 'Pinned on map'}
+            <span className="block text-xs text-neutral-500">{v.location.lat.toFixed(5)}, {v.location.lng.toFixed(5)}</span>
+          </span>
           <button type="button" onClick={fetchMyLocation} className={`${lbtnDark} min-h-9 text-sm`}><LocateFixed size={16} /> Use my current location</button>
         </div>
         {locMsg && <p className="text-xs text-neutral-600">{locMsg}</p>}
@@ -93,8 +107,23 @@ function SettingsForm({ store }) {
           <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
         </div>
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
-          Example: 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · 5 km → {rupee(example(5))} · no delivery beyond {rates.max_delivery_km} km.
+          Example: 0.1 km → {rupee(example(0.1))} · 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · no delivery beyond {rates.max_delivery_km} km.
           <span className="block text-xs text-neutral-500">Road distance ≈ straight line × 1.3. Petrol ₹110/L, scooter ~40 km/L: a round trip costs about ₹5.5 per km.</span>
+        </p>
+      </section>
+
+      <section className={`${lcard} space-y-3 p-4`}>
+        <h2 className="font-bold">Packaging charge (by order value)</h2>
+        <p className="text-sm text-neutral-500">Added to every order, based on the items total. Customers see it as "Packaging charge".</p>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label={`Below ₹${packs.pack_mid_from}`}><input type="number" min="0" value={v.pack_fee_low} onChange={set('pack_fee_low')} className={lfield} /></Field>
+          <Field label={`₹${packs.pack_mid_from} – ₹${packs.pack_high_from - 1}`}><input type="number" min="0" value={v.pack_fee_mid} onChange={set('pack_fee_mid')} className={lfield} /></Field>
+          <Field label={`₹${packs.pack_high_from} and above`}><input type="number" min="0" value={v.pack_fee_high} onChange={set('pack_fee_high')} className={lfield} /></Field>
+          <Field label="Middle slab starts at ₹"><input type="number" min="0" value={v.pack_mid_from} onChange={set('pack_mid_from')} className={lfield} /></Field>
+          <Field label="Top slab starts at ₹"><input type="number" min="0" value={v.pack_high_from} onChange={set('pack_high_from')} className={lfield} /></Field>
+        </div>
+        <p className="rounded-xl bg-neutral-100 p-3 text-sm">
+          Example: ₹300 order → {rupee(packagingFee(packs, 300))} · ₹650 → {rupee(packagingFee(packs, 650))} · ₹1200 → {rupee(packagingFee(packs, 1200))}
         </p>
       </section>
 

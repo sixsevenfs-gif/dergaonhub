@@ -89,3 +89,4 @@ insert into public.products (name, size, category_id, keywords, price, photo_url
   ('Harpic Toilet Cleaner', '500 ml', 'cleaning', 'harpic toilet cleaner', 95, '/demo/products/p65.svg', false, true),
   ('Lizol Floor Cleaner', '500 ml', 'cleaning', 'lizol floor cleaner pocha phenyl', 110, '/demo/products/p66.svg', false, true),
   ('Good Knight Refill', '45 ml', 'cleaning', 'good knight mosquito machhar refill', 85, '/demo/products/p67.svg', false, true);
+e6b711d4-7d8b-4dd0-b495-d716d21454a8  insert into public.admins (user_id) values ('e6b711d4-7d8b-4dd0-b495-d716d21454a8');

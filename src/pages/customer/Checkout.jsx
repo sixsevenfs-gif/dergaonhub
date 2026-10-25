@@ -9,7 +9,7 @@ import { currentCustomer, customerSignIn, placeOrder } from '../../lib/store.js'
 import { useCart } from '../../lib/cart-context.js'
 import { fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
-import { currentPosition, deliveryQuote, feeRuleText, validPoint } from '../../lib/delivery.js'
+import { currentPosition, deliveryQuote, packagingFee, validPoint } from '../../lib/delivery.js'
 import { getSavedDetails, getSavedLocation, placeName, saveDetails, saveLocation } from '../../lib/customerLocation.js'
 
 
@@ -79,7 +79,8 @@ export default function Checkout() {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   const quote = deliveryQuote(store, location)
   const fee = quote && !quote.tooFar ? quote.fee : null
-  const total = subtotal + (fee ?? 0)
+  const packaging = packagingFee(store, subtotal)
+  const total = subtotal + (fee ?? 0) + packaging
 
   const submit = async (e) => {
     e.preventDefault()
@@ -150,7 +151,7 @@ export default function Checkout() {
               quote.tooFar ? (
                 <OutOfArea location={location} label={getSavedLocation()?.label} km={quote.km} />
               ) : (
-                <p className="rounded-xl bg-white/5 p-3 text-sm"><b>{quote.km} km</b> door · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
+                <p className="rounded-xl bg-white/5 p-3 text-sm">We deliver here · Delivery charge <b className="text-accent">{rupee(quote.fee)}</b></p>
               )
             )}
           </div>
@@ -195,8 +196,8 @@ export default function Checkout() {
         <section className={`${card} p-4`}>
           <h2 className="font-bold">Bill summary</h2>
           <div className="mt-2 flex justify-between text-muted"><span>Items ({lines.reduce((s, l) => s + l.qty, 0)})</span><span>{rupee(subtotal)}</span></div>
-          <div className="mt-1 flex justify-between text-muted"><span>Delivery fee {quote && !quote.tooFar && `(${quote.km} km)`}</span><span>{fee === null ? 'Choose location' : rupee(fee)}</span></div>
-          <p className="mt-1 text-xs text-muted">{feeRuleText(store)}</p>
+          <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span><span>{fee === null ? 'Choose location' : rupee(fee)}</span></div>
+          <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>
         </section>
 

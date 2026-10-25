@@ -83,6 +83,8 @@ const toStore = (r) => ({
   open_time: hm(r.open_time), close_time: hm(r.close_time), cutoff_time: hm(r.cutoff_time),
   slot_start: hm(r.slot_start), slot_end: hm(r.slot_end),
   max_delivery_km: Number(r.max_delivery_km),
+  pack_mid_from: Number(r.pack_mid_from ?? 500), pack_high_from: Number(r.pack_high_from ?? 1000),
+  pack_fee_low: Number(r.pack_fee_low ?? 0), pack_fee_mid: Number(r.pack_fee_mid ?? 0), pack_fee_high: Number(r.pack_fee_high ?? 0),
   location: { lat: r.lat, lng: r.lng },
 })
 
@@ -104,7 +106,10 @@ export async function saveStore(data) {
     slot_start: data.slot_start, slot_end: data.slot_end, min_order: Number(data.min_order) || 0,
     delivery_area: data.delivery_area, paused: !!data.paused, lat: data.location.lat, lng: data.location.lng,
     per_km_fee: Number(data.per_km_fee) || 0, min_delivery_fee: Number(data.min_delivery_fee) || 0,
-    max_delivery_km: Number(data.max_delivery_km), updated_at: now(),
+    max_delivery_km: Number(data.max_delivery_km),
+    pack_fee_low: Number(data.pack_fee_low) || 0, pack_fee_mid: Number(data.pack_fee_mid) || 0, pack_fee_high: Number(data.pack_fee_high) || 0,
+    pack_mid_from: Number(data.pack_mid_from) || 0, pack_high_from: Number(data.pack_high_from) || 0,
+    updated_at: now(),
   }).eq('id', 1).select().single())
   notify()
   return toStore(row)
@@ -394,14 +399,14 @@ export async function cancelOrder(id, reason) {
 
 // An item was not found at the shop: remove it and recalculate the total.
 export async function removeOrderItem(orderId, itemId) {
-  const o = check(await sb.from('orders').select('status, delivery_fee').eq('id', orderId).single())
+  const o = check(await sb.from('orders').select('status, delivery_fee, packaging_fee').eq('id', orderId).single())
   if (o.status !== 'placed' && o.status !== 'confirmed') fail('This order can no longer be changed.')
   const items = check(await sb.from('order_items').select('id, line_total').eq('order_id', orderId))
   const remaining = items.filter((i) => i.id !== itemId)
   if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
   check(await sb.from('order_items').delete().eq('id', itemId))
   const subtotal = sum(remaining, (i) => i.line_total)
-  check(await sb.from('orders').update({ subtotal, total: subtotal + o.delivery_fee }).eq('id', orderId))
+  check(await sb.from('orders').update({ subtotal, total: subtotal + o.delivery_fee + (o.packaging_fee ?? 0) }).eq('id', orderId))
   notify()
 }
 
@@ -452,7 +457,7 @@ export async function deliverySheet(date) {
 // Money for one day: what customers paid, what was spent at the shops, what is left.
 export async function dailySummary(date) {
   const [day, expense] = await Promise.all([
-    sb.from('orders').select('status, payment_method, total, cash_collected, delivery_fee, cancel_reason').eq('delivery_date', date).then(check),
+    sb.from('orders').select('status, payment_method, total, cash_collected, delivery_fee, packaging_fee, cancel_reason').eq('delivery_date', date).then(check),
     sb.from('daily_expenses').select('*').eq('date', date).maybeSingle().then(check),
   ])
   const done = day.filter((o) => o.status === 'completed')
@@ -464,7 +469,7 @@ export async function dailySummary(date) {
     cancelled: day.filter((o) => o.status === 'cancelled').length,
     noShows: day.filter((o) => o.cancel_reason === 'No-show').length,
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
-    fees: sum(done, (o) => o.delivery_fee), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
+    fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
   }
 }
 

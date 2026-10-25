@@ -4,7 +4,6 @@
 import { CONFIG, LEGAL } from '../config.js'
 import { fmtTime, rupee } from '../lib/format.js'
 import { H, P, UL } from '../components/Prose.jsx'
-import { feeRuleText } from '../lib/delivery.js'
 
 const contactLine = (store) => `phone/WhatsApp +91 ${store.phone}, email ${LEGAL.EMAIL}`
 
@@ -114,7 +113,7 @@ export const POLICIES = {
         <H>Orders</H>
         <UL items={[
           'Placing an order is a request. It is final only after we call you and confirm it.',
-          `Minimum order value is ${rupee(store.min_order)}. The delivery fee depends on distance: ${feeRuleText(store)}. It is shown before you place the order.`,
+          `Minimum order value is ${rupee(store.min_order)}. A delivery charge (by distance, minimum ${rupee(store.min_delivery_fee)}) and a packaging charge (${rupee(store.pack_fee_low)} to ${rupee(store.pack_fee_high)} by order value) are added and shown before you place the order.`,
           `For a phone number's first order, the limit is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. It goes up after a successful delivery.`,
           'We may refuse or cancel an order, for example if an item is not available, the address is outside our delivery area, or details look fake.',
         ]} />
@@ -194,8 +193,10 @@ export const POLICIES = {
         ]} />
         <H>Charges</H>
         <P>
-          Minimum order {rupee(store.min_order)}. Delivery fee depends on how far you are from us: {feeRuleText(store)}.
-          Distance is worked out from the pin you set on the map at checkout, and the fee is shown before you place the order.
+          Minimum order {rupee(store.min_order)}. The delivery charge depends on how far you are from us (minimum{' '}
+          {rupee(store.min_delivery_fee)}), worked out from the pin you set on the map. A packaging charge of{' '}
+          {rupee(store.pack_fee_low)} (orders below {rupee(store.pack_mid_from)}), {rupee(store.pack_fee_mid)} (below{' '}
+          {rupee(store.pack_high_from)}) or {rupee(store.pack_fee_high)} (larger orders) is added. Both are shown before you place the order.
         </P>
         <H>At delivery</H>
         <UL items={[

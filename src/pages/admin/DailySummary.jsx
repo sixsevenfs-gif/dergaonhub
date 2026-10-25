@@ -64,7 +64,8 @@ export default function DailySummary() {
         <Row label="Cancelled (no-show)" value={`${s.cancelled} (${s.noShows})`} />
         <Row label="Cash collected" value={rupee(s.cash)} />
         <Row label="UPI received" value={rupee(s.upi)} />
-        <Row label="Delivery fees (included above)" value={rupee(s.fees)} />
+        <Row label="Delivery charges (included above)" value={rupee(s.fees)} />
+        <Row label="Packaging charges (included above)" value={rupee(s.packaging ?? 0)} />
         <Row label="Total received" value={rupee(s.collected)} strong />
         <Row label="Spent at shops" value={`− ${rupee(s.spent)}`} />
         <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />

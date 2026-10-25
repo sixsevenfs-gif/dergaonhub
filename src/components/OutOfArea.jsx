@@ -30,7 +30,7 @@ export default function OutOfArea({ location, label, km, compact = false }) {
         <MapPinOff size={20} className="shrink-0" /> We are currently not available at your location
       </p>
       <p className="mt-1 text-sm text-orange-100/80">
-        We will be available soon! {label ? `${label} ` : 'Your location '}({km} km) is outside our delivery area for now.
+        We will be available soon! {label || 'Your location'} is outside our delivery area for now.
         {!compact && ' Leave your number and we will tell you on WhatsApp as soon as we start delivering here.'}
       </p>
       {done ? (

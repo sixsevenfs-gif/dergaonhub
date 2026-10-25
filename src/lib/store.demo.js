@@ -3,10 +3,10 @@
 import { CONFIG } from '../config.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
-import { deliveryQuote, validPoint } from './delivery.js'
+import { deliveryQuote, packagingFee, validPoint } from './delivery.js'
 import { parseCSV } from './csv.js'
 
-const KEY = 'dergaonhub-demo-v7' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v8' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -96,6 +96,7 @@ export async function saveStore(data) {
   db.store.per_km_fee = Number(db.store.per_km_fee) || 0
   db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
   db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
+  for (const k of ['pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) db.store[k] = Number(db.store[k]) || 0
   commit()
   return clone(db.store)
 }
@@ -278,7 +279,8 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
 
   const subtotal = sum(items, (i) => i.line_total)
   if (subtotal < store.min_order) fail(`Minimum order is ${rupee(store.min_order)}.`)
-  const total = subtotal + quote.fee
+  const packaging = packagingFee(store, subtotal)
+  const total = subtotal + quote.fee + packaging
   if ((!customer || completedCount(customer.id) === 0) && total > CONFIG.FIRST_ORDER_LIMIT) {
     fail(`The limit for a first order is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. Remove a few items, or call us.`)
   }
@@ -295,7 +297,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
     address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    subtotal, delivery_fee: quote.fee, total, payment_method, cash_collected: 0,
+    subtotal, delivery_fee: quote.fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
     delivery_date: pickDate(), status: 'placed', cancel_reason: '',
     created_at: now(), confirmed_at: null, completed_at: null,
   }
@@ -493,7 +495,7 @@ export async function removeOrderItem(orderId, itemId) {
   if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
-  o.total = o.subtotal + o.delivery_fee
+  o.total = o.subtotal + o.delivery_fee + (o.packaging_fee ?? 0)
   commit()
 }
 
@@ -556,6 +558,7 @@ export async function dailySummary(date) {
     value: sum(done, (o) => o.total),
     cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee),
+    packaging: sum(done, (o) => o.packaging_fee ?? 0),
     spent, spentNote: expense?.note ?? '',
     profit: cash + upi - spent,
   }

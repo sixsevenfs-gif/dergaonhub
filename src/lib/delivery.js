@@ -22,6 +22,13 @@ export function deliveryQuote(store, point) {
   return { km, fee: Math.max(store.min_delivery_fee, Math.ceil(km) * store.per_km_fee), tooFar: false }
 }
 
+// Packaging charge by order value (items only): below pack_mid_from, up to pack_high_from, and above.
+export function packagingFee(store, subtotal) {
+  if (subtotal >= store.pack_high_from) return store.pack_fee_high
+  if (subtotal >= store.pack_mid_from) return store.pack_fee_mid
+  return store.pack_fee_low
+}
+
 export const feeRuleText = (store) =>
   `${rupee(store.per_km_fee)} per km (minimum ${rupee(store.min_delivery_fee)}), up to ${store.max_delivery_km} km`
 

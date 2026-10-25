@@ -43,6 +43,11 @@ create table public.store_settings (
   per_km_fee int not null default 10 check (per_km_fee >= 0),
   min_delivery_fee int not null default 20 check (min_delivery_fee >= 0),
   max_delivery_km numeric not null default 4 check (max_delivery_km > 0),
+  pack_fee_low int not null default 5 check (pack_fee_low >= 0),      -- packaging charge by items total
+  pack_fee_mid int not null default 9 check (pack_fee_mid >= 0),
+  pack_fee_high int not null default 12 check (pack_fee_high >= 0),
+  pack_mid_from int not null default 500 check (pack_mid_from >= 0),
+  pack_high_from int not null default 1000 check (pack_high_from >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -99,6 +104,7 @@ create table public.orders (
   allow_substitute boolean not null default true,
   subtotal int not null,
   delivery_fee int not null,
+  packaging_fee int not null default 0,
   total int not null,
   payment_method text not null check (payment_method in ('cash', 'upi')),
   cash_collected int not null default 0,
@@ -180,6 +186,15 @@ language sql stable security definer set search_path = public as $$
   from d
 $$;
 
+-- Packaging charge by items total (same rule as packagingFee in src/lib/delivery.js).
+create or replace function public.packaging_fee(p_subtotal int) returns int
+language sql stable security definer set search_path = public as $$
+  select case when p_subtotal >= s.pack_high_from then s.pack_fee_high
+              when p_subtotal >= s.pack_mid_from then s.pack_fee_mid
+              else s.pack_fee_low end
+  from store_settings s where s.id = 1
+$$;
+
 /* ---------------- placing an order ---------------- */
 
 -- p_lines: [{ "product_id": "...", "qty": 2, "note": "fresh wala" }, ...]
@@ -199,6 +214,7 @@ declare
   v_qty int;
   v_subtotal int := 0;
   v_total int;
+  v_packaging int;
   v_completed int := 0;
   v_now timestamp := now() at time zone 'Asia/Kolkata';
   v_date date;
@@ -239,7 +255,8 @@ begin
   end loop;
 
   if v_subtotal < s.min_order then raise exception 'Minimum order is ₹%.', s.min_order; end if;
-  v_total := v_subtotal + q.fee;
+  v_packaging := packaging_fee(v_subtotal);
+  v_total := v_subtotal + q.fee + v_packaging;
   if c.id is not null then
     select count(*) into v_completed from orders where customer_id = c.id and status = 'completed';
   end if;
@@ -260,9 +277,9 @@ begin
   end loop;
 
   insert into orders (customer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
-                      note, allow_substitute, subtotal, delivery_fee, total, payment_method, delivery_date)
+                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, total, payment_method, delivery_date)
   values (c.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, q.km,
-          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, q.fee, v_total, p_payment, v_date)
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, q.fee, v_packaging, v_total, p_payment, v_date)
   returning * into v_order;
 
   insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
@@ -314,6 +331,7 @@ end
 $$;
 
 grant execute on function public.delivery_quote(double precision, double precision) to anon, authenticated;
+grant execute on function public.packaging_fee(int) to anon, authenticated;
 grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean) to authenticated;
 grant execute on function public.get_order(text) to anon, authenticated;
 grant execute on function public.expire_old_orders() to authenticated;

@@ -72,7 +72,7 @@ export default function LocationSheet({ store, onClose }) {
         ) : (
           <div className="mt-3 rounded-xl bg-white/5 p-3">
             <p className="flex items-center gap-2 font-semibold"><MapPin size={17} className="text-accent" /> {label || 'Chosen place'}</p>
-            <p className="mt-1 text-sm text-muted">{quote.km} km away · Delivery fee <b className="text-accent">{rupee(quote.fee)}</b></p>
+            <p className="mt-1 text-sm text-muted">We deliver here · Delivery charge <b className="text-accent">{rupee(quote.fee)}</b></p>
           </div>
         ))}
 

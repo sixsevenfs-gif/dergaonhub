@@ -114,7 +114,8 @@ function OrderView({ data }) {
           {items.map((i) => (
             <div key={i.id} className="flex"><span className="flex-1 text-muted">{i.name_snapshot} ×{i.quantity}</span><span>{rupee(i.line_total)}</span></div>
           ))}
-          <div className="flex"><span className="flex-1 text-muted">Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>
+          <div className="flex"><span className="flex-1 text-muted">Delivery charge</span><span>{rupee(order.delivery_fee)}</span></div>
+          {order.packaging_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
           <div className="flex pt-2 text-lg font-bold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
       </section>

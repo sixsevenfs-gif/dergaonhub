@@ -87,7 +87,8 @@ export default function AdminOrderDetail() {
         </div>
         <div className="mt-2 space-y-1 border-t border-neutral-200 pt-2 text-sm">
           <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{rupee(order.subtotal)}</span></div>
-          <div className="flex justify-between text-neutral-600"><span>Delivery fee</span><span>{rupee(order.delivery_fee)}</span></div>
+          <div className="flex justify-between text-neutral-600"><span>Delivery charge{order.distance_km != null && ` (${order.distance_km} km)`}</span><span>{rupee(order.delivery_fee)}</span></div>
+          <div className="flex justify-between text-neutral-600"><span>Packaging charge</span><span>{rupee(order.packaging_fee ?? 0)}</span></div>
           <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{rupee(order.total)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Payment</span><span>{order.payment_method === 'cash' ? 'Cash on delivery' : 'UPI on delivery'}</span></div>
           {order.status === 'completed' && order.payment_method === 'cash' && (

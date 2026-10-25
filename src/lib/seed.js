@@ -1,5 +1,5 @@
 import { addDays, dateStr } from './format.js'
-import { deliveryQuote } from './delivery.js'
+import { deliveryQuote, packagingFee } from './delivery.js'
 
 // Demo data for Dergaon Hub Store. Phone/WhatsApp numbers are fake placeholders.
 
@@ -122,6 +122,8 @@ export function makeSeed() {
     location: { lat: 26.7, lng: 93.97 },
     // Zone 1 (road ~4 km): Dergaon town, bazaar, Dergaon Circle, Radiant College area, Rangamati.
     per_km_fee: 10, min_delivery_fee: 20, max_delivery_km: 4,
+    // Packaging: ₹5 below ₹500, ₹9 from ₹500, ₹12 from ₹1000 (items total).
+    pack_fee_low: 5, pack_fee_mid: 9, pack_fee_high: 12, pack_mid_from: 500, pack_high_from: 1000,
   }
 
   const customers = [
@@ -143,7 +145,8 @@ export function makeSeed() {
     orders.push({
       id, order_number: `DG-${n++}`, type: 'delivery', note: '', cancel_reason: '', allow_substitute: true,
       cash_collected: 0, confirmed_at: null, completed_at: null,
-      ...o, distance_km: quote.km, subtotal, delivery_fee: quote.fee, total: subtotal + quote.fee,
+      ...o, distance_km: quote.km, subtotal, delivery_fee: quote.fee, packaging_fee: packagingFee(store, subtotal),
+      total: subtotal + quote.fee + packagingFee(store, subtotal),
     })
     order_items.push(...items)
   }
