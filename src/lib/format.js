@@ -92,3 +92,10 @@ export const itemsText = (n) => `${n} item${n === 1 ? '' : 's'}`
 
 // % off for a sale price, rounded down so the badge never promises more than the real discount.
 export const percentOff = (before, now) => (before > now ? Math.floor(((before - now) / before) * 100) : 0)
+
+// "tomorrow between 5 PM and 8 PM" (or "on 28 Oct between ...") for sentences.
+export function slotWords(date, shop) {
+  const day = dayLabel(date)
+  const when = day === 'Today' || day === 'Tomorrow' ? day.toLowerCase() : `on ${day}`
+  return `${when} between ${fmtTime(shop.slot_start)} and ${fmtTime(shop.slot_end)}`
+}

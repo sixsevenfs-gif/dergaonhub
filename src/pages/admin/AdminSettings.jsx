@@ -136,7 +136,9 @@ function SettingsForm({ store }) {
           <Field label="Delivery starts"><input type="time" value={v.slot_start} onChange={set('slot_start')} className={lfield} /></Field>
           <Field label="Delivery ends"><input type="time" value={v.slot_end} onChange={set('slot_end')} className={lfield} /></Field>
           <Field label="Minimum order (₹)"><input type="number" min="0" value={v.min_order} onChange={set('min_order')} className={lfield} /></Field>
-          <div />
+          {v.daily_order_cap !== undefined || DEMO_MODE ? (
+            <Field label="Orders per evening" hint="When full, new orders go to the next free day"><input type="number" min="1" value={v.daily_order_cap ?? 15} onChange={set('daily_order_cap')} className={lfield} /></Field>
+          ) : <div />}
         </div>
         <div>
           <span className="mb-1 block text-sm font-medium text-neutral-700">Delivery areas</span>

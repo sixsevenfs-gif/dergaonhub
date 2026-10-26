@@ -6,9 +6,10 @@ import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
-import { codAllowed, currentCustomer, customerSignIn, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import { codAllowed, currentCustomer, customerSignIn, nextDeliveryDate, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
-import { cleanPhone, fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
+import { cleanPhone, fmtTime, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
 import { currentPosition, deliveryQuote, packagingFee, validPoint } from '../../lib/delivery.js'
 import { getSavedDetails, getSavedLocation, getSavedReceiver, placeName, saveDetails, saveLocation, saveReceiver } from '../../lib/customerLocation.js'
@@ -101,6 +102,9 @@ export default function Checkout() {
     if (!myLocation) locate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Real delivery day: a full evening moves orders to the next free day.
+  const { data: deliveryDay } = useData(nextDeliveryDate)
 
   // Repeated no-shows on these numbers take away cash on delivery (the database checks this again).
   const [codOk, setCodOk] = useState(true)
@@ -297,7 +301,10 @@ export default function Checkout() {
           <div className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-4">
             <Clock size={26} className="shrink-0 text-accent" />
             <span>
-              <span className="block font-bold text-accent">Delivery {slotText(slotDate(store), store)}</span>
+              <span className="block font-bold text-accent">Delivery {slotText(deliveryDay ?? slotDate(store), store)}</span>
+              {deliveryDay && deliveryDay > slotDate(store) && (
+                <span className="block text-sm text-orange-200">We are facing heavy traffic today, so we will deliver your order {slotWords(deliveryDay, store)}.</span>
+              )}
               <span className="text-sm text-muted">Orders after {fmtTime(store.cutoff_time)} are delivered the next day</span>
             </span>
           </div>

@@ -2,8 +2,8 @@
 // Customers get an anonymous login per device; the admin logs in with email + password.
 import { supabase as sb } from './supabase.js'
 import { parseCSV } from './csv.js'
-import { cleanPhone, dateStr, matches } from './format.js'
-import { validPoint } from './delivery.js'
+import { cleanPhone, dateStr, matches, slotDate } from './format.js'
+import { packagingFee, validPoint } from './delivery.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -88,8 +88,15 @@ const toStore = (r) => ({
   location: { lat: r.lat, lng: r.lng },
 })
 
-export async function getStore() {
-  return toStore(check(await sb.from('store_settings').select('*').eq('id', 1).single()))
+// Many parts of a page ask for the same data at once (logo, header, page): they share one request.
+const inFlight = new Map()
+function shared(key, load) {
+  if (!inFlight.has(key)) inFlight.set(key, load().finally(() => setTimeout(() => inFlight.delete(key), 0)))
+  return inFlight.get(key)
+}
+
+export function getStore() {
+  return shared('store', async () => toStore(check(await sb.from('store_settings').select('*').eq('id', 1).single())))
 }
 
 export async function saveStore(data) {
@@ -113,6 +120,7 @@ export async function saveStore(data) {
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
+    ...(data.daily_order_cap === undefined ? {} : { daily_order_cap: Math.max(1, Number(data.daily_order_cap) || 15) }), // after 013
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
   }).eq('id', 1).select().single())
@@ -127,12 +135,16 @@ export async function setPaused(paused) {
 
 /* ---------- products ---------- */
 
-export async function listCategories() {
-  return check(await sb.from('categories').select('*').order('sort'))
+export function listCategories() {
+  return shared('categories', async () => check(await sb.from('categories').select('*').order('sort')))
 }
 
 // Customers see active products (row-level security); admin passes includeHidden to see all.
-export async function listProducts({ q = '', categoryId = '', includeHidden = false } = {}) {
+export function listProducts(opts = {}) {
+  return shared(`products:${JSON.stringify(opts)}`, () => loadProducts(opts))
+}
+
+async function loadProducts({ q = '', categoryId = '', includeHidden = false } = {}) {
   let query = sb.from('products').select('*')
   if (!includeHidden) query = query.eq('status', 'active')
   if (categoryId) query = query.eq('category_id', categoryId)
@@ -427,7 +439,9 @@ export async function removeOrderItem(orderId, itemId) {
   if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
   check(await sb.from('order_items').delete().eq('id', itemId))
   const subtotal = sum(remaining, (i) => i.line_total)
-  check(await sb.from('orders').update({ subtotal, total: subtotal + o.delivery_fee + (o.packaging_fee ?? 0) }).eq('id', orderId))
+  // Packaging follows the new items total; the delivery charge stays as quoted to the customer.
+  const packaging = packagingFee(await getStore(), subtotal)
+  check(await sb.from('orders').update({ subtotal, packaging_fee: packaging, total: subtotal + o.delivery_fee + packaging }).eq('id', orderId))
   notify()
 }
 
@@ -469,7 +483,7 @@ export async function deliverySheet(date) {
   const areas = [...new Set(orders.map((o) => o.area))].sort()
   return {
     count: orders.length,
-    cap: 15,
+    cap: (await getStore()).daily_order_cap ?? 15,
     groups: areas.map((area) => ({ area, orders: orders.filter((o) => o.area === area) })),
     shopping: Object.values(shopping).sort((a, b) => a.name.localeCompare(b.name)),
   }
@@ -678,4 +692,13 @@ function contactsFrom(rows) {
     add(o.ordered_by_name, o.ordered_by_phone, o.created_at)
   }
   return [...all.values()].sort((a, b) => b.last.localeCompare(a.last))
+}
+
+/* ---------- delivery day ---------- */
+
+// The day the next order would be delivered (full evenings move it on). Before update 013: by the cut-off only.
+export async function nextDeliveryDate() {
+  const { data, error } = await sb.rpc('next_delivery_date')
+  if (!error && data) return data
+  return slotDate(await getStore())
 }

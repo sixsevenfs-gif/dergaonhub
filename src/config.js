@@ -2,7 +2,6 @@
 // Store details (name, phone, timings, delivery fee, areas) are edited in Admin → Settings.
 export const CONFIG = {
   DELIVERY_CAP: 15, // max delivery orders per evening slot (plan: 10 to 15)
-  FIRST_ORDER_LIMIT: 500, // [TBD] max order value for a phone number with no delivered order
   NO_SHOW_LIMIT: 2, // after this many no-shows the number cannot pay cash on delivery
   AREAS: ['Dergaon Bazaar', 'Dergaon Town', 'Borpathar', 'Station Road'], // [TBD]
   CANCEL_REASONS: ['Item not available', 'Customer unreachable', 'No-show', 'Customer cancelled', 'Other'],

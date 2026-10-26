@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'daily_order_cap']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -250,8 +250,15 @@ const completedCount = (customerId) =>
 function pickDate() {
   let date = slotDate(db.store)
   const booked = (d) => db.orders.filter((o) => o.delivery_date === d && o.status !== 'cancelled').length
-  while (booked(date) >= CONFIG.DELIVERY_CAP) date = addDays(date, 1)
+  while (booked(date) >= dailyCap()) date = addDays(date, 1)
   return date
+}
+
+const dailyCap = () => Math.max(1, Number(db.store.daily_order_cap) || CONFIG.DELIVERY_CAP)
+
+// The day the next order would be delivered (today, tomorrow, or later if those evenings are full).
+export async function nextDeliveryDate() {
+  return pickDate()
 }
 
 export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer }) {
@@ -507,7 +514,8 @@ export async function removeOrderItem(orderId, itemId) {
   if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
-  o.total = o.subtotal + o.delivery_fee + (o.packaging_fee ?? 0)
+  o.packaging_fee = packagingFee(db.store, o.subtotal)
+  o.total = o.subtotal + o.delivery_fee + o.packaging_fee
   commit()
 }
 
@@ -548,7 +556,7 @@ export async function deliverySheet(date) {
 
   return clone({
     count: orders.length,
-    cap: CONFIG.DELIVERY_CAP,
+    cap: dailyCap(),
     groups: areas.map((area) => ({ area, orders: orders.filter((o) => o.area === area) })),
     shopping: Object.values(shopping).sort((a, b) => a.name.localeCompare(b.name)),
   })

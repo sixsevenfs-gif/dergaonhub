@@ -9,13 +9,17 @@ import { deliveryQuote, packagingFee } from '../../lib/delivery.js'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { useCart } from '../../lib/cart-context.js'
-import { itemsText, rupee, slotDate, slotText } from '../../lib/format.js'
+import { itemsText, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
+import { useData } from '../../lib/useData.js'
+import { nextDeliveryDate } from '../../lib/store.js'
 
 export default function Cart() {
   const navigate = useNavigate()
   const { setQty, setNote } = useCart()
   const { cart, store, lines, subtotal, savings, problems, ready } = useCartDetails()
   const { location } = useSavedDelivery()
+  // Real delivery day: a full evening moves orders to the next free day.
+  const { data: deliveryDay } = useData(nextDeliveryDate)
 
   if (!ready) return null
   if (!lines.length) {
@@ -114,7 +118,8 @@ export default function Cart() {
         <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/40 text-accent"><Truck size={20} /></span>
         <span>
           <span className="block text-sm text-muted">Delivery slot</span>
-          <span>{slotText(slotDate(store), store)}</span>
+          <span>{slotText(deliveryDay ?? slotDate(store), store)}</span>
+          {deliveryDay && deliveryDay > slotDate(store) && <span className="block text-xs text-orange-200">We are facing heavy traffic today, so we will deliver your order {slotWords(deliveryDay, store)}.</span>}
         </span>
       </div>
 

@@ -192,7 +192,7 @@ export const POLICIES = {
         <UL items={[
           `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
           `Orders placed after ${fmtTime(store.cutoff_time)} are delivered the next day in the same slot.`,
-          `We deliver up to ${CONFIG.DELIVERY_CAP} orders per evening. If the slot is full, your order moves to the next day and the website shows the date before you order.`,
+          `We deliver up to ${store.daily_order_cap ?? CONFIG.DELIVERY_CAP} orders per evening. On very busy days your order may go to the next day; the website shows the delivery day before you order.`,
           'Heavy rain, floods or other problems can delay delivery. We will call or WhatsApp you if that happens, and we may pause new orders for the day.',
         ]} />
         <H>Charges</H>

@@ -83,6 +83,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 9. `migrations/010_powered_by.sql`: admin switch to show or hide "Powered by Malchetra Groups".
 10. `migrations/011_privacy_spam.sql`: order pages hide names and phones from strangers; at most 3 open orders per phone.
 11. `migrations/012_sale_price.sql`: discount price per product (struck-out price and % OFF for customers).
+12. `migrations/013_daily_cap.sql`: no limit on orders per person; orders per evening set in Admin → Settings; checkout shows the real delivery day.
 
 A new database made from the latest `schema.sql` already has all of them.
 

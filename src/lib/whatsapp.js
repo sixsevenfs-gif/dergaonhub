@@ -1,4 +1,4 @@
-import { dayLabel, fmtDateTime, fmtTime, rupee } from './format.js'
+import { fmtDateTime, rupee, slotWords } from './format.js'
 
 export const waLink = (number, text = '') =>
   `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ''}`
@@ -33,11 +33,6 @@ export function billMessage({ order, items }) {
 // Messages to the customer while the order is on its way. Same words as the WhatsApp
 // templates used by the notify-whatsapp Edge Function (see supabase/README.md).
 const firstName = (order) => order.customer_name.split(' ')[0] || 'there'
-function slotWords(order, store) {
-  const day = dayLabel(order.delivery_date)
-  const when = day === 'Today' || day === 'Tomorrow' ? day.toLowerCase() : `on ${day}`
-  return `${when} between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}`
-}
 
 // "Order placed" goes to whoever ordered (for someone else: the orderer); rider messages go to the receiver.
 export const messagePhone = (kind, order) => (kind === 'placed' && order.ordered_by_phone) || order.customer_phone
@@ -49,7 +44,7 @@ export function customerMessage(kind, { order, store }) {
     const orderer = order.ordered_by_phone ? order.ordered_by_name.split(' ')[0] || 'there' : name
     return [
       `Hello ${orderer}, your Dergaon Hub order #${order.order_number}${order.ordered_by_phone ? ` for ${order.customer_name}` : ''} is placed successfully ✅`,
-      `It will be delivered ${slotWords(order, store)}. Total: ${total}.`,
+      `It will be delivered ${slotWords(order.delivery_date, store)}. Total: ${total}.`,
       '',
       `Track your order: ${trackUrl(order)}`,
     ].join('\n')
