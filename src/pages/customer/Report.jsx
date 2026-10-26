@@ -31,7 +31,8 @@ export default function Report() {
     }
   }
 
-  const notMine = data && data.order.customer_phone !== me.phone
+  // Placed from this phone, or for/by this number (an order for someone else has two numbers).
+  const notMine = data && !(data.mine || [data.order.customer_phone, data.order.ordered_by_phone].includes(me.phone))
 
   return (
     <main className="mx-auto min-h-screen max-w-md px-4 pb-10 pt-4">

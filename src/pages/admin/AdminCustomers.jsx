@@ -3,6 +3,7 @@ import { lbtnDanger, lbtnOutline, lcard } from '../../components/ui.js'
 import { adminListCustomers, resetNoShows, setCustomerBlocked } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG } from '../../config.js'
+import OfferSender from './OfferSender.jsx'
 
 export default function AdminCustomers() {
   const [onlyNoShows, setOnlyNoShows] = useState(true)
@@ -12,8 +13,9 @@ export default function AdminCustomers() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Customers</h1>
+      <OfferSender />
       <p className="text-sm text-neutral-600">
-        After {CONFIG.NO_SHOW_LIMIT} no-shows a number can't order online. Blocking a number also stops its orders.
+        After {CONFIG.NO_SHOW_LIMIT} no-shows a number can't pay cash on delivery. Blocking a number stops all its orders.
       </p>
       <div className="flex gap-2">
         <button type="button" onClick={() => setOnlyNoShows(true)} className={`h-9 rounded-full border px-3 text-sm font-semibold ${onlyNoShows ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>No-show list</button>

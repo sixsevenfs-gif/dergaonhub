@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { CategoryIcon } from './icons.jsx'
 import { rupee } from '../lib/format.js'
@@ -47,13 +48,71 @@ function ProductArt({ p }) {
   )
 }
 
+// Several photos: swipe with a finger, or they slide by themselves while the mouse is over the
+// product or after a tap (like Myntra). Dots show which photo is on screen.
+function PhotoSlider({ photos, alt }) {
+  const track = useRef(null)
+  const timer = useRef(null)
+  const [index, setIndex] = useState(0)
+
+  const show = (i) => track.current?.scrollTo({ left: i * track.current.clientWidth, behavior: 'smooth' })
+  const stop = () => {
+    clearInterval(timer.current)
+    timer.current = null
+  }
+  // One round through all photos, then back to the first.
+  const play = () => {
+    if (timer.current) return
+    let i = 0
+    timer.current = setInterval(() => {
+      i += 1
+      if (i >= photos.length) {
+        stop()
+        show(0)
+        return
+      }
+      show(i)
+    }, 1100)
+  }
+  useEffect(() => stop, [])
+
+  return (
+    <>
+      <div
+        ref={track}
+        onMouseEnter={play}
+        onMouseLeave={() => {
+          stop()
+          show(0)
+        }}
+        onTouchStart={stop}
+        onClick={play}
+        onScroll={(e) => setIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {photos.map((url, i) => (
+          <img key={url} src={url} alt={i ? '' : alt} loading="lazy" className="h-full w-full shrink-0 snap-center object-cover" />
+        ))}
+      </div>
+      <span className="pointer-events-none absolute bottom-[26px] left-3 z-[1] flex gap-1">
+        {photos.map((url, i) => (
+          <span key={url} className={`h-1.5 rounded-full bg-white transition-all ${i === index ? 'w-4 opacity-100' : 'w-1.5 opacity-50'}`} />
+        ))}
+      </span>
+    </>
+  )
+}
+
 export default function ProductCard({ p, qty, onQty, disabled }) {
   const perUnit = unitPrice(p.price, p.size)
+  const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
   return (
     <article className="group flex flex-col">
       <div className={`relative aspect-square overflow-hidden rounded-[22px] bg-[#141413] ring-1 ring-white/[0.07] ${p.available ? '' : 'grayscale'}`}>
-        {realPhoto(p.photo_url) ? (
-          <img src={p.photo_url} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        {photos.length > 1 ? (
+          <PhotoSlider photos={photos} alt={p.name} />
+        ) : photos.length ? (
+          <img src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : (
           <ProductArt p={p} />
         )}

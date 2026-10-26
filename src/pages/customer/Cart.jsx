@@ -33,6 +33,8 @@ export default function Cart() {
   }
 
   const shortBy = store.min_order - subtotal
+  // Below ₹149 the delivery charge is higher; nudge the customer to add a little more.
+  const smallBy = (Number(store.small_order_below) || 0) - subtotal
   // Only to warn when the saved location is outside the delivery area; the charge is shown at checkout.
   const quote = deliveryQuote(store, location)
   const packaging = packagingFee(store, subtotal)
@@ -100,6 +102,17 @@ export default function Cart() {
         </Link>
       )}
 
+      {smallBy > 0 && (
+        <Link to="/" className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-4">
+          <AlertCircle size={28} className="shrink-0 text-emerald-300" />
+          <span className="flex-1">
+            <span className="block font-bold text-emerald-300">Add {rupee(smallBy)} more to save on delivery</span>
+            <span className="text-sm text-muted">Orders below {rupee(store.small_order_below)} have a {rupee(store.small_order_fee)} delivery charge.</span>
+          </span>
+          <ChevronRight size={20} className="text-emerald-300" />
+        </Link>
+      )}
+
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/40 text-accent"><Truck size={20} /></span>
         <span>
@@ -112,10 +125,10 @@ export default function Cart() {
 
       <div className={`${card} mt-3 p-4`}>
         <div className="flex justify-between text-muted"><span>Subtotal ({itemsText(lines.reduce((s, l) => s + l.qty, 0))})</span><span>{rupee(subtotal)}</span></div>
-        <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span>{store.free_delivery ? <b className="font-ui text-emerald-400">FREE</b> : <span>At checkout</span>}</div>
+        <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span>{store.free_delivery && smallBy <= 0 ? <b className="font-ui text-emerald-400">FREE</b> : <span>At checkout</span>}</div>
         <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
         <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(subtotal + packaging)}</span></div>
-        {!store.free_delivery && <p className="mt-1 text-right text-xs text-muted">+ delivery charge, shown at checkout by distance</p>}
+        {!(store.free_delivery && smallBy <= 0) && <p className="mt-1 text-right text-xs text-muted">+ delivery charge, shown at checkout by distance</p>}
         <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused || quote?.tooFar} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout
         </button>

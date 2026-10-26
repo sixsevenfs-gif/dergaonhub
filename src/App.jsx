@@ -4,6 +4,7 @@ import CartProvider from './lib/CartProvider.jsx'
 import Home from './pages/customer/Home.jsx'
 import Cart from './pages/customer/Cart.jsx'
 import Checkout from './pages/customer/Checkout.jsx'
+import Bill from './pages/customer/Bill.jsx'
 import OrderPlaced from './pages/customer/OrderPlaced.jsx'
 import Track from './pages/customer/Track.jsx'
 import Login from './pages/customer/Login.jsx'
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order/:orderNumber" element={<OrderPlaced />} />
+        <Route path="/bill/:orderNumber" element={<Bill />} />
         <Route path="/track" element={<Track />} />
         <Route path="/track/:orderNumber" element={<Track />} />
         <Route path="/login" element={<Login />} />

@@ -115,8 +115,10 @@ export function makeSeed() {
 
   const store = {
     name: 'Dergaon Hub Store', phone: '9000000001', whatsapp: '919000000001',
-    open_time: '08:00', close_time: '21:00', cutoff_time: '14:00', slot_start: '17:00', slot_end: '20:00',
-    min_order: 200, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
+    open_time: '08:00', close_time: '21:00', cutoff_time: '18:00', slot_start: '17:00', slot_end: '20:00',
+    min_order: 0, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
+    // Items below ₹149: delivery is a flat ₹40, or the distance fee if that is higher.
+    small_order_below: 149, small_order_fee: 40,
     // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
     // Approximate until the exact pin is set in Admin → Settings.
     location: { lat: 26.7, lng: 93.97 },

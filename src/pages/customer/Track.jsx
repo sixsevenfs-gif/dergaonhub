@@ -5,7 +5,7 @@ import TopBar from '../../components/TopBar.jsx'
 import AddToHomeSheet from '../../components/AddToHomeSheet.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { btnAccent, btnOutline, card, cx, field } from '../../components/ui.js'
-import { getOrder, ordersByPhone } from '../../lib/store.js'
+import { cancelMyOrder, getOrder, ordersByPhone } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { cleanPhone, fmtDateTime, rupee, slotText, statusLabel } from '../../lib/format.js'
 import { waLink } from '../../lib/whatsapp.js'
@@ -13,8 +13,47 @@ import { waLink } from '../../lib/whatsapp.js'
 const STEPS = [
   ['placed', 'Placed', 'We have received your order'],
   ['confirmed', 'Confirmed', 'Confirmed, arriving this evening'],
+  ['on_the_way', 'On the way', 'Our rider is coming to you'],
   ['completed', 'Delivered', 'Delivered. Thank you!'],
 ]
+
+// Which step the order has reached (the rider's "On the way" / "Arriving" count as on the way).
+const stepOf = (o) => (o.status === 'completed' ? 3 : o.dispatch ? 2 : o.status === 'confirmed' ? 1 : 0)
+
+// Cancel from this phone until the rider leaves; after that the button explains why it is gone.
+function CancelOrder({ order, mine }) {
+  const [asking, setAsking] = useState(false)
+  const [error, setError] = useState('')
+  if (!mine || order.status === 'cancelled' || order.status === 'completed') return null
+  if (order.dispatch) {
+    return <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm text-muted">Our rider is on the way, so this order can't be cancelled now.</p>
+  }
+  const cancel = async () => {
+    setError('')
+    try {
+      await cancelMyOrder(order.order_number)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  return (
+    <div className="mt-3">
+      {asking ? (
+        <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3">
+          <p className="text-sm">Cancel order #{order.order_number}?</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={cancel} className="h-11 flex-1 rounded-xl bg-red-500 font-semibold text-white">Yes, cancel</button>
+            <button type="button" onClick={() => setAsking(false)} className={`${btnOutline} flex-1`}>Keep order</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setAsking(true)} className={`${btnOutline} w-full text-red-300`}>Cancel order</button>
+      )}
+      <p className="mt-1.5 text-center text-xs text-muted">You can cancel until our rider is on the way.</p>
+      {error && <p className="mt-1 text-sm text-red-300">{error}</p>}
+    </div>
+  )
+}
 
 function FindByPhone() {
   const [phone, setPhone] = useState('')
@@ -70,7 +109,7 @@ export default function Track() {
 function OrderView({ data }) {
   const { order, items, store, complaints } = data
   const cancelled = order.status === 'cancelled'
-  const reached = STEPS.findIndex(([s]) => s === order.status)
+  const reached = stepOf(order)
 
   return (
     <>
@@ -118,6 +157,10 @@ function OrderView({ data }) {
           {order.packaging_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
           <div className="flex pt-2 text-lg font-bold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
+        <CancelOrder order={order} mine={data.mine} />
+        {order.status === 'completed' && (
+          <Link to={`/bill/${order.order_number}`} className={`${btnOutline} mt-3 w-full`}>View / download bill (PDF)</Link>
+        )}
       </section>
 
       {complaints.length > 0 && (

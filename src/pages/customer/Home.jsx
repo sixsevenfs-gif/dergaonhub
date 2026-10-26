@@ -67,7 +67,7 @@ export default function Home() {
   const quote = deliveryQuote(store, location)
 
   return (
-    <main className="mx-auto min-h-screen max-w-md px-4 pb-28 pt-4">
+    <main className="font-home mx-auto min-h-screen max-w-md px-4 pb-28 pt-4">
       <TopBar />
       <div className="relative mt-3">
         <Search size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
@@ -96,7 +96,7 @@ export default function Home() {
           <HeroSlider onShop={browseAll} />
 
           {store.paused ? (
-            <p className="mt-3 rounded-2xl bg-white/10 p-4 text-center">The store is closed right now. Please order a little later.</p>
+            <p className="font-ui mt-3 rounded-2xl bg-white/10 p-4 text-center">The store is closed right now. Please order a little later.</p>
           ) : (
             <div className="font-ui mt-3 flex items-center gap-3 rounded-2xl border border-accent/50 bg-accent/5 px-4 py-3">
               <Truck size={28} className="shrink-0 text-accent" strokeWidth={1.75} />

@@ -60,13 +60,12 @@ function SavedAddress({ store }) {
   const { location, details } = useSavedDelivery()
   const [open, setOpen] = useState(false)
   const [address, setAddress] = useState(details.address ?? '')
-  const [area, setArea] = useState(details.area ?? '')
   const [saved, setSaved] = useState(false)
   const quote = location ? deliveryQuote(store, location) : null
 
   const save = (e) => {
     e.preventDefault()
-    saveDetails({ address: address.trim(), area })
+    saveDetails({ address: address.trim() })
     setSaved(true)
   }
 
@@ -85,10 +84,6 @@ function SavedAddress({ store }) {
       </button>
       <form onSubmit={save} className="mt-3 space-y-2">
         <input value={address} onChange={(e) => { setAddress(e.target.value); setSaved(false) }} placeholder="House no., landmark (e.g. near the Namghar)" className={field} />
-        <select value={area} onChange={(e) => { setArea(e.target.value); setSaved(false) }} className={field}>
-          <option value="">Choose area</option>
-          {store.delivery_area.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
         <button type="submit" className={`${btnOutline} w-full`}>{saved ? 'Saved ✓' : 'Save address'}</button>
       </form>
       <p className="mt-2 text-xs text-muted">This address is filled in automatically at checkout.</p>

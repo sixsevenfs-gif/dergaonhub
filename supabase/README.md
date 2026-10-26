@@ -73,6 +73,12 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 3. `migrations/004_order_for_someone.sql`: "Order for someone else" at checkout (the person
    who ordered is saved in `ordered_by_name` / `ordered_by_phone`; the receiver is the customer).
 4. `migrations/005_free_delivery.sql`: "Free delivery (launch offer)" switch in Admin → Settings.
+5. `migrations/006_customer_cancel.sql`: customers cancel their own order until the rider is on the way.
+6. `migrations/007_small_orders_photos.sql`: orders below ₹149 pay ₹40 delivery (or the distance fee if
+   higher), no minimum order and no first-order limit, and the rider must photograph the items to mark
+   an order delivered (private `deliveries` storage bucket).
+7. `migrations/008_no_show_cod_photos.sql`: the rider can mark "Customer not answering" (no-show);
+   after 2 no-shows a number can no longer pay cash on delivery; several photos per product.
 
 A new database made from the latest `schema.sql` already has all of them.
 

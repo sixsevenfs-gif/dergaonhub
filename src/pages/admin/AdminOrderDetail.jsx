@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
@@ -7,12 +7,34 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { cancelOrder, confirmOrder, getOrderById, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
+import { cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
+
+// Photo the rider took of the items at the customer's door.
+function DeliveryPhoto({ path }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    let live = true
+    deliveryPhotoUrl(path).then((u) => live && setUrl(u))
+    return () => {
+      live = false
+    }
+  }, [path])
+  return (
+    <section className={`${lcard} p-4`}>
+      <h2 className="font-bold">Delivery photo</h2>
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Items at the door" className="mt-2 max-h-80 w-full rounded-xl object-cover" /></a>
+      ) : (
+        <p className="mt-1 text-sm text-neutral-500">Loading...</p>
+      )}
+    </section>
+  )
+}
 
 export default function AdminOrderDetail() {
   const { orderId } = useParams()
@@ -60,7 +82,7 @@ export default function AdminOrderDetail() {
             <WhatsAppIcon size={17} /> WhatsApp
           </a>
         </div>
-        <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address}, {order.area} · {slotText(order.delivery_date, store)}</p>
+        <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address} · {slotText(order.delivery_date, store)}</p>
         {order.location && (
           <a href={mapsLink(order.location)} target="_blank" rel="noreferrer" className={`${lbtnOutline} mt-2 w-full`}>
             <Navigation size={17} /> Directions in Google Maps · {order.distance_km} km
@@ -70,6 +92,8 @@ export default function AdminOrderDetail() {
           <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand is OK' : 'Only this brand'}
         </p>
       </section>
+
+      {order.delivery_photo && <DeliveryPhoto path={order.delivery_photo} />}
 
       <section className={`${lcard} p-4`}>
         <h2 className="font-bold">Items</h2>

@@ -18,13 +18,13 @@ export const POLICIES = {
         </P>
         <H>How it works</H>
         <UL items={[
-          `Order before ${fmtTime(store.cutoff_time)} and we deliver today between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
+          `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}. Orders placed after ${fmtTime(store.cutoff_time)} are delivered the next day.`,
           'We call you to confirm your order.',
           'We buy your items fresh from trusted local shops in Dergaon and pack them for you.',
           'You pay on delivery, by cash or UPI.',
         ]} />
         <H>Where we deliver</H>
-        <P>{store.delivery_area.join(', ')}. More areas are coming soon.</P>
+        <P>Right now we deliver within {store.max_delivery_km} km of our store in Dergaon. We will keep growing this area, so more of Dergaon can order soon.</P>
       </>
     ),
   },
@@ -113,8 +113,8 @@ export const POLICIES = {
         <H>Orders</H>
         <UL items={[
           'Placing an order is a request. It is final only after we call you and confirm it.',
-          `Minimum order value is ${rupee(store.min_order)}. A delivery charge (by distance, minimum ${rupee(store.min_delivery_fee)}) and a packaging charge (${rupee(store.pack_fee_low)} to ${rupee(store.pack_fee_high)} by order value) are added and shown before you place the order.`,
-          `For a phone number's first order, the limit is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. It goes up after a successful delivery.`,
+          `A delivery charge (by distance, minimum ${rupee(store.min_delivery_fee)}) and a packaging charge (${rupee(store.pack_fee_low)} to ${rupee(store.pack_fee_high)} by order value) are added and shown before you place the order.`,
+          `Orders below ${rupee(store.small_order_below ?? 149)} have a delivery charge of ${rupee(store.small_order_fee ?? 40)}, or the distance charge if that is higher.`,
           'We may refuse or cancel an order, for example if an item is not available, the address is outside our delivery area, or details look fake.',
         ]} />
         <H>Prices and items</H>
@@ -128,10 +128,14 @@ export const POLICIES = {
         <H>No-shows</H>
         <P>
           If you are not available or refuse a confirmed order without a valid reason, it counts as a no-show. After{' '}
-          {CONFIG.NO_SHOW_LIMIT} no-shows, online ordering from that number is blocked.
+          {CONFIG.NO_SHOW_LIMIT} no-shows, cash on delivery is restricted for that number. If our rider calls 4–5 times
+          at your door and you don't answer, the order is cancelled as a no-show.
         </P>
         <H>Use of the website</H>
-        <P>Please don't place fake orders, use someone else's number, or misuse the website.</P>
+        <P>
+          Please don't place fake orders or misuse the website. If we find misuse or fraud, we may block the number,
+          cancel its orders and, if needed, file a complaint with the police.
+        </P>
         <H>Our responsibility</H>
         <P>
           We take care to deliver the right items in good condition. If something goes wrong, we will replace or
@@ -152,8 +156,8 @@ export const POLICIES = {
       <>
         <H>Cancelling an order</H>
         <UL items={[
-          'Before we confirm your order: cancel any time, free. Just tell us when we call, or WhatsApp us.',
-          'After we confirm: we buy your items from the shop, so the order cannot be cancelled. Please be available at delivery time.',
+          'You can cancel your order for free until our rider is on the way: open the order ("Track order" or "My orders") and tap "Cancel order".',
+          'Once the rider is on the way or arriving, the order can no longer be cancelled. Please be available at delivery time.',
           'We may cancel an order if items are not available. You pay nothing for cancelled orders.',
         ]} />
         <H>Check at the door</H>
@@ -182,12 +186,12 @@ export const POLICIES = {
     title: 'Delivery policy',
     body: (store) => (
       <>
-        <H>Delivery areas</H>
-        <P>We currently deliver in {store.delivery_area.join(', ')}, up to {store.max_delivery_km} km from our store.</P>
+        <H>Delivery area</H>
+        <P>We currently deliver within {store.max_delivery_km} km of our store in Dergaon (the website checks your map pin). We will expand to more areas later.</P>
         <H>Delivery time</H>
         <UL items={[
-          `Orders placed before ${fmtTime(store.cutoff_time)} are delivered the same day between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
-          'Orders placed after that time are delivered the next day in the same slot.',
+          `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
+          `Orders placed after ${fmtTime(store.cutoff_time)} are delivered the next day in the same slot.`,
           `We deliver up to ${CONFIG.DELIVERY_CAP} orders per evening. If the slot is full, your order moves to the next day and the website shows the date before you order.`,
           'Heavy rain, floods or other problems can delay delivery. We will call or WhatsApp you if that happens, and we may pause new orders for the day.',
         ]} />

@@ -1,4 +1,4 @@
-import { dayLabel, fmtDateTime, fmtTime, rupee, slotText } from './format.js'
+import { dayLabel, fmtDateTime, fmtTime, rupee } from './format.js'
 
 export const waLink = (number, text = '') =>
   `https://wa.me/${number}${text ? `?text=${encodeURIComponent(text)}` : ''}`
@@ -8,33 +8,6 @@ export const toWa = (phone10) => `91${phone10}`
 const trackUrl = (order) => `${window.location.origin}/track/${order.order_number}`
 const itemLines = (items) =>
   items.map((i) => `- ${i.name_snapshot} x${i.quantity} = ${rupee(i.line_total)}${i.note ? ` (${i.note})` : ''}`)
-
-// Order message the customer can send to the store. The saved order is the truth; this is a convenience.
-export function orderMessage({ order, items, store }) {
-  return [
-    `New order ${order.order_number} – Dergaon Hub`,
-    '',
-    `Name: ${order.customer_name}`,
-    `Phone: ${order.customer_phone}`,
-    ...(order.ordered_by_phone ? [`Ordered by: ${order.ordered_by_name} (${order.ordered_by_phone})`] : []),
-    `Address: ${order.address}, ${order.area}`,
-    ...(order.location ? [`Map: https://maps.google.com/?q=${order.location.lat},${order.location.lng}`] : []),
-    `Slot: ${slotText(order.delivery_date, store)}`,
-    '',
-    'Items:',
-    ...itemLines(items),
-    '',
-    `Subtotal: ${rupee(order.subtotal)}`,
-    `Delivery charge: ${order.delivery_fee ? rupee(order.delivery_fee) : 'FREE'}`,
-    ...(order.packaging_fee ? [`Packaging charge: ${rupee(order.packaging_fee)}`] : []),
-    `Total: ${rupee(order.total)}`,
-    `Payment: ${order.payment_method === 'cash' ? 'Cash on delivery' : 'UPI on delivery'}`,
-    `Similar brand OK: ${order.allow_substitute ? 'Yes' : 'No'}`,
-    ...(order.note ? [`Note: ${order.note}`] : []),
-    '',
-    `Track: ${trackUrl(order)}`,
-  ].join('\n')
-}
 
 // Bill sent to the customer on WhatsApp after delivery.
 export function billMessage({ order, items }) {
@@ -48,10 +21,12 @@ export function billMessage({ order, items }) {
     ...(order.packaging_fee ? [`Packaging charge: ${rupee(order.packaging_fee)}`] : []),
     '-------------------------',
     `*Total: ${rupee(order.total)}*`,
-    `Paid: ${paid} ✅`,
+    `Paid: ${paid}`,
     '',
-    'Thank you! If anything is wrong, report it here:',
-    trackUrl(order),
+    `Bill (PDF): ${window.location.origin}/bill/${order.order_number}`,
+    '',
+    'Thank you for shopping with Dergaon Hub! If anything is wrong, report it here:',
+    `${window.location.origin}/report/${order.order_number}`,
   ].join('\n')
 }
 

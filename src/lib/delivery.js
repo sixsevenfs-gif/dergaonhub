@@ -16,12 +16,21 @@ export const roadKm = (a, b) => Math.round(straightKm(a, b) * CONFIG.ROAD_FACTOR
 // Delivery fee from the store (founder's home) to the customer's pin:
 // every started km costs per_km_fee, never less than min_delivery_fee.
 // With free delivery on (launch offer) the fee is 0; fullFee is what it would have been.
-export function deliveryQuote(store, point) {
+// With the items total (subtotal): below small_order_below (₹149) delivery is a flat small_order_fee (₹40),
+// or the distance fee if that is higher, and free delivery does not apply. small: { addMore, save } tells
+// the customer how much more to add and what they would save. Same rule as place_order() in the database.
+export function deliveryQuote(store, point, subtotal = null) {
   if (!point) return null
   const km = roadKm(store.location, point)
   if (km > store.max_delivery_km) return { km, fee: null, tooFar: true }
   const fullFee = Math.max(store.min_delivery_fee, Math.ceil(km) * store.per_km_fee)
-  return { km, fee: store.free_delivery ? 0 : fullFee, fullFee, free: !!store.free_delivery, tooFar: false }
+  const normalFee = store.free_delivery ? 0 : fullFee
+  const below = Number(store.small_order_below) || 0
+  if (subtotal != null && subtotal < below) {
+    const fee = Math.max(Number(store.small_order_fee) || 0, fullFee)
+    return { km, fee, fullFee, free: false, tooFar: false, small: { addMore: below - subtotal, save: fee - normalFee } }
+  }
+  return { km, fee: normalFee, fullFee, free: !!store.free_delivery, tooFar: false, small: null }
 }
 
 // Packaging charge by order value (items only): below pack_mid_from, up to pack_high_from, and above.

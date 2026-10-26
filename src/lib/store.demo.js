@@ -6,7 +6,7 @@ import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format
 import { deliveryQuote, packagingFee, validPoint } from './delivery.js'
 import { parseCSV } from './csv.js'
 
-const KEY = 'dergaonhub-demo-v8' // bump to load fresh demo data
+const KEY = 'dergaonhub-demo-v9' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
 
@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -96,7 +96,7 @@ export async function saveStore(data) {
   db.store.per_km_fee = Number(db.store.per_km_fee) || 0
   db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
   db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
-  for (const k of ['pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) db.store[k] = Number(db.store[k]) || 0
+  for (const k of ['small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) db.store[k] = Number(db.store[k]) || 0
   commit()
   return clone(db.store)
 }
@@ -264,12 +264,14 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const quote = deliveryQuote(store, location)
   if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
+  // Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery.
   let customer = customerByPhone(ph)
-  if (customer?.blocked || (customer?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) {
-    fail('Online ordering is blocked for this number. Please call us to order.')
-  }
   const obc = ob && customerByPhone(ob.phone)
-  if (obc?.blocked || (obc?.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) fail('Online ordering is blocked for this number. Please call us to order.')
+  if (customer?.blocked || obc?.blocked) fail('Online ordering is blocked for this number. Please call us to order.')
+  const noShows = Math.max(customer?.no_show_count ?? 0, obc?.no_show_count ?? 0)
+  if (payment_method === 'cash' && noShows >= CONFIG.NO_SHOW_LIMIT) {
+    fail('Due to misuse of cash on delivery, we have temporarily restricted it for this number. Please choose UPI.')
+  }
 
   const items = []
   for (const line of lines) {
@@ -284,11 +286,10 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
 
   const subtotal = sum(items, (i) => i.line_total)
   if (subtotal < store.min_order) fail(`Minimum order is ${rupee(store.min_order)}.`)
+  // Small orders pay the small-order fee (see deliveryQuote).
+  const fee = deliveryQuote(store, location, subtotal).fee
   const packaging = packagingFee(store, subtotal)
-  const total = subtotal + quote.fee + packaging
-  if ((!customer || completedCount(customer.id) === 0) && total > CONFIG.FIRST_ORDER_LIMIT) {
-    fail(`The limit for a first order is ${rupee(CONFIG.FIRST_ORDER_LIMIT)}. Remove a few items, or call us.`)
-  }
+  const total = subtotal + fee + packaging
 
   if (!customer) {
     customer = { id: newId(), phone: ph, name: name.trim(), no_show_count: 0, blocked: false, created_at: now() }
@@ -302,7 +303,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
     address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    subtotal, delivery_fee: quote.fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
+    subtotal, delivery_fee: fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
     delivery_date: pickDate(), status: 'placed', cancel_reason: '',
     created_at: now(), confirmed_at: null, completed_at: null,
     ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
@@ -642,11 +643,17 @@ export async function setDispatch(id, dispatch) {
   commit()
 }
 
-export async function partnerComplete(id, cash) {
+export async function partnerComplete(id, cash, photo) {
   const o = orderOrFail(id)
+  if (!photo) fail('Take a photo of the items at the door first.')
   if (o.status !== 'confirmed') fail('Only confirmed orders can be marked delivered.')
+  o.delivery_photo = photo
   await completeOrder(id, cash)
 }
+
+// Demo: the (small) photo itself is kept with the order.
+export const uploadDeliveryPhoto = async (orderId, photoUrl) => photoUrl
+export const deliveryPhotoUrl = async (path) => path || ''
 
 export const partnerUndoDelivered = (id) => reopenOrder(id)
 
@@ -683,4 +690,62 @@ export async function setRiderActive(userId, active) {
   const r = (db.riders ?? []).find((x) => x.user_id === userId) ?? fail('Rider not found.')
   r.active = !!active
   commit()
+}
+
+/* ---------- customer: cancel own order (until the rider is on the way) ---------- */
+
+export async function cancelMyOrder(orderNumber) {
+  const o = db.orders.find((x) => x.order_number.toLowerCase() === String(orderNumber).toLowerCase()) ?? fail('Order not found on this phone.')
+  if (o.status === 'cancelled') return
+  if (o.status === 'completed') fail('This order is already delivered.')
+  if (o.dispatch) fail("Our rider is already on the way, so this order can't be cancelled now.")
+  o.status = 'cancelled'
+  o.cancel_reason = 'Cancelled by customer'
+  commit()
+}
+
+/* ---------- no-shows and cash on delivery ---------- */
+
+export async function partnerNoShow(id) {
+  const o = orderOrFail(id)
+  if (o.status !== 'confirmed') fail('Only confirmed orders can be marked as a no-show.')
+  await cancelOrder(id, 'No-show')
+}
+
+export async function codAllowed(phone) {
+  return (customerByPhone(phone)?.no_show_count ?? 0) < CONFIG.NO_SHOW_LIMIT
+}
+
+/* ---------- extra product photos (demo: kept in the browser) ---------- */
+
+export async function addProductPhoto(id, photoUrl) {
+  const p = productOrFail(id)
+  p.photos = [...(p.photos ?? []), photoUrl]
+  commitPhoto(() => {
+    p.photos = p.photos.slice(0, -1)
+  })
+}
+
+export async function removeProductPhoto(id, url) {
+  const p = productOrFail(id)
+  p.photos = (p.photos ?? []).filter((x) => x !== url)
+  commit()
+}
+
+/* ---------- admin: contacts for offers ---------- */
+
+export async function adminContacts() {
+  const all = new Map()
+  const add = (name, phone, at) => {
+    if (!phone) return
+    const c = all.get(phone) ?? { name, phone, orders: 0, last: at }
+    c.orders += 1
+    if (at > c.last) c.last = at
+    all.set(phone, c)
+  }
+  for (const o of db.orders) {
+    add(o.customer_name, o.customer_phone, o.created_at)
+    add(o.ordered_by_name, o.ordered_by_phone, o.created_at)
+  }
+  return [...all.values()].sort((a, b) => b.last.localeCompare(a.last))
 }

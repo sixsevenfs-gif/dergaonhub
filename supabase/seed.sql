@@ -3,8 +3,8 @@
 
 insert into public.store_settings (id, name, phone, whatsapp, open_time, close_time, cutoff_time, slot_start, slot_end,
   min_order, delivery_area, paused, lat, lng, per_km_fee, min_delivery_fee, max_delivery_km)
-values (1, 'Dergaon Hub Store', '9000000001', '919000000001', '08:00', '21:00', '14:00', '17:00', '20:00',
-  200, array['Dergaon Bazaar', 'Dergaon Town']::text[], false, 26.7, 93.97, 10, 20, 4)
+values (1, 'Dergaon Hub Store', '9000000001', '919000000001', '08:00', '21:00', '18:00', '17:00', '20:00',
+  0, array['Dergaon Bazaar', 'Dergaon Town']::text[], false, 26.7, 93.97, 10, 20, 4)
 on conflict (id) do nothing;
 
 insert into public.categories (id, name, short, sort) values

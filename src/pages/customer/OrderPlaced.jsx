@@ -2,11 +2,10 @@ import { Link, useParams } from 'react-router-dom'
 import { Bookmark, Check, ChevronRight, Clock, House, MapPin, Phone, Store } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
-import { btnWhatsApp, card } from '../../components/ui.js'
+import { card } from '../../components/ui.js'
 import { getOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { rupee, slotText } from '../../lib/format.js'
-import { orderMessage, waLink } from '../../lib/whatsapp.js'
 
 export default function OrderPlaced() {
   const { orderNumber } = useParams()
@@ -45,7 +44,7 @@ export default function OrderPlaced() {
           <Store size={26} />
           <div>
             <div className="font-bold">{store.name}</div>
-            <div className="text-sm text-muted">{order.address}, {order.area}</div>
+            <div className="text-sm text-muted">{order.address}</div>
           </div>
         </div>
         <div className="space-y-2 py-3">
@@ -77,9 +76,6 @@ export default function OrderPlaced() {
         </span>
       </div>
 
-      <a href={waLink(store.whatsapp, orderMessage(data))} target="_blank" rel="noreferrer" className={`${btnWhatsApp} mt-4`}>
-        <WhatsAppIcon size={26} /> Send order on WhatsApp <ChevronRight size={20} />
-      </a>
       <Link to={`/track/${order.order_number}`} className={`${card} mt-3 flex h-14 items-center gap-3 px-4 font-semibold`}>
         <MapPin size={22} /> <span className="flex-1">Track order status</span> <ChevronRight size={20} className="text-muted" />
       </Link>

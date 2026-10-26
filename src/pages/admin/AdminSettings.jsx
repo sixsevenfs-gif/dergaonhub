@@ -161,6 +161,12 @@ function SettingsForm({ store }) {
           <Field label="Minimum ₹"><input type="number" min="0" value={v.min_delivery_fee} onChange={set('min_delivery_fee')} className={lfield} /></Field>
           <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
         </div>
+        {v.small_order_below !== undefined && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Small order: items below ₹" hint="Customers see 'Add ₹X more to save on delivery'"><input type="number" min="0" value={v.small_order_below} onChange={set('small_order_below')} className={lfield} /></Field>
+            <Field label="Small order delivery ₹" hint="Or the distance charge, if higher. Not free."><input type="number" min="0" value={v.small_order_fee} onChange={set('small_order_fee')} className={lfield} /></Field>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
           <span className="text-sm">
             <b>Free delivery (launch offer)</b>

@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { Bike, Check, ChevronDown, Gift, MapPinned, Navigation, Phone, Repeat, Undo2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, Repeat, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
-import { confirmOrder, logMessage, partnerComplete, partnerUndoDelivered, sendAutoMessage, setDispatch } from '../../lib/store.js'
+import {
+  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
+} from '../../lib/store.js'
+import { compressImage } from '../../lib/image.js'
 import { rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
@@ -15,6 +18,92 @@ const STAGES = {
   on_the_way: ['On the way', 'bg-sky-500/15 text-sky-200'],
   arriving: ['Arriving', 'bg-accent/15 text-accent'],
   done: ['Delivered', 'bg-emerald-500/15 text-emerald-300'],
+}
+
+// Required before "Delivered": a photo of all the items at the customer's door (opens the phone camera).
+function PhotoStep({ orderId, photo, onPhoto, onError }) {
+  const [preview, setPreview] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const take = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    onError('')
+    try {
+      const small = await compressImage(file, 1000, 0.7)
+      setPreview(small)
+      onPhoto(await uploadDeliveryPhoto(orderId, small))
+    } catch (err) {
+      onPhoto('')
+      onError(`Photo not saved: ${err.message}`)
+    }
+    setBusy(false)
+  }
+
+  return (
+    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 ${photo ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-accent/60 bg-accent/[0.06]'}`}>
+      <input type="file" accept="image/*" capture="environment" onChange={take} className="sr-only" />
+      {preview ? (
+        <img src={preview} alt="Delivery photo" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent"><Camera size={24} /></span>
+      )}
+      <span className="flex-1 text-sm">
+        <span className="block font-bold">{busy ? 'Saving photo...' : photo ? 'Photo saved ✓' : 'Photo of the items (required)'}</span>
+        <span className="text-xs text-muted">{photo ? 'Tap to take it again' : 'At the door, with all the items clearly visible'}</span>
+      </span>
+    </label>
+  )
+}
+
+// The customer does not pick up the phone at the door: after 4-5 calls the rider marks a no-show.
+// The order is cancelled, and a number with repeated no-shows can no longer choose cash on delivery.
+function NoAnswer({ orderId, onError }) {
+  const [asking, setAsking] = useState(false)
+  if (!asking) {
+    return (
+      <button type="button" onClick={() => setAsking(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-orange-300">
+        <PhoneOff size={16} /> Customer not answering
+      </button>
+    )
+  }
+  const mark = async () => {
+    try {
+      await partnerNoShow(orderId)
+    } catch (err) {
+      onError(err.message)
+      setAsking(false)
+    }
+  }
+  return (
+    <div className="rounded-xl border border-orange-400/40 bg-orange-500/10 p-3 text-sm">
+      <p>Called 4–5 times and no answer? This cancels the order as a <b>no-show</b>.</p>
+      <div className="mt-2 flex gap-2">
+        <button type="button" onClick={mark} className="h-10 flex-1 rounded-xl bg-orange-500 font-semibold text-white">Yes, no-show</button>
+        <button type="button" onClick={() => setAsking(false)} className="h-10 flex-1 rounded-xl border border-line font-semibold">Go back</button>
+      </div>
+    </div>
+  )
+}
+
+// The delivery photo of a finished order.
+function SavedPhoto({ path }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    let live = true
+    deliveryPhotoUrl(path).then((u) => live && setUrl(u))
+    return () => {
+      live = false
+    }
+  }, [path])
+  if (!url) return null
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-line p-2 text-sm text-muted">
+      <img src={url} alt="Delivery photo" className="h-14 w-14 rounded-lg object-cover" /> Delivery photo
+    </a>
+  )
 }
 
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
@@ -103,6 +192,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const [picked, toggle] = usePicked(o.id)
   const [cash, setCash] = useState(String(o.total))
   const [error, setError] = useState('')
+  const [photo, setPhoto] = useState('') // storage path of the delivery photo
   const [badge, badgeCls] = STAGES[stage]
   const sent = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).at(-1)
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
@@ -120,7 +210,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const deliver = async () => {
     setError('')
     try {
-      await partnerComplete(o.id, isCash ? cash : 0)
+      await partnerComplete(o.id, isCash ? cash : 0, photo)
       logMessage(o.id, 'delivered').catch(() => {})
     } catch (err) {
       setError(err.message)
@@ -137,7 +227,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
             <span className="text-lg font-bold leading-tight">{o.customer_name}</span>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${badgeCls}`}>{badge}</span>
           </div>
-          <p className="mt-0.5 truncate text-sm text-muted">#{o.order_number} · {o.area}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}</p>
+          <p className="mt-0.5 truncate text-sm text-muted">#{o.order_number}{o.distance_km != null ? ` · ${o.distance_km} km away` : ''}</p>
         </div>
         <div className="text-right">
           <div className="text-lg font-black">{rupee(o.total)}</div>
@@ -148,7 +238,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
 
       {open && (
         <div className="space-y-4 border-t border-line px-4 pb-4 pt-3">
-          <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-accent" /> {o.address}, {o.area}</p>
+          <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-accent" /> {o.address}</p>
           {o.location ? (
             !done && <MapPreview point={o.location} home={store.location} />
           ) : (
@@ -218,31 +308,45 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
               <div className="flex gap-2">
                 <MessageButton
                   order={o} store={store} kind="on_the_way" auto={auto} icon={Bike} primary={stage === 'ready'}
-                  label="On the way"
+                  label={stage === 'ready' ? 'On the way' : 'Send "On the way" again'}
                   before={() => setDispatch(o.id, 'on_the_way')} onError={setError}
                 />
-                <MessageButton
-                  order={o} store={store} kind="arriving" auto={auto} icon={MapPinned} primary={stage === 'on_the_way'}
-                  label="Arriving soon"
-                  before={() => setDispatch(o.id, 'arriving')} onError={setError}
-                />
               </div>
+              {stage !== 'ready' && <NoAnswer orderId={o.id} onError={setError} />}
               {isCash && (
                 <label className="flex items-center gap-3 rounded-xl border border-line px-3 py-2 text-sm">
                   <span className="flex-1 text-muted">Cash collected</span>
                   ₹<input value={cash} onChange={(e) => setCash(e.target.value)} inputMode="numeric" className="w-20 bg-transparent text-right text-lg font-bold focus:outline-none" />
                 </label>
               )}
-              <a
-                href={waLink(toWa(o.customer_phone), bill)}
-                target="_blank"
-                rel="noreferrer"
-                onClick={deliver}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-bold text-white active:scale-[.99]"
-              >
-                <WhatsAppIcon size={18} /> Delivered + send bill
-              </a>
+              <PhotoStep orderId={o.id} photo={photo} onPhoto={setPhoto} onError={setError} />
+              {photo ? (
+                <a
+                  href={waLink(toWa(o.customer_phone), bill)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={deliver}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-bold text-white active:scale-[.99]"
+                >
+                  <WhatsAppIcon size={18} /> Delivered + send bill
+                </a>
+              ) : (
+                <p className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 text-sm text-muted">
+                  <Lock size={15} /> Take the photo to mark delivered
+                </p>
+              )}
             </div>
+          )}
+
+          {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
+          {done && (
+            <button type="button" onClick={run(async () => {
+              const pdf = await import('../../lib/billPdf.js')
+              const data = { order: o, items: o.items, store }
+              if (!(await pdf.shareBill(data))) pdf.downloadBill(data)
+            })} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1FAF54]/60 text-sm font-semibold text-[#3ddc84]">
+              <FileText size={17} /> Share bill PDF (WhatsApp)
+            </button>
           )}
 
           {done && (

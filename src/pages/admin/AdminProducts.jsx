@@ -5,9 +5,12 @@ import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { addProduct, importProductsCSV, listCategories, listProducts, setProductPhoto, updateProduct } from '../../lib/store.js'
+import { addProduct, addProductPhoto, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductPhoto, updateProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { rupee, timeAgo } from '../../lib/format.js'
+import { DEMO_MODE } from '../../config.js'
+
+const MAX_EXTRA_PHOTOS = 4 // besides the main photo
 
 // Price edit in two taps: tap the price, type, tap Save.
 function PriceEdit({ product }) {
@@ -113,7 +116,7 @@ export default function AdminProducts() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">Products</h1>
-          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · tap the box to change a photo · ⭐ = shown in Popular on home</p>
+          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · tap the box to change a photo, + to add more photos · ⭐ = shown in Popular on home</p>
         </div>
         <button type="button" onClick={() => setAdding(!adding)} className={adding ? lbtnOutline : lbtnDark}><Plus size={18} /> {adding ? 'Close' : 'Add'}</button>
       </div>
@@ -165,6 +168,21 @@ export default function AdminProducts() {
                 {p.status === 'active' ? 'Hide' : 'Show'}
               </button>
             </div>
+            {/* More photos: on the home page they slide when the customer touches or hovers the product. */}
+            {p.photo_url && (p.photos !== undefined || DEMO_MODE) && (
+              <div className="flex w-full flex-wrap items-center gap-2 border-t border-neutral-100 pt-2">
+                <span className="text-xs text-neutral-500">More photos</span>
+                {(p.photos ?? []).map((url) => (
+                  <PhotoPicker key={url} photoUrl={url} onSave={async (u) => {
+                    await removeProductPhoto(p.id, url)
+                    if (u) await addProductPhoto(p.id, u)
+                  }} label="photo" className="h-10 w-10" />
+                ))}
+                {(p.photos ?? []).length < MAX_EXTRA_PHOTOS && (
+                  <PhotoPicker photoUrl="" onSave={(u) => u && addProductPhoto(p.id, u)} label="another photo" fallback={<Plus size={16} />} className="h-10 w-10" />
+                )}
+              </div>
+            )}
           </div>
         ))}
         {!shown.length && <p className="py-8 text-center text-neutral-500">No products found.</p>}

@@ -46,7 +46,7 @@ export default function AdminHome() {
             <Link key={o.id} to={`/admin/orders/${o.id}`} className={`${lcard} flex items-center gap-3 p-4`}>
               <span className="flex-1">
                 <span className="flex items-center gap-2 font-bold">#{o.order_number} <StatusBadge status={o.status} /></span>
-                <span className="text-sm text-neutral-500">{o.customer_name} · {o.area} · {itemsText(o.item_count)} · {fmtClock(o.created_at)}</span>
+                <span className="text-sm text-neutral-500">{o.customer_name} · {itemsText(o.item_count)} · {fmtClock(o.created_at)}</span>
               </span>
               <span className="font-bold">{rupee(o.total)}</span>
               <ChevronRight size={18} className="text-neutral-400" />

@@ -25,21 +25,18 @@ export default function OutOfArea({ location, label, km, compact = false }) {
   }
 
   return (
-    <div className="rounded-2xl border border-orange-400/40 bg-orange-500/10 p-4">
-      <p className="flex items-center gap-2 font-bold text-orange-200">
-        <MapPinOff size={20} className="shrink-0" /> We are currently not available at your location
+    <div className="font-ui rounded-xl border border-orange-400/30 bg-orange-500/[0.07] px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-orange-200">
+        <MapPinOff size={15} className="shrink-0" /> Not delivering here yet{km ? ` · ${km} km away` : ''}
       </p>
-      <p className="mt-1 text-sm text-orange-100/80">
-        We will be available soon! {label || 'Your location'} is outside our delivery area for now.
-        {!compact && ' Leave your number and we will tell you on WhatsApp as soon as we start delivering here.'}
-      </p>
+      {!compact && <p className="mt-0.5 text-xs text-orange-100/70">Leave your number and we'll WhatsApp you when we start delivering here.</p>}
       {done ? (
-        <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-accent"><Check size={18} /> Thank you! We will inform you soon.</p>
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-accent"><Check size={15} /> Thanks! We will let you know.</p>
       ) : (
-        <form onSubmit={notify} className="mt-3 flex gap-2">
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="10 digit number" className={`${field} h-11`} />
-          <button type="submit" className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent px-3 text-sm font-bold text-ink">
-            <BellRing size={16} /> Notify me
+        <form onSubmit={notify} className="mt-2 flex gap-2">
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="10 digit number" className={`${field} h-9 rounded-lg px-3 text-sm`} />
+          <button type="submit" className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-accent px-2.5 text-xs font-bold text-ink">
+            <BellRing size={14} /> Notify me
           </button>
         </form>
       )}

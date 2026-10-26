@@ -112,6 +112,7 @@ export async function saveStore(data) {
     // Only after update 003 (supabase/migrations/003_partners.sql) has added the column.
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
+    ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()
@@ -551,7 +552,24 @@ const partnerCall = async (fn, args) => {
 }
 
 export const setDispatch = (id, dispatch) => partnerCall('partner_set_dispatch', { p_order_id: id, p_dispatch: dispatch })
-export const partnerComplete = (id, cash) => partnerCall('partner_complete', { p_order_id: id, p_cash: cash == null ? null : Number(cash) || 0 })
+// photo: storage path from uploadDeliveryPhoto (required by the database).
+export const partnerComplete = (id, cash, photo) =>
+  partnerCall('partner_complete', { p_order_id: id, p_cash: cash == null ? null : Number(cash) || 0, p_photo: photo ?? '' })
+
+// Photo of the items at the door (data URL from the camera), saved in the private "deliveries" bucket.
+export async function uploadDeliveryPhoto(orderId, photoUrl) {
+  const blob = await (await fetch(photoUrl)).blob()
+  const path = `orders/${orderId}-${Date.now()}.jpg`
+  check(await sb.storage.from('deliveries').upload(path, blob, { contentType: 'image/jpeg' }))
+  return path
+}
+
+// Short-lived link to view a delivery photo (only the admin and riders may).
+export async function deliveryPhotoUrl(path) {
+  if (!path) return ''
+  const { data } = await sb.storage.from('deliveries').createSignedUrl(path, 3600)
+  return data?.signedUrl ?? ''
+}
 export const partnerUndoDelivered = (id) => partnerCall('partner_undo_delivered', { p_order_id: id })
 export const logMessage = (id, kind) => partnerCall('log_order_message', { p_order_id: id, p_kind: kind })
 
@@ -586,4 +604,69 @@ export async function adminAddRider({ email, name, phone }) {
 export async function setRiderActive(userId, active) {
   check(await sb.from('riders').update({ active: !!active }).eq('user_id', userId))
   notify()
+}
+
+/* ---------- customer: cancel own order ---------- */
+
+// Allowed until the rider taps "On the way" (the database checks this).
+export async function cancelMyOrder(orderNumber) {
+  await session()
+  check(await sb.rpc('customer_cancel_order', { p_order_number: String(orderNumber) }))
+  notify()
+}
+
+/* ---------- no-shows and cash on delivery ---------- */
+
+// Rider: the customer did not answer at the door. Cancels the order and counts a no-show.
+export const partnerNoShow = (id) => partnerCall('partner_no_show', { p_order_id: id })
+
+// False after repeated no-shows: the checkout then hides cash on delivery for this number.
+// Before update 008 there is no such check, so cash stays allowed.
+export async function codAllowed(phone) {
+  const ph = cleanPhone(phone)
+  if (ph.length !== 10) return true
+  const { data, error } = await sb.rpc('cod_allowed', { p_phone: ph })
+  return error ? true : data !== false
+}
+
+/* ---------- extra product photos ---------- */
+
+export async function addProductPhoto(id, photoUrl) {
+  const blob = await (await fetch(photoUrl)).blob()
+  const path = `products/${id}-${Date.now()}.jpg`
+  check(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true }))
+  const url = sb.storage.from('photos').getPublicUrl(path).data.publicUrl
+  const p = check(await sb.from('products').select('photos').eq('id', id).single())
+  check(await sb.from('products').update({ photos: [...(p.photos ?? []), url], updated_at: now() }).eq('id', id))
+  notify()
+}
+
+export async function removeProductPhoto(id, url) {
+  const p = check(await sb.from('products').select('photos').eq('id', id).single())
+  check(await sb.from('products').update({ photos: (p.photos ?? []).filter((x) => x !== url), updated_at: now() }).eq('id', id))
+  notify()
+}
+
+/* ---------- admin: contacts for offers ---------- */
+
+// Everyone who ordered or received an order: { name, phone, orders, last } (newest first).
+export async function adminContacts() {
+  const rows = check(await sb.from('orders').select('*').order('created_at', { ascending: false }))
+  return contactsFrom(rows)
+}
+
+function contactsFrom(rows) {
+  const all = new Map()
+  const add = (name, phone, at) => {
+    if (!phone) return
+    const c = all.get(phone) ?? { name, phone, orders: 0, last: at }
+    c.orders += 1
+    if (at > c.last) c.last = at
+    all.set(phone, c)
+  }
+  for (const o of rows) {
+    add(o.customer_name, o.customer_phone, o.created_at)
+    add(o.ordered_by_name, o.ordered_by_phone, o.created_at)
+  }
+  return [...all.values()].sort((a, b) => b.last.localeCompare(a.last))
 }

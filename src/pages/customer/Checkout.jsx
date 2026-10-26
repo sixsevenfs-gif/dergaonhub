@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, Banknote, BookUser, ChevronDown, Clock, Gift, LocateFixed, Map, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
+import { ArrowLeft, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
-import { currentCustomer, customerSignIn, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import { codAllowed, currentCustomer, customerSignIn, placeOrder, sendAutoMessage } from '../../lib/store.js'
 import { useCart } from '../../lib/cart-context.js'
 import { cleanPhone, fmtTime, rupee, slotDate, slotText } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
@@ -102,6 +102,22 @@ export default function Checkout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Repeated no-shows on these numbers take away cash on delivery (the database checks this again).
+  const [codOk, setCodOk] = useState(true)
+  const phonesKey = forWho === 'other' ? `${receiver.phone}|${form.phone}` : form.phone
+  useEffect(() => {
+    let live = true
+    Promise.all(phonesKey.split('|').map((ph) => codAllowed(ph))).then((all) => {
+      if (!live) return
+      const ok = all.every(Boolean)
+      setCodOk(ok)
+      if (!ok) setPayment((p) => (p === 'cash' ? 'upi' : p))
+    })
+    return () => {
+      live = false
+    }
+  }, [phonesKey])
+
   // Checked first: clearing the cart after placing must not bounce back to the empty cart.
   if (placed) return <Navigate to={`/order/${placed}`} replace />
   if (!ready) return null
@@ -112,7 +128,7 @@ export default function Checkout() {
   // Address fields belong to whoever receives the order.
   const addr = other ? receiver : form
   const setAddr = other ? setR : set
-  const quote = deliveryQuote(store, location)
+  const quote = deliveryQuote(store, location, subtotal)
   const fee = quote && !quote.tooFar ? quote.fee : null
   const packaging = packagingFee(store, subtotal)
   const total = subtotal + (fee ?? 0) + packaging
@@ -139,6 +155,8 @@ export default function Checkout() {
       const order = await placeOrder({
         lines: lines.map((l) => ({ productId: l.id, qty: l.qty, note: l.note })),
         ...(other ? { ...receiver, orderer: { name: form.name, phone: form.phone } } : form),
+        // No area to choose any more: the map pin says where. The database still wants one of the store's areas.
+        area: store.delivery_area[0] ?? '',
         location,
         note: cart.note,
         payment_method: payment,
@@ -216,15 +234,6 @@ export default function Checkout() {
           <InputRow icon={MapPin} label="Address / Landmark">
             <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
           </InputRow>
-          <InputRow icon={Map} label="Area">
-            <span className="relative block">
-              <select required value={addr.area} onChange={setAddr('area')} className={`${inputCls} appearance-none pr-6`}>
-                <option value="" className="bg-card">Select area</option>
-                {store.delivery_area.map((a) => <option key={a} value={a} className="bg-card">{a}</option>)}
-              </select>
-              <ChevronDown size={18} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-muted" />
-            </span>
-          </InputRow>
 
           <div className="relative overflow-hidden rounded-2xl border border-line">
             {/* A new map when switching between me and them, so each starts at its own pin. */}
@@ -265,18 +274,31 @@ export default function Checkout() {
                 ) : (
                   <>
                     <span className="block text-lg font-black text-accent">{rupee(quote.fee)}</span>
-                    <span className="text-[11px] text-muted">delivery</span>
+                    <span className="text-[11px] text-muted">{quote.small ? 'small order' : 'delivery'}</span>
                   </>
                 )}
               </span>
             </div>
           )}
 
+          {quote && !quote.tooFar && quote.small && quote.small.save > 0 && (
+            <Link to="/" className="flex items-center gap-3 rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xl">💡</span>
+              <span className="flex-1 text-sm">
+                <span className="block font-bold text-emerald-300">Add {rupee(quote.small.addMore)} more, save {rupee(quote.small.save)} on delivery</span>
+                <span className="text-muted">
+                  Orders below {rupee(store.small_order_below)} pay {rupee(quote.fee)} delivery. From {rupee(store.small_order_below)} it is {quote.fullFee && store.free_delivery ? 'FREE' : rupee(quote.fee - quote.small.save)}.
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full bg-emerald-400 px-3 py-1.5 text-xs font-bold text-ink">Add items</span>
+            </Link>
+          )}
+
           <div className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-4">
             <Clock size={26} className="shrink-0 text-accent" />
             <span>
-              <span className="block font-bold text-accent">Order before {fmtTime(store.cutoff_time)},</span>
-              delivery {slotText(slotDate(store), store)}
+              <span className="block font-bold text-accent">Delivery {slotText(slotDate(store), store)}</span>
+              <span className="text-sm text-muted">Orders after {fmtTime(store.cutoff_time)} are delivered the next day</span>
             </span>
           </div>
         </section>
@@ -298,16 +320,23 @@ export default function Checkout() {
           {[
             ['cash', Banknote, 'Cash on delivery', other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash when you receive your items'],
             ['upi', Smartphone, 'UPI on delivery', other ? `${firstName || 'They'} scan our QR at the door` : 'Scan our QR and pay at delivery'],
-          ].map(([value, Icon, title, note]) => (
-            <button key={value} type="button" onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', payment === value ? 'border-accent' : 'border-line')}>
-              <Radio on={payment === value} />
-              <Icon size={24} />
-              <span>
-                <span className="block font-semibold">{title}</span>
-                <span className="text-xs text-muted">{note}</span>
-              </span>
-            </button>
-          ))}
+          ].map(([value, Icon, title, note]) => {
+            const off = value === 'cash' && !codOk
+            return (
+              <button key={value} type="button" disabled={off} onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', payment === value ? 'border-accent' : 'border-line', off && 'opacity-60')}>
+                <Radio on={payment === value} />
+                <Icon size={24} />
+                <span>
+                  <span className="block font-semibold">{title}</span>
+                  {off ? (
+                    <span className="text-xs text-red-300">Due to misuse of cash on delivery, we have temporarily restricted it for this number.</span>
+                  ) : (
+                    <span className="text-xs text-muted">{note}</span>
+                  )}
+                </span>
+              </button>
+            )
+          })}
         </section>
 
         <section className={`${card} p-4`}>
@@ -333,8 +362,8 @@ export default function Checkout() {
         </button>
         <p className="text-center text-xs text-muted">
           {other
-            ? 'We will call you or them to confirm the order. Once confirmed, we buy the items, so the order can\'t be cancelled after that.'
-            : 'We will call you to confirm your order. Once confirmed, we buy your items, so the order can\'t be cancelled after that.'}
+            ? 'We will call you or them to confirm the order. You can cancel it until our rider is on the way.'
+            : 'We will call you to confirm your order. You can cancel it until our rider is on the way.'}
         </p>
         <p className="text-center text-xs text-muted">
           By placing an order you agree to our <Link to="/policy/terms" className="underline">Terms</Link>,{' '}
