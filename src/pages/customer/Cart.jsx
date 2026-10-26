@@ -13,7 +13,7 @@ import { itemsText, rupee, slotDate, slotText } from '../../lib/format.js'
 
 export default function Cart() {
   const navigate = useNavigate()
-  const { setQty, setLineNote, setNote } = useCart()
+  const { setQty, setNote } = useCart()
   const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
   const { location } = useSavedDelivery()
 
@@ -67,12 +67,6 @@ export default function Cart() {
               </div>
             </div>
             {l.product && !l.product.available && <p className="mt-2 text-sm text-red-400">This item is now out of stock. Please remove it.</p>}
-            <input
-              value={l.note}
-              onChange={(e) => setLineNote(l.id, e.target.value)}
-              placeholder="Note (optional), e.g. please pick a fresh one"
-              className="mt-3 h-11 w-full rounded-xl border border-line bg-transparent px-3 text-sm placeholder:text-muted/70 focus:border-accent focus:outline-none"
-            />
           </div>
         ))}
       </div>

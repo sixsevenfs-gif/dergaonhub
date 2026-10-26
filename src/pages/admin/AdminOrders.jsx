@@ -56,7 +56,7 @@ export default function AdminOrders() {
   return (
     <div>
       <h1 className="text-2xl font-black">Orders</h1>
-      <p className="text-sm text-neutral-500">New order: call the customer, confirm, then buy the items.</p>
+      <p className="text-sm text-neutral-500">New order: call the customer, confirm, then pack it from the store.</p>
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
         {FILTERS.map(([key, label]) => (
           <button

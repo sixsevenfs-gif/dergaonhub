@@ -79,6 +79,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
    an order delivered (private `deliveries` storage bucket).
 7. `migrations/008_no_show_cod_photos.sql`: the rider can mark "Customer not answering" (no-show);
    after 2 no-shows a number can no longer pay cash on delivery; several photos per product.
+8. `migrations/009_fixed_cash.sql`: the rider always collects exactly the order total (cannot be changed).
 
 A new database made from the latest `schema.sql` already has all of them.
 

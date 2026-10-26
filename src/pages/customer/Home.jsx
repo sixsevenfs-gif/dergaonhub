@@ -105,11 +105,7 @@ export default function Home() {
                   {store.free_delivery ? <>Same-day delivery · <span className="text-emerald-400">FREE for launch 🎉</span></> : 'Same-day delivery on eligible orders'}
                 </span>
                 {/* The radius comes from Admin → Settings → Max km, so it grows with the delivery zone. */}
-                <span className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                  </span>
+                <span className="mt-1 block text-sm text-muted">
                   Now delivering within <b className="font-semibold text-accent">{store.max_delivery_km} km</b> of Dergaon
                 </span>
               </span>
@@ -163,7 +159,7 @@ export default function Home() {
 
       {count > 0 && (
         <div className="fixed inset-x-0 bottom-0 px-4 pb-4">
-          <Link to="/cart" className="mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl bg-accent px-5 text-ink shadow-lg">
+          <Link to="/cart" className="font-ui mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl bg-accent px-5 text-ink shadow-lg">
             <span className="flex items-center gap-3 text-lg font-bold"><ShoppingCart size={22} /> {itemsText(count)} · {rupee(cartTotal)}</span>
             <span className="flex items-center gap-1 font-bold">View cart <ArrowRight size={20} /></span>
           </Link>

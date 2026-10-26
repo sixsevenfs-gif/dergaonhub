@@ -20,7 +20,7 @@ export const POLICIES = {
         <UL items={[
           `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}. Orders placed after ${fmtTime(store.cutoff_time)} are delivered the next day.`,
           'We call you to confirm your order.',
-          'We buy your items fresh from trusted local shops in Dergaon and pack them for you.',
+          'Once confirmed, we pack your order fresh at our store and send it out for delivery.',
           'You pay on delivery, by cash or UPI.',
         ]} />
         <H>Where we deliver</H>

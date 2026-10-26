@@ -125,11 +125,11 @@ export function downloadBill(data) {
 
 // Opens the phone's share sheet with the PDF (pick WhatsApp and the contact).
 // Returns false where sharing files is not supported (most computers): download it instead.
-export async function shareBill(data) {
+export async function shareBill(data, text = '') {
   const file = new File([billPdf(data).output('blob')], billFileName(data.order), { type: 'application/pdf' })
   if (!navigator.canShare?.({ files: [file] })) return false
   try {
-    await navigator.share({ files: [file], title: `Bill #${data.order.order_number}` })
+    await navigator.share({ files: [file], title: `Bill #${data.order.order_number}`, ...(text ? { text } : {}) })
   } catch {
     // closed the share sheet
   }

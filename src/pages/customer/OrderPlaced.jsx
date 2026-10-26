@@ -72,7 +72,7 @@ export default function OrderPlaced() {
         <Phone size={24} className="shrink-0 text-accent" />
         <span className="border-l border-line pl-3">
           <span className="block font-semibold">We will call you to confirm.</span>
-          <span className="text-sm text-muted">After confirming, we buy your items and deliver them in the evening.</span>
+          <span className="text-sm text-muted">Once confirmed, we pack your order at our store and deliver it in the evening.</span>
         </span>
       </div>
 

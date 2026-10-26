@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, Repeat, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
@@ -106,6 +106,13 @@ function SavedPhoto({ path }) {
   )
 }
 
+// The PDF code is big: it loads when a card opens, so it is ready when the rider taps.
+const loadPdf = () => import('../../lib/billPdf.js')
+
+// Short message that goes with the PDF.
+const billCaption = (o) =>
+  `Dergaon Hub bill #${o.order_number} · Total ${rupee(o.total)} · Paid by ${o.payment_method === 'cash' ? 'cash' : 'UPI'}. Thank you!`
+
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 
 // Items ticked while shopping, remembered on this phone.
@@ -190,9 +197,11 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const done = stage === 'done'
   const [open, setOpen] = useState(!done)
   const [picked, toggle] = usePicked(o.id)
-  const [cash, setCash] = useState(String(o.total))
   const [error, setError] = useState('')
   const [photo, setPhoto] = useState('') // storage path of the delivery photo
+  useEffect(() => {
+    if (open && !done) loadPdf()
+  }, [open, done])
   const [badge, badgeCls] = STAGES[stage]
   const sent = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).at(-1)
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
@@ -207,17 +216,23 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
     }
   }
 
+  const collected = isCash ? o.total : 0
+  const doneOrder = { ...o, status: 'completed', cash_collected: collected, completed_at: new Date().toISOString() }
+  // On a phone: the bill goes as a PDF file through the share sheet (pick WhatsApp and the customer).
+  // Where files can't be shared (most computers), WhatsApp opens with the text bill instead.
   const deliver = async () => {
     setError('')
+    const pdf = await loadPdf()
+    const shared = await pdf.shareBill({ order: doneOrder, items: o.items, store }, billCaption(doneOrder))
     try {
-      await partnerComplete(o.id, isCash ? cash : 0, photo)
+      await partnerComplete(o.id, isCash ? o.total : 0, photo)
       logMessage(o.id, 'delivered').catch(() => {})
     } catch (err) {
       setError(err.message)
+      return
     }
+    if (!shared) window.open(waLink(toWa(o.customer_phone), billMessage({ order: doneOrder, items: o.items })), '_blank')
   }
-  const collected = isCash ? Number(cash) || o.total : 0
-  const bill = billMessage({ order: { ...o, status: 'completed', cash_collected: collected, completed_at: new Date().toISOString() }, items: o.items })
 
   return (
     <article className={`${card} overflow-hidden ${done ? 'opacity-70' : ''}`}>
@@ -313,23 +328,20 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 />
               </div>
               {stage !== 'ready' && <NoAnswer orderId={o.id} onError={setError} />}
-              {isCash && (
-                <label className="flex items-center gap-3 rounded-xl border border-line px-3 py-2 text-sm">
-                  <span className="flex-1 text-muted">Cash collected</span>
-                  ₹<input value={cash} onChange={(e) => setCash(e.target.value)} inputMode="numeric" className="w-20 bg-transparent text-right text-lg font-bold focus:outline-none" />
-                </label>
-              )}
+              {/* The amount is fixed: the rider collects exactly the order total. */}
+              <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-bold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-200' : 'border-sky-400/40 bg-sky-500/10 text-sky-200'}`}>
+                {isCash ? <Banknote size={19} /> : <Smartphone size={19} />}
+                {isCash ? `Collect ${rupee(o.total)} cash` : `Collect ${rupee(o.total)} by UPI`}
+              </p>
               <PhotoStep orderId={o.id} photo={photo} onPhoto={setPhoto} onError={setError} />
               {photo ? (
-                <a
-                  href={waLink(toWa(o.customer_phone), bill)}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
                   onClick={deliver}
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-bold text-white active:scale-[.99]"
                 >
-                  <WhatsAppIcon size={18} /> Delivered + send bill
-                </a>
+                  <WhatsAppIcon size={18} /> Delivered + send bill (PDF)
+                </button>
               ) : (
                 <p className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 text-sm text-muted">
                   <Lock size={15} /> Take the photo to mark delivered
@@ -341,7 +353,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
           {done && (
             <button type="button" onClick={run(async () => {
-              const pdf = await import('../../lib/billPdf.js')
+              const pdf = await loadPdf()
               const data = { order: o, items: o.items, store }
               if (!(await pdf.shareBill(data))) pdf.downloadBill(data)
             })} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1FAF54]/60 text-sm font-semibold text-[#3ddc84]">
