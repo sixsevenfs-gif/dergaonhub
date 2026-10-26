@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { lcard } from '../../components/ui.js'
-import { adminListComplaints, adminListOrders, adminStats, setPaused } from '../../lib/store.js'
+import { adminListComplaints, adminListOrders, adminStats, getStore, setPaused } from '../../lib/store.js'
+import PaymentCheck from './PaymentCheck.jsx'
 import { useData } from '../../lib/useData.js'
 import { fmtClock, itemsText, rupee, timeAgo } from '../../lib/format.js'
 
@@ -20,6 +22,14 @@ export default function AdminHome() {
   const { data: stats } = useData(adminStats)
   const { data: newOrders = [] } = useData(() => adminListOrders({ status: 'placed' }))
   const { data: complaints = [] } = useData(() => adminListComplaints({ status: 'open' }))
+  const { data: allOrders = [] } = useData(() => adminListOrders())
+  const { data: store } = useData(getStore)
+  // "Pay now by UPI" orders waiting for you to check the bank app.
+  // Just marked paid stays here until you close it, so you can send the WhatsApp confirmation.
+  const [justPaid, setJustPaid] = useState([])
+  const toCheck = allOrders.filter(
+    (o) => o.payment_method === 'upi_now' && o.status !== 'cancelled' && (['awaiting', 'verifying', 'failed'].includes(o.payment_status) || justPaid.includes(o.id)),
+  )
   if (!stats) return null
 
   return (
@@ -38,6 +48,28 @@ export default function AdminHome() {
         <Stat label="Today's value" value={rupee(stats.todayValue)} to="/admin/summary" />
         <Stat label="Open complaints" value={stats.openComplaints} to="/admin/complaints" hot={stats.openComplaints > 0} />
       </div>
+
+      {toCheck.length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold">Payments to check ({toCheck.length})</h2>
+          <p className="text-sm text-neutral-500">Open your bank or UPI app, find the amount, then tap. Customers see "verifying" until you do (we tell them under 10 minutes).</p>
+          <div className="mt-2 space-y-2">
+            {toCheck.map((o) => (
+              <div key={o.id} className={`${lcard} space-y-2 p-4`}>
+                <Link to={`/admin/orders/${o.id}`} className="flex items-center gap-2 font-bold">
+                  #{o.order_number} <span className="font-normal text-neutral-500">{o.customer_name} · {fmtClock(o.created_at)}</span>
+                </Link>
+                <PaymentCheck order={o} store={store} onPaid={(id) => setJustPaid((list) => [...list, id])} />
+                {justPaid.includes(o.id) && (
+                  <button type="button" onClick={() => setJustPaid((list) => list.filter((x) => x !== o.id))} className="text-xs font-semibold text-neutral-500 underline">
+                    Done, hide this
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-lg font-bold">New orders: call and confirm</h2>

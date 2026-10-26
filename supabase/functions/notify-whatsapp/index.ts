@@ -20,7 +20,10 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
-const rupee = (n: number) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN')
+const rupee = (n: number) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100
+  return '₹' + v.toLocaleString('en-IN', Number.isInteger(v) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 function fmtTime(t: string) {
   const [h, m] = String(t).slice(0, 5).split(':').map(Number)

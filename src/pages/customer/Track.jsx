@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AlertTriangle, Check, ChevronRight, Phone, X } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import AddToHomeSheet from '../../components/AddToHomeSheet.jsx'
+import PayNow from '../../components/PayNow.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { btnAccent, btnOutline, card, cx, field } from '../../components/ui.js'
 import { cancelMyOrder, getOrder, ordersByPhone } from '../../lib/store.js'
@@ -157,6 +158,7 @@ function OrderView({ data }) {
           {order.packaging_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
           <div className="flex pt-2 text-lg font-bold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
+        {data.mine && <PayNow order={order} store={store} />}
         <CancelOrder order={order} mine={data.mine} />
         {order.status === 'completed' && (
           <Link to={`/bill/${order.order_number}`} className={`${btnOutline} mt-3 w-full`}>View / download bill (PDF)</Link>

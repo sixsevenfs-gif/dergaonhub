@@ -3,6 +3,7 @@ import { Bookmark, Check, ChevronRight, Clock, House, MapPin, Phone, Store } fro
 import Wordmark from '../../components/Wordmark.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
+import PayNow from '../../components/PayNow.jsx'
 import { getOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { rupee, slotText } from '../../lib/format.js'
@@ -39,6 +40,8 @@ export default function OrderPlaced() {
         </p>
       </div>
 
+      {data.mine !== false && <PayNow order={order} store={store} />}
+
       <section className={`${card} mt-6 p-4`}>
         <div className="flex items-center gap-3 border-b border-line pb-3">
           <Store size={26} />
@@ -71,8 +74,12 @@ export default function OrderPlaced() {
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <Phone size={24} className="shrink-0 text-accent" />
         <span className="border-l border-line pl-3">
-          <span className="block font-semibold">We will call you to confirm.</span>
-          <span className="text-sm text-muted">Once confirmed, we pack your order at our store and deliver it in the evening.</span>
+          <span className="block font-semibold">{order.payment_method === 'upi_now' ? 'We will confirm it on WhatsApp.' : 'We will call you to confirm.'}</span>
+          <span className="text-sm text-muted">
+            {order.payment_method === 'upi_now'
+              ? 'As soon as your payment is verified (usually within 10 minutes), we send the confirmation on WhatsApp and pack your order.'
+              : 'Once confirmed, we pack your order at our store and deliver it in the evening.'}
+          </span>
         </span>
       </div>
 

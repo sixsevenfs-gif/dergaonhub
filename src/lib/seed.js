@@ -119,13 +119,15 @@ export function makeSeed() {
     min_order: 0, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
     // Items below ₹149: delivery is a flat ₹40, or the distance fee if that is higher.
     small_order_below: 149, small_order_fee: 40,
+    // Pay now by UPI: the store's UPI ID (set in Admin → Settings). Above cod_limit, UPI first.
+    upi_id: '', upi_name: 'Dergaon Hub', cod_limit: 350,
     // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
     // Approximate until the exact pin is set in Admin → Settings.
     location: { lat: 26.7, lng: 93.97 },
     // Zone 1 (road ~4 km): Dergaon town, bazaar, Dergaon Circle, Radiant College area, Rangamati.
     per_km_fee: 10, min_delivery_fee: 20, max_delivery_km: 4,
     // Packaging: ₹5 below ₹500, ₹9 from ₹500, ₹12 from ₹1000 (items total).
-    pack_fee_low: 5, pack_fee_mid: 9, pack_fee_high: 12, pack_mid_from: 500, pack_high_from: 1000,
+    pack_fee_low: 3.8, pack_fee_mid: 7.8, pack_fee_high: 13.6, pack_mid_from: 500, pack_high_from: 1000,
   }
 
   const customers = [

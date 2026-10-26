@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -96,7 +96,9 @@ export async function saveStore(data) {
   db.store.per_km_fee = Number(db.store.per_km_fee) || 0
   db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
   db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
-  for (const k of ['small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) db.store[k] = Number(db.store[k]) || 0
+  for (const k of ['cod_limit', 'small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) {
+    if (db.store[k] !== undefined) db.store[k] = Number(db.store[k]) || 0 // fields an older demo store doesn't have stay unset
+  }
   commit()
   return clone(db.store)
 }
@@ -301,7 +303,11 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   // Small orders pay the small-order fee (see deliveryQuote).
   const fee = deliveryQuote(store, location, subtotal).fee
   const packaging = packagingFee(store, subtotal)
-  const total = subtotal + fee + packaging
+  const total = Math.round((subtotal + fee + packaging) * 100) / 100
+  if (payment_method !== 'upi_now' && total > (store.cod_limit ?? 350)) {
+    fail(`Orders above ${rupee(store.cod_limit ?? 350)} are paid by UPI before delivery. Please choose "Pay now by UPI".`)
+  }
+  if (payment_method === 'upi_now' && !store.upi_id) fail('Online payment is not available right now. Please choose another payment method.')
 
   if (!customer) {
     customer = { id: newId(), phone: ph, name: name.trim(), no_show_count: 0, blocked: false, created_at: now() }
@@ -316,6 +322,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
     subtotal, delivery_fee: fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
+    payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
     delivery_date: pickDate(), status: 'placed', cancel_reason: '',
     created_at: now(), confirmed_at: null, completed_at: null,
     ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
@@ -567,7 +574,7 @@ export async function dailySummary(date) {
   const day = db.orders.filter((o) => o.delivery_date === date)
   const done = day.filter((o) => o.status === 'completed')
   const cash = sum(done.filter((o) => o.payment_method === 'cash'), (o) => o.cash_collected)
-  const upi = sum(done.filter((o) => o.payment_method === 'upi'), (o) => o.total)
+  const upi = sum(done.filter((o) => o.payment_method !== 'cash'), (o) => o.total)
   const expense = db.daily_expenses.find((e) => e.date === date)
   const spent = expense?.amount ?? 0
   return {
@@ -773,5 +780,30 @@ export async function savePrivateSettings({ daily_order_cap }) {
   const cap = Number(daily_order_cap)
   if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
   db.private = { ...db.private, daily_order_cap: Math.round(cap) }
+  commit()
+}
+
+/* ---------- Pay now by UPI ---------- */
+
+export async function submitUpiRef(orderNumber, ref) {
+  const o = db.orders.find((x) => x.order_number.toLowerCase() === String(orderNumber).toLowerCase()) ?? fail('Order not found on this phone.')
+  if (o.payment_method !== 'upi_now') fail('This order is not paid online.')
+  const r = String(ref ?? '').replace(/\s/g, '')
+  if (!/^[0-9A-Za-z]{6,30}$/.test(r)) fail('Enter the UPI Ref No. / UTR shown in your UPI app (usually 12 digits).')
+  if (o.payment_status === 'paid') return
+  o.upi_ref = r
+  o.payment_status = 'verifying'
+  commit()
+}
+
+export async function setPaymentStatus(orderId, status) {
+  const o = orderOrFail(orderId)
+  if (o.payment_method !== 'upi_now') fail('This order is not paid online.')
+  if (status === 'paid') {
+    Object.assign(o, { payment_status: 'paid', paid_at: now() })
+    if (o.status === 'placed') Object.assign(o, { status: 'confirmed', confirmed_at: now() })
+  }
+  else if (o.total <= (db.store.cod_limit ?? 350)) Object.assign(o, { payment_status: 'none', payment_method: 'cash', upi_ref: '' })
+  else o.payment_status = 'failed'
   commit()
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Phone, Truck } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
+import { PaymentBadge } from './PaymentCheck.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
 import { adminListOrders, confirmOrder } from '../../lib/store.js'
@@ -75,7 +76,7 @@ export default function AdminOrders() {
           <div key={o.id} className={`${lcard} p-4 ${o.status === 'placed' ? 'border-2 border-neutral-900 shadow-[0_0_0_4px_#E8FF3A]' : ''}`}>
             <Link to={`/admin/orders/${o.id}`} className="block">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 font-bold">#{o.order_number} <StatusBadge status={o.status} /></span>
+                <span className="flex flex-wrap items-center gap-2 font-bold">#{o.order_number} <StatusBadge status={o.status} /> <PaymentBadge order={o} /></span>
                 <span className="text-sm text-neutral-500">{fmtClock(o.created_at)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">

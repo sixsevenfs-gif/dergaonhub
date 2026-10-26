@@ -40,6 +40,8 @@ export const messagePhone = (kind, order) => (kind === 'placed' && order.ordered
 export function customerMessage(kind, { order, store }) {
   const name = firstName(order)
   const total = rupee(order.total)
+  const paid = order.payment_method === 'upi_now' && order.payment_status === 'paid'
+  const keepReady = paid ? 'Already paid online ✓' : `Please keep ${total} ready (cash or UPI).`
   if (kind === 'placed') {
     const orderer = order.ordered_by_phone ? order.ordered_by_name.split(' ')[0] || 'there' : name
     return [
@@ -50,7 +52,16 @@ export function customerMessage(kind, { order, store }) {
     ].join('\n')
   }
   if (kind === 'on_the_way') {
-    return `Hello ${name}, our rider has left with your Dergaon Hub order #${order.order_number} 🛵\nYou will get it in 10–15 minutes. Please keep ${total} ready (cash or UPI).`
+    return `Hello ${name}, our rider has left with your Dergaon Hub order #${order.order_number} 🛵\nYou will get it in 10–15 minutes. ${keepReady}`
   }
-  return `Hello ${name}, our rider is arriving soon with your Dergaon Hub order #${order.order_number} 📍\nYou will get it in 10–15 minutes. Please keep ${total} ready (cash or UPI).`
+  return `Hello ${name}, our rider is arriving soon with your Dergaon Hub order #${order.order_number} 📍\nYou will get it in 10–15 minutes. ${keepReady}`
+}
+
+// After "Pay now by UPI" is verified: payment received and order confirmed.
+export function paymentMessage(order, store) {
+  const name = (order.ordered_by_phone ? order.ordered_by_name : order.customer_name).split(' ')[0] || 'there'
+  return [
+    `Hello ${name}, we have received your payment of ${rupee(order.total)} for Dergaon Hub order #${order.order_number} ✅`,
+    `Your order is confirmed and will be delivered ${slotWords(order.delivery_date, store)}. Thank you!`,
+  ].join('\n')
 }

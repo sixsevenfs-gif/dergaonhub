@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, BadgePercent, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
+import { ArrowLeft, BadgePercent, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound, Zap } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -135,7 +135,11 @@ export default function Checkout() {
   const quote = deliveryQuote(store, location, subtotal)
   const fee = quote && !quote.tooFar ? quote.fee : null
   const packaging = packagingFee(store, subtotal)
-  const total = subtotal + (fee ?? 0) + packaging
+  const total = Math.round((subtotal + (fee ?? 0) + packaging) * 100) / 100
+  // Pay now by UPI needs the store's UPI ID; above cod_limit it is the only way to pay.
+  const canPayNow = !!store.upi_id
+  const overLimit = store.cod_limit != null && total > store.cod_limit
+  const method = overLimit ? 'upi_now' : payment === 'upi_now' && !canPayNow ? 'cash' : payment
   const firstName = receiver.name.trim().split(' ')[0]
 
   const fromContacts = async () => {
@@ -163,7 +167,7 @@ export default function Checkout() {
         area: store.delivery_area[0] ?? '',
         location,
         note: cart.note,
-        payment_method: payment,
+        payment_method: method,
         allow_substitute: substitute,
       })
       if (other) {
@@ -323,20 +327,30 @@ export default function Checkout() {
 
         <section className={`${card} space-y-2 p-3`}>
           <h2 className="px-1 pt-1 font-bold">Payment method</h2>
-          {other && <p className="px-1 text-xs text-muted">{firstName || 'The receiver'} pays when the items arrive. Want to pay yourself? Call us after ordering.</p>}
+          {overLimit && (
+            <p className="px-1 text-xs text-accent">
+              {canPayNow
+                ? `Orders above ${rupee(store.cod_limit)} are paid now by UPI.`
+                : `Orders above ${rupee(store.cod_limit)} need online payment, which is not available right now. Please remove a few items or call us.`}
+            </p>
+          )}
           {[
+            ...(canPayNow ? [['upi_now', Zap, 'Pay now by UPI', other ? 'You pay now with GPay, PhonePe or Paytm' : 'GPay, PhonePe, Paytm or any UPI app']] : []),
             ['cash', Banknote, 'Cash on delivery', other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash when you receive your items'],
             ['upi', Smartphone, 'UPI on delivery', other ? `${firstName || 'They'} scan our QR at the door` : 'Scan our QR and pay at delivery'],
           ].map(([value, Icon, title, note]) => {
-            const off = value === 'cash' && !codOk
+            const noCod = value === 'cash' && !codOk
+            const off = noCod || (overLimit && value !== 'upi_now')
             return (
-              <button key={value} type="button" disabled={off} onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', payment === value ? 'border-accent' : 'border-line', off && 'opacity-60')}>
-                <Radio on={payment === value} />
+              <button key={value} type="button" disabled={off} onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', method === value ? 'border-accent' : 'border-line', off && 'opacity-50')}>
+                <Radio on={method === value} />
                 <Icon size={24} />
                 <span>
                   <span className="block font-semibold">{title}</span>
-                  {off ? (
+                  {noCod ? (
                     <span className="text-xs text-red-300">Due to misuse of cash on delivery, we have temporarily restricted it for this number.</span>
+                  ) : off ? (
+                    <span className="text-xs text-muted">Only for orders up to {rupee(store.cod_limit)}</span>
                   ) : (
                     <span className="text-xs text-muted">{note}</span>
                   )}
@@ -369,11 +383,13 @@ export default function Checkout() {
         {/* Cloudflare Turnstile (free CAPTCHA) goes here when the site is deployed. */}
 
         {error && <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-300">{error}</p>}
-        <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>
-          {busy ? 'Placing...' : other && firstName ? `Place order for ${firstName}` : 'Place order'}
+        <button type="submit" disabled={busy || fee === null || (overLimit && !canPayNow)} className={`${btnAccent} h-14`}>
+          {busy ? 'Placing...' : method === 'upi_now' ? `Place order & pay ${rupee(total)}` : other && firstName ? `Place order for ${firstName}` : 'Place order'}
         </button>
         <p className="text-center text-xs text-muted">
-          {other
+          {method === 'upi_now'
+            ? 'Next you pay by UPI. We verify the payment (usually within 10 minutes) and send the confirmation on WhatsApp.'
+            : other
             ? 'We will call you or them to confirm the order. You can cancel it until our rider is on the way.'
             : 'We will call you to confirm your order. You can cancel it until our rider is on the way.'}
         </p>

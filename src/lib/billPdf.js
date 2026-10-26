@@ -3,7 +3,10 @@
 import { jsPDF } from 'jspdf'
 import { LEGAL } from '../config.js'
 
-const rs = (n) => 'Rs. ' + Math.round(Number(n) || 0).toLocaleString('en-IN')
+const rs = (n) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100
+  return 'Rs. ' + v.toLocaleString('en-IN', Number.isInteger(v) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 const when = (iso) =>
   new Date(iso ?? Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 

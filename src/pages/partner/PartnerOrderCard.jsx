@@ -206,6 +206,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const sent = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).at(-1)
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
   const isCash = o.payment_method === 'cash'
+  const payNow = o.payment_method === 'upi_now'
+  const paidOnline = payNow && o.payment_status === 'paid'
 
   const run = (fn) => async () => {
     setError('')
@@ -246,8 +248,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
         </div>
         <div className="text-right">
           <div className="text-lg font-black">{rupee(o.total)}</div>
-          <div className={`text-xs font-semibold ${done ? 'text-emerald-300' : isCash ? 'text-orange-300' : 'text-sky-300'}`}>
-            {done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : isCash ? 'Collect cash' : 'UPI'}
+          <div className={`text-xs font-semibold ${done || paidOnline ? 'text-emerald-300' : payNow ? (o.payment_status === 'failed' ? 'text-red-300' : 'text-amber-300') : isCash ? 'text-orange-300' : 'text-sky-300'}`}>
+            {paidOnline ? 'Paid online ✓' : done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : payNow ? (o.payment_status === 'failed' ? 'NOT PAID' : 'Payment checking') : isCash ? 'Collect cash' : 'UPI'}
           </div>
         </div>
         <ChevronDown size={20} className={`mt-1 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -330,11 +332,23 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 />
               </div>
               {stage !== 'ready' && <NoAnswer orderId={o.id} onError={setError} />}
-              {/* The amount is fixed: the rider collects exactly the order total. */}
-              <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-bold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-200' : 'border-sky-400/40 bg-sky-500/10 text-sky-200'}`}>
-                {isCash ? <Banknote size={19} /> : <Smartphone size={19} />}
-                {isCash ? `Collect ${rupee(o.total)} cash` : `Collect ${rupee(o.total)} by UPI`}
-              </p>
+              {/* The amount is fixed: the rider collects exactly the order total (or nothing if paid online). */}
+              {paidOnline ? (
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-base font-bold text-emerald-200">
+                  <Check size={19} /> Paid online · don't collect money
+                </p>
+              ) : payNow ? (
+                <p className={`rounded-xl border px-3 py-2.5 text-center text-sm font-semibold ${o.payment_status === 'failed' ? 'border-red-400/40 bg-red-500/10 text-red-200' : 'border-amber-400/40 bg-amber-500/10 text-amber-100'}`}>
+                  {o.payment_status === 'failed'
+                    ? `NOT PAID: collect ${rupee(o.total)} before handing over, or call the admin.`
+                    : `Payment of ${rupee(o.total)} is being checked by the admin. Call the admin before handing over.`}
+                </p>
+              ) : (
+                <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-bold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-200' : 'border-sky-400/40 bg-sky-500/10 text-sky-200'}`}>
+                  {isCash ? <Banknote size={19} /> : <Smartphone size={19} />}
+                  {isCash ? `Collect ${rupee(o.total)} cash` : `Collect ${rupee(o.total)} by UPI`}
+                </p>
+              )}
               <PhotoStep orderId={o.id} photo={photo} onPhoto={setPhoto} onError={setError} />
               {photo ? (
                 <button

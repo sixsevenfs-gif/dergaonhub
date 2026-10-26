@@ -230,9 +230,9 @@ function SettingsForm({ store }) {
         <h2 className="font-bold">Packaging charge (by order value)</h2>
         <p className="text-sm text-neutral-500">Added to every order, based on the items total. Customers see it as "Packaging charge".</p>
         <div className="grid grid-cols-3 gap-3">
-          <Field label={`Below ₹${packs.pack_mid_from}`}><input type="number" min="0" value={v.pack_fee_low} onChange={set('pack_fee_low')} className={lfield} /></Field>
-          <Field label={`₹${packs.pack_mid_from} – ₹${packs.pack_high_from - 1}`}><input type="number" min="0" value={v.pack_fee_mid} onChange={set('pack_fee_mid')} className={lfield} /></Field>
-          <Field label={`₹${packs.pack_high_from} and above`}><input type="number" min="0" value={v.pack_fee_high} onChange={set('pack_fee_high')} className={lfield} /></Field>
+          <Field label={`Below ₹${packs.pack_mid_from}`}><input type="number" min="0" step="0.01" value={v.pack_fee_low} onChange={set('pack_fee_low')} className={lfield} /></Field>
+          <Field label={`₹${packs.pack_mid_from} – ₹${packs.pack_high_from - 1}`}><input type="number" min="0" step="0.01" value={v.pack_fee_mid} onChange={set('pack_fee_mid')} className={lfield} /></Field>
+          <Field label={`₹${packs.pack_high_from} and above`}><input type="number" min="0" step="0.01" value={v.pack_fee_high} onChange={set('pack_fee_high')} className={lfield} /></Field>
           <Field label="Middle slab starts at ₹"><input type="number" min="0" value={v.pack_mid_from} onChange={set('pack_mid_from')} className={lfield} /></Field>
           <Field label="Top slab starts at ₹"><input type="number" min="0" value={v.pack_high_from} onChange={set('pack_high_from')} className={lfield} /></Field>
         </div>
@@ -240,6 +240,23 @@ function SettingsForm({ store }) {
           Example: ₹300 order → {rupee(packagingFee(packs, 300))} · ₹650 → {rupee(packagingFee(packs, 650))} · ₹1200 → {rupee(packagingFee(packs, 1200))}
         </p>
       </section>
+
+      {(v.upi_id !== undefined || DEMO_MODE) && (
+        <section className={`${lcard} space-y-3 p-4`}>
+          <div>
+            <h2 className="font-bold">Payments: "Pay now by UPI"</h2>
+            <p className="text-sm text-neutral-500">
+              Customers pay to this UPI ID from GPay, PhonePe or Paytm, then enter the UPI Ref No. You confirm it on the
+              admin home page ("Payments to check"). Leave the UPI ID empty to switch "Pay now" off.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Your UPI ID" hint="e.g. yourname@okaxis"><input value={v.upi_id ?? ''} onChange={set('upi_id')} placeholder="name@bank" className={lfield} /></Field>
+            <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Dergaon Hub" className={lfield} /></Field>
+            <Field label="Cash / pay on delivery up to ₹" hint="Bigger orders must pay now by UPI"><input type="number" min="0" value={v.cod_limit ?? 350} onChange={set('cod_limit')} className={lfield} /></Field>
+          </div>
+        </section>
+      )}
 
       <section className={`${lcard} space-y-3 p-4`}>
         <div className="flex items-start justify-between gap-3">

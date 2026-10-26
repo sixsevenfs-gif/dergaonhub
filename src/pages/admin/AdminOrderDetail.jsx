@@ -13,6 +13,7 @@ import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
+import PaymentCheck from './PaymentCheck.jsx'
 
 // Photo the rider took of the items at the customer's door.
 function DeliveryPhoto({ path }) {
@@ -93,6 +94,7 @@ export default function AdminOrderDetail() {
         </p>
       </section>
 
+      {order.payment_method === 'upi_now' && <section className={`${lcard} p-4`}><PaymentCheck order={order} store={store} /></section>}
       {order.delivery_photo && <DeliveryPhoto path={order.delivery_photo} />}
 
       <section className={`${lcard} p-4`}>

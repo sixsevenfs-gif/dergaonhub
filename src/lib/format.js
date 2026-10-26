@@ -1,4 +1,8 @@
-export const rupee = (n) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN')
+// ₹285, or with paise when there are any: ₹323.80
+export function rupee(n) {
+  const v = Math.round((Number(n) || 0) * 100) / 100
+  return '₹' + v.toLocaleString('en-IN', Number.isInteger(v) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 export function dateStr(d = new Date()) {
   const m = String(d.getMonth() + 1).padStart(2, '0')

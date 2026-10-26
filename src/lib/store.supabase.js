@@ -99,6 +99,13 @@ export function getStore() {
   return shared('store', async () => toStore(check(await sb.from('store_settings').select('*').eq('id', 1).single())))
 }
 
+// "name@bank" style UPI ID, or '' to switch "Pay now" off.
+function upiId(v) {
+  const id = String(v ?? '').trim()
+  if (id && !/^[\w.-]{2,}@[a-zA-Z][\w.-]*$/.test(id)) fail('Enter a valid UPI ID, like yourname@okaxis.')
+  return id
+}
+
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
   if (cleanPhone(data.phone).length !== 10) fail('Enter a valid 10-digit phone number.')
@@ -120,6 +127,7 @@ export async function saveStore(data) {
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
+    ...(data.upi_id === undefined ? {} : { upi_id: upiId(data.upi_id), upi_name: (data.upi_name ?? '').trim(), cod_limit: Math.max(0, Number(data.cod_limit) || 0) }), // after 015
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
   }).eq('id', 1).select().single())
@@ -268,6 +276,8 @@ const toOrder = (o) => ({
   ...o,
   location: o.lat != null && o.lng != null ? { lat: o.lat, lng: o.lng } : null,
   distance_km: o.distance_km == null ? null : Number(o.distance_km),
+  // Amounts with paise come from the database as numbers or strings.
+  total: Number(o.total ?? 0), packaging_fee: Number(o.packaging_fee ?? 0), cash_collected: Number(o.cash_collected ?? 0),
 })
 
 // Price, fee, limits and delivery day are all decided by place_order() in the database.
@@ -496,7 +506,7 @@ export async function dailySummary(date) {
   ])
   const done = day.filter((o) => o.status === 'completed')
   const cash = sum(done.filter((o) => o.payment_method === 'cash'), (o) => o.cash_collected)
-  const upi = sum(done.filter((o) => o.payment_method === 'upi'), (o) => o.total)
+  const upi = sum(done.filter((o) => o.payment_method !== 'cash'), (o) => Number(o.total))
   const spent = expense?.amount ?? 0
   return {
     orders: day.length, delivered: done.length,
@@ -714,5 +724,20 @@ export async function savePrivateSettings({ daily_order_cap }) {
   const cap = Number(daily_order_cap)
   if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
   check(await sb.from('private_settings').update({ daily_order_cap: Math.round(cap) }).eq('id', 1))
+  notify()
+}
+
+/* ---------- Pay now by UPI ---------- */
+
+// Customer: the UPI reference number (UTR) after paying in their UPI app.
+export async function submitUpiRef(orderNumber, ref) {
+  await session()
+  check(await sb.rpc('customer_submit_upi_ref', { p_order_number: String(orderNumber), p_ref: ref }))
+  notify()
+}
+
+// Admin or rider: 'paid' (money is in the bank) or 'failed' (not received).
+export async function setPaymentStatus(orderId, status) {
+  check(await sb.rpc('staff_set_payment', { p_order_id: orderId, p_status: status }))
   notify()
 }

@@ -86,6 +86,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 11. `migrations/012_sale_price.sql`: discount price per product (struck-out price and % OFF for customers).
 12. `migrations/013_daily_cap.sql`: no limit on orders per person; orders per evening set in Admin → Settings; checkout shows the real delivery day.
 13. `migrations/014_private_cap.sql`: the orders-per-evening limit (50) is admin-only (`private_settings`), never shown to customers.
+14. `migrations/015_upi_pay_now.sql`: "Pay now by UPI" to the store's UPI ID with UTR check by admin/rider; orders above ₹350 must pay first; packaging with paise (₹3.80 / ₹7.80 / ₹13.60).
 
 A new database made from the latest `schema.sql` already has all of them.
 
