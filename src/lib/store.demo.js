@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'daily_order_cap']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -254,7 +254,7 @@ function pickDate() {
   return date
 }
 
-const dailyCap = () => Math.max(1, Number(db.store.daily_order_cap) || CONFIG.DELIVERY_CAP)
+const dailyCap = () => Math.max(1, Number(db.private?.daily_order_cap) || CONFIG.DELIVERY_CAP)
 
 // The day the next order would be delivered (today, tomorrow, or later if those evenings are full).
 export async function nextDeliveryDate() {
@@ -761,4 +761,17 @@ export async function adminContacts() {
     add(o.ordered_by_name, o.ordered_by_phone, o.created_at)
   }
   return [...all.values()].sort((a, b) => b.last.localeCompare(a.last))
+}
+
+/* ---------- admin-only settings ---------- */
+
+export async function getPrivateSettings() {
+  return { daily_order_cap: dailyCap(), ready: true }
+}
+
+export async function savePrivateSettings({ daily_order_cap }) {
+  const cap = Number(daily_order_cap)
+  if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
+  db.private = { ...db.private, daily_order_cap: Math.round(cap) }
+  commit()
 }

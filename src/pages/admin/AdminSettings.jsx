@@ -3,13 +3,46 @@ import { LocateFixed, UserPlus } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
-import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { adminAddRider, adminListRiders, getStore, resetDemo, saveStore, setRiderActive } from '../../lib/store.js'
+import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
+import { adminAddRider, adminListRiders, getPrivateSettings, getStore, resetDemo, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
 import { currentPosition, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG, DEMO_MODE, LEGAL } from '../../config.js'
+
+// Orders per evening. Private: customers never see it, they only see the day their order comes.
+function EveningLimit() {
+  const { data } = useData(getPrivateSettings)
+  const [value, setValue] = useState('')
+  const [msg, setMsg] = useState('')
+  if (!data) return null
+  const save = async (e) => {
+    e.preventDefault()
+    setMsg('')
+    try {
+      await savePrivateSettings({ daily_order_cap: value || data.daily_order_cap })
+      setMsg('Saved!')
+    } catch (err) {
+      setMsg(err.message)
+    }
+  }
+  return (
+    <form onSubmit={save} className={`${lcard} space-y-2 p-4`}>
+      <h2 className="font-bold">Orders per evening <span className="ml-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Private</span></h2>
+      <p className="text-sm text-neutral-500">
+        When an evening has this many orders, new orders go to the next day. Customers only see "We are facing heavy
+        traffic today, so we will deliver your order tomorrow". The number is never shown to them.
+      </p>
+      {!data.ready && !DEMO_MODE && <p className="text-xs text-orange-700">Run supabase/migrations/014_private_cap.sql first.</p>}
+      <div className="flex items-center gap-2">
+        <input type="number" min="1" value={value || data.daily_order_cap} onChange={(e) => setValue(e.target.value)} className={`${lfieldBase} h-11 w-28`} />
+        <button type="submit" className={`${lbtnDark} h-11`}>Save</button>
+        {msg && <span className={`text-sm ${msg === 'Saved!' ? 'text-green-700' : 'text-red-600'}`}>{msg}</span>}
+      </div>
+    </form>
+  )
+}
 
 // Delivery partners: each rider logs in on /partner with their own email + password.
 function Riders() {
@@ -136,9 +169,7 @@ function SettingsForm({ store }) {
           <Field label="Delivery starts"><input type="time" value={v.slot_start} onChange={set('slot_start')} className={lfield} /></Field>
           <Field label="Delivery ends"><input type="time" value={v.slot_end} onChange={set('slot_end')} className={lfield} /></Field>
           <Field label="Minimum order (₹)"><input type="number" min="0" value={v.min_order} onChange={set('min_order')} className={lfield} /></Field>
-          {v.daily_order_cap !== undefined || DEMO_MODE ? (
-            <Field label="Orders per evening" hint="When full, new orders go to the next free day"><input type="number" min="1" value={v.daily_order_cap ?? 15} onChange={set('daily_order_cap')} className={lfield} /></Field>
-          ) : <div />}
+          <div />
         </div>
         <div>
           <span className="mb-1 block text-sm font-medium text-neutral-700">Delivery areas</span>
@@ -244,6 +275,7 @@ export default function AdminSettings() {
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Settings</h1>
       <SettingsForm store={store} />
+      <EveningLimit />
       <Riders />
       {DEMO_MODE && (
         <button type="button" onClick={() => window.confirm('Reset all demo data?') && resetDemo()} className={`${lbtnDanger} w-full`}>

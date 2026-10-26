@@ -17,6 +17,7 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
 | `waitlist` | "Notify me" from outside the delivery area | Anyone adds · admin reads |
 | `daily_expenses` | Money spent at shops per day | Admin only |
 | `admins` | Which logins are admin | Admin only |
+| `private_settings` | Orders per evening (kept from customers) | Admin only |
 | `riders` | Delivery partner logins (name, phone, access on/off) | Admin manages · rider reads own row |
 | `order_messages` | WhatsApp messages sent to customers (automatic or by tap) | Admin and riders read · written by functions only |
 
@@ -84,6 +85,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 10. `migrations/011_privacy_spam.sql`: order pages hide names and phones from strangers; at most 3 open orders per phone.
 11. `migrations/012_sale_price.sql`: discount price per product (struck-out price and % OFF for customers).
 12. `migrations/013_daily_cap.sql`: no limit on orders per person; orders per evening set in Admin → Settings; checkout shows the real delivery day.
+13. `migrations/014_private_cap.sql`: the orders-per-evening limit (50) is admin-only (`private_settings`), never shown to customers.
 
 A new database made from the latest `schema.sql` already has all of them.
 

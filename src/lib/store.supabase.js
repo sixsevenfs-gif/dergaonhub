@@ -120,7 +120,6 @@ export async function saveStore(data) {
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
-    ...(data.daily_order_cap === undefined ? {} : { daily_order_cap: Math.max(1, Number(data.daily_order_cap) || 15) }), // after 013
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
   }).eq('id', 1).select().single())
@@ -483,7 +482,7 @@ export async function deliverySheet(date) {
   const areas = [...new Set(orders.map((o) => o.area))].sort()
   return {
     count: orders.length,
-    cap: (await getStore()).daily_order_cap ?? 15,
+    cap: (await getPrivateSettings()).daily_order_cap,
     groups: areas.map((area) => ({ area, orders: orders.filter((o) => o.area === area) })),
     shopping: Object.values(shopping).sort((a, b) => a.name.localeCompare(b.name)),
   }
@@ -701,4 +700,19 @@ export async function nextDeliveryDate() {
   const { data, error } = await sb.rpc('next_delivery_date')
   if (!error && data) return data
   return slotDate(await getStore())
+}
+
+/* ---------- admin-only settings ---------- */
+
+// Orders per evening: kept in private_settings so customers can't see it (update 014).
+export async function getPrivateSettings() {
+  const { data } = await sb.from('private_settings').select('*').eq('id', 1).maybeSingle()
+  return { daily_order_cap: data?.daily_order_cap ?? 50, ready: !!data }
+}
+
+export async function savePrivateSettings({ daily_order_cap }) {
+  const cap = Number(daily_order_cap)
+  if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
+  check(await sb.from('private_settings').update({ daily_order_cap: Math.round(cap) }).eq('id', 1))
+  notify()
 }

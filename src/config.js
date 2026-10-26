@@ -1,7 +1,7 @@
 // Pilot rules from the plan. Values marked [TBD] are assumptions: change them here.
 // Store details (name, phone, timings, delivery fee, areas) are edited in Admin → Settings.
 export const CONFIG = {
-  DELIVERY_CAP: 15, // max delivery orders per evening slot (plan: 10 to 15)
+  DELIVERY_CAP: 50, // default orders per evening; the real value is set in Admin → Settings (private)
   NO_SHOW_LIMIT: 2, // after this many no-shows the number cannot pay cash on delivery
   AREAS: ['Dergaon Bazaar', 'Dergaon Town', 'Borpathar', 'Station Road'], // [TBD]
   CANCEL_REASONS: ['Item not available', 'Customer unreachable', 'No-show', 'Customer cancelled', 'Other'],
