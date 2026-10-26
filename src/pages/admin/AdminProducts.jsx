@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, Star, Upload } from 'lucide-react'
+import { BadgePercent, Plus, Search, Star, Upload } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
@@ -7,7 +7,7 @@ import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
 import { addProduct, addProductPhoto, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductPhoto, updateProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { rupee, timeAgo } from '../../lib/format.js'
+import { percentOff, rupee, timeAgo } from '../../lib/format.js'
 import { DEMO_MODE } from '../../config.js'
 
 const MAX_EXTRA_PHOTOS = 4 // besides the main photo
@@ -41,6 +41,95 @@ function PriceEdit({ product }) {
       <input autoFocus type="number" inputMode="numeric" min="1" value={value} onChange={(e) => setValue(e.target.value)} className={`${lfieldBase} h-10 w-20 px-2`} />
       <button type="submit" className={`${lbtnDark} min-h-10 px-3 text-sm`}>Save</button>
       {error && <span className="text-xs text-red-600">{error}</span>}
+    </form>
+  )
+}
+
+// Sale price: type the discount price (or tap 5% / 10% ...), the % off and saving update as you type.
+// Saving keeps the old price as "price before discount"; customers see it struck out.
+function DiscountEdit({ product }) {
+  const original = product.compare_price ?? product.price
+  const [open, setOpen] = useState(false)
+  const [base, setBase] = useState(String(original))
+  const [sale, setSale] = useState(String(product.compare_price ? product.price : ''))
+  const [error, setError] = useState('')
+  const b = Number(base) || 0
+  const s = Number(sale) || 0
+  const pct = percentOff(b, s)
+  const on = !!product.compare_price
+
+  const save = async (e) => {
+    e.preventDefault()
+    setError('')
+    try {
+      if (!(s > 0 && s < b)) throw new Error('Discount price must be lower than the original price.')
+      // Order matters for the database rule (price before discount > price).
+      await updateProduct(product.id, { price: s, compare_price: b })
+      setOpen(false)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  const remove = async () => {
+    setError('')
+    try {
+      await updateProduct(product.id, { price: product.compare_price, compare_price: null })
+      setSale('')
+      setOpen(false)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (!open) {
+    return on ? (
+      <button type="button" onClick={() => setOpen(true)} className="flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-left">
+        <span className="text-sm text-neutral-400 line-through">{rupee(product.compare_price)}</span>
+        <span className="text-lg font-bold">{rupee(product.price)}</span>
+        <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">{percentOff(product.compare_price, product.price)}% OFF</span>
+      </button>
+    ) : (
+      <span className="flex items-center gap-1.5">
+        <PriceEdit key={product.price} product={product} />
+        <button type="button" onClick={() => { setBase(String(product.price)); setOpen(true) }} className="flex h-10 items-center gap-1 rounded-lg border border-dashed border-emerald-300 px-2.5 text-xs font-semibold text-emerald-700">
+          <BadgePercent size={15} /> Discount
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <form onSubmit={save} className="w-full rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 sm:w-auto">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-neutral-600">
+          Original price
+          <input type="number" min="1" value={base} onChange={(e) => setBase(e.target.value)} className={`${lfieldBase} mt-1 block h-10 w-24 px-2`} />
+        </label>
+        <label className="text-xs text-neutral-600">
+          Discount price
+          <input autoFocus type="number" min="1" value={sale} onChange={(e) => setSale(e.target.value)} placeholder="e.g. 250" className={`${lfieldBase} mt-1 block h-10 w-24 px-2`} />
+        </label>
+        <div className="flex gap-1">
+          {[5, 10, 15, 20].map((p) => (
+            <button key={p} type="button" onClick={() => setSale(String(Math.floor(b * (1 - p / 100))))} className="h-10 rounded-lg border border-emerald-300 bg-white px-2 text-xs font-semibold text-emerald-700">
+              {p}%
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Live preview: exactly what the customer will see. */}
+      <div className="mt-3 flex items-center gap-2">
+        <span className="text-sm text-neutral-400 line-through">{rupee(b)}</span>
+        <span className="text-xl font-black">{s ? rupee(s) : '₹—'}</span>
+        {pct > 0 && <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">{pct}% OFF</span>}
+        {pct > 0 && <span className="text-xs text-emerald-700">Customer saves {rupee(b - s)}</span>}
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="submit" className={`${lbtnDark} min-h-10 px-4 text-sm`}>Save discount</button>
+        {on && <button type="button" onClick={remove} className={`${lbtnOutline} min-h-10 px-3 text-sm`}>Remove discount</button>}
+        <button type="button" onClick={() => setOpen(false)} className="min-h-10 px-2 text-sm text-neutral-500">Cancel</button>
+      </div>
     </form>
   )
 }
@@ -160,7 +249,7 @@ export default function AdminProducts() {
             >
               <Star size={18} fill={p.featured ? 'currentColor' : 'none'} />
             </button>
-            <PriceEdit key={p.price} product={p} />
+            <DiscountEdit key={`${p.price}-${p.compare_price}`} product={p} />
             <div className="flex items-center gap-2">
               <span className={`w-14 text-right text-xs font-semibold ${p.available ? 'text-green-700' : 'text-neutral-500'}`}>{p.available ? 'In stock' : 'Out'}</span>
               <Toggle checked={p.available} onChange={(v) => updateProduct(p.id, { available: v })} label={`${p.name} available`} />

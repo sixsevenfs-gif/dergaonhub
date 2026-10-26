@@ -10,5 +10,7 @@ export function useCartDetails() {
   const lines = Object.entries(cart.lines).map(([id, l]) => ({ ...l, id, product: products?.find((p) => p.id === id) }))
   const subtotal = lines.reduce((s, l) => s + (l.product?.price ?? 0) * l.qty, 0)
   const problems = lines.filter((l) => !l.product || !l.product.available)
-  return { cart, store, lines, subtotal, problems, ready: store !== undefined && products !== undefined }
+  // Money saved on discounted items (price before discount − price).
+  const savings = lines.reduce((s, l) => s + Math.max(0, (l.product?.compare_price ?? 0) - (l.product?.price ?? 0)) * l.qty, 0)
+  return { cart, store, lines, subtotal, savings, problems, ready: store !== undefined && products !== undefined }
 }

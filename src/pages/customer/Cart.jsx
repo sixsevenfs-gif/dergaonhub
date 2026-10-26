@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, ChevronRight, FileText, ShoppingCart, Trash2, Truck } from 'lucide-react'
+import { AlertCircle, BadgePercent, ChevronRight, FileText, ShoppingCart, Trash2, Truck } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import Stepper from '../../components/Stepper.jsx'
 import ProductThumb from '../../components/ProductThumb.jsx'
@@ -14,7 +14,7 @@ import { itemsText, rupee, slotDate, slotText } from '../../lib/format.js'
 export default function Cart() {
   const navigate = useNavigate()
   const { setQty, setNote } = useCart()
-  const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
+  const { cart, store, lines, subtotal, savings, problems, ready } = useCartDetails()
   const { location } = useSavedDelivery()
 
   if (!ready) return null
@@ -61,7 +61,10 @@ export default function Cart() {
                   </button>
                 </div>
                 <div className="mt-1 flex items-center justify-between">
-                  <span className="text-lg font-bold">{rupee((l.product?.price ?? 0) * l.qty)}</span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-lg font-bold">{rupee((l.product?.price ?? 0) * l.qty)}</span>
+                    {l.product?.compare_price > l.product?.price && <span className="text-sm text-muted line-through">{rupee(l.product.compare_price * l.qty)}</span>}
+                  </span>
                   <Stepper value={l.qty} onChange={(v) => setQty(l.id, v)} className="w-32" />
                 </div>
               </div>
@@ -122,6 +125,11 @@ export default function Cart() {
         <div className="mt-1 flex justify-between text-muted"><span>Delivery charge</span>{store.free_delivery && smallBy <= 0 ? <b className="font-ui text-emerald-400">FREE</b> : <span>At checkout</span>}</div>
         <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
         <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total</span><span>{rupee(subtotal + packaging)}</span></div>
+        {savings > 0 && (
+          <p className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-2 text-sm font-semibold text-emerald-300">
+            <BadgePercent size={16} /> You save {rupee(savings)} on this order
+          </p>
+        )}
         {!(store.free_delivery && smallBy <= 0) && <p className="mt-1 text-right text-xs text-muted">+ delivery charge, shown at checkout by distance</p>}
         <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused || quote?.tooFar} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14`}>
           Checkout

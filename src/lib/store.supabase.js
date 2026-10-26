@@ -157,6 +157,14 @@ export async function updateProduct(id, patch) {
     if (!(Number(patch.price) > 0)) fail('Enter a valid price.')
     change.price = Number(patch.price)
   }
+  // Discount: compare_price is the price before it (null removes the discount).
+  if ('compare_price' in patch) {
+    const before = patch.compare_price == null ? null : Number(patch.compare_price)
+    const newPrice = Number('price' in patch ? patch.price : NaN)
+    if (before != null && !(before > 0)) fail('Enter a valid price before discount.')
+    if (before != null && 'price' in patch && !(newPrice < before)) fail('The discount price must be lower than the original price.')
+    change.compare_price = before
+  }
   if ('available' in patch) change.available = !!patch.available
   if ('featured' in patch) change.featured = !!patch.featured
   if ('status' in patch) change.status = patch.status

@@ -89,3 +89,6 @@ export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', c
 
 // "1 item", "3 items"
 export const itemsText = (n) => `${n} item${n === 1 ? '' : 's'}`
+
+// % off for a sale price, rounded down so the badge never promises more than the real discount.
+export const percentOff = (before, now) => (before > now ? Math.floor(((before - now) / before) * 100) : 0)

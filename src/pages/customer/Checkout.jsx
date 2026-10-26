@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
+import { ArrowLeft, BadgePercent, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -48,7 +48,7 @@ const FOR_OPTIONS = [
 
 export default function Checkout() {
   const { clear } = useCart()
-  const { cart, store, lines, subtotal, problems, ready } = useCartDetails()
+  const { cart, store, lines, subtotal, savings, problems, ready } = useCartDetails()
   const [forWho, setForWho] = useState('me')
   const other = forWho === 'other'
   // The customer (the person ordering).
@@ -352,6 +352,11 @@ export default function Checkout() {
           </div>
           <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
           <div className="mt-3 flex justify-between border-t border-line pt-3 text-xl font-bold"><span>Total Amount</span><span>{rupee(total)}</span></div>
+          {savings > 0 && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/10 py-2 text-sm font-semibold text-emerald-300">
+              <BadgePercent size={16} /> You save {rupee(savings)} on this order
+            </p>
+          )}
         </section>
 
         {/* Cloudflare Turnstile (free CAPTCHA) goes here when the site is deployed. */}

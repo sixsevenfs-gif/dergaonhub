@@ -81,6 +81,8 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
    after 2 no-shows a number can no longer pay cash on delivery; several photos per product.
 8. `migrations/009_fixed_cash.sql`: the rider always collects exactly the order total (cannot be changed).
 9. `migrations/010_powered_by.sql`: admin switch to show or hide "Powered by Malchetra Groups".
+10. `migrations/011_privacy_spam.sql`: order pages hide names and phones from strangers; at most 3 open orders per phone.
+11. `migrations/012_sale_price.sql`: discount price per product (struck-out price and % OFF for customers).
 
 A new database made from the latest `schema.sql` already has all of them.
 

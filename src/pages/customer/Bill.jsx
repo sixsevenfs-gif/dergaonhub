@@ -51,7 +51,7 @@ export default function Bill() {
           </div>
         </div>
         <div className="px-5 py-4">
-          <div className="font-semibold">{order.customer_name}</div>
+          {order.customer_name && <div className="font-semibold">{order.customer_name}</div>}
           {order.address && <div className="text-sm text-neutral-500">{order.address}</div>}
           {order.ordered_by_phone && <div className="text-sm text-neutral-500">Ordered by {order.ordered_by_name}</div>}
 

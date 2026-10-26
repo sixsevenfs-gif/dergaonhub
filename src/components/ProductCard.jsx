@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { CategoryIcon } from './icons.jsx'
-import { rupee } from '../lib/format.js'
+import { percentOff, rupee } from '../lib/format.js'
 
 // Category colour and name for products without a real photo.
 const CATEGORY_LOOK = {
@@ -106,6 +106,7 @@ function PhotoSlider({ photos, alt }) {
 export default function ProductCard({ p, qty, onQty, disabled }) {
   const perUnit = unitPrice(p.price, p.size)
   const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
+  const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
   return (
     <article className="group flex flex-col">
       <div className={`relative aspect-square overflow-hidden rounded-[22px] bg-[#141413] ring-1 ring-white/[0.07] ${p.available ? '' : 'grayscale'}`}>
@@ -119,6 +120,11 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
         {/* soft shade so the button and badge always read on top of the photo */}
         <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
 
+        {off > 0 && p.available && (
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-accent px-2 py-0.5 font-tagline text-[10px] font-bold text-ink shadow-[0_4px_12px_rgb(0_0_0/0.4)]">
+            {off}% OFF
+          </span>
+        )}
         {p.featured && p.available && (
           <span className="absolute left-2.5 top-2.5 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 font-tagline text-[9px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-md">
             Bestseller
@@ -151,10 +157,15 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
       <div className="px-1 pt-3">
         <p className="font-tagline text-[10px] font-medium uppercase tracking-[0.18em] text-muted">{p.size}</p>
         <h3 className="mt-1 line-clamp-2 text-[19px] leading-[1.08]">{p.name}</h3>
-        <p className="mt-2 flex items-baseline gap-2 font-tagline">
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-tagline">
           <span className="text-[18px] font-semibold tracking-tight">{rupee(p.price)}</span>
-          {perUnit && <span className="text-[11px] text-muted">{perUnit}</span>}
+          {off > 0 ? (
+            <span className="text-[13px] text-muted line-through decoration-white/40">{rupee(p.compare_price)}</span>
+          ) : (
+            perUnit && <span className="text-[11px] text-muted">{perUnit}</span>
+          )}
         </p>
+        {off > 0 && <p className="mt-0.5 font-tagline text-[11px] font-semibold text-emerald-400">You save {rupee(p.compare_price - p.price)}</p>}
       </div>
     </article>
   )
