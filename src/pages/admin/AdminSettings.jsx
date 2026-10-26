@@ -126,7 +126,6 @@ function SettingsForm({ store }) {
     }
   }, [v.location])
   const packs = { ...v, ...Object.fromEntries(['pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from'].map((k) => [k, Number(v[k]) || 0])) }
-  const toggleArea = (a) => setV({ ...v, delivery_area: v.delivery_area.includes(a) ? v.delivery_area.filter((x) => x !== a) : [...v.delivery_area, a] })
 
   const save = async (e) => {
     e.preventDefault()
@@ -170,20 +169,6 @@ function SettingsForm({ store }) {
           <Field label="Delivery ends"><input type="time" value={v.slot_end} onChange={set('slot_end')} className={lfield} /></Field>
           <Field label="Minimum order (₹)"><input type="number" min="0" value={v.min_order} onChange={set('min_order')} className={lfield} /></Field>
           <div />
-        </div>
-        <div>
-          <span className="mb-1 block text-sm font-medium text-neutral-700">Delivery areas</span>
-          <div className="flex flex-wrap gap-2">
-            {CONFIG.AREAS.map((a) => {
-              const on = v.delivery_area.includes(a)
-              return (
-                <button key={a} type="button" onClick={() => toggleArea(a)} className={`h-10 rounded-full border px-3 text-sm font-semibold ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700'}`}>
-                  {a}
-                </button>
-              )
-            })}
-          </div>
-          <p className="mt-1 text-xs text-neutral-500">To add a new area, add it to AREAS in src/config.js.</p>
         </div>
       </section>
 
@@ -239,6 +224,21 @@ function SettingsForm({ store }) {
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
           Example: ₹300 order → {rupee(packagingFee(packs, 300))} · ₹650 → {rupee(packagingFee(packs, 650))} · ₹1200 → {rupee(packagingFee(packs, 1200))}
         </p>
+      </section>
+
+      <section className={`${lcard} flex items-start justify-between gap-3 p-4`}>
+        <span className="text-sm">
+          <b>Phone OTP for new phones</b>
+          <span className="block text-neutral-500">
+            The first time a number orders (or logs in to "My orders") on a phone, we send a 4-digit SMS code. After that
+            it is not asked again on that phone. Turn on only after the Message Central account and the phone-otp
+            function are set up (supabase/README.md), or customers can't order.
+          </span>
+          {v.otp_required === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/016_phone_otp.sql first.</span>}
+        </span>
+        {(v.otp_required !== undefined || DEMO_MODE) && (
+          <Toggle checked={!!v.otp_required} onChange={(on) => setV({ ...v, otp_required: on })} label="Phone OTP" />
+        )}
       </section>
 
       {(v.upi_id !== undefined || DEMO_MODE) && (

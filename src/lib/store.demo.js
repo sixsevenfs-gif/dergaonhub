@@ -78,7 +78,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -278,6 +278,8 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const quote = deliveryQuote(store, location)
   if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
+  // OTP (when switched on): the ordering number must be verified on this phone.
+  if (store.otp_required && !(db.verified ?? []).includes(ob?.phone ?? ph)) fail('Please verify your phone number with the OTP first.')
   // Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery.
   let customer = customerByPhone(ph)
   const obc = ob && customerByPhone(ob.phone)
@@ -806,4 +808,22 @@ export async function setPaymentStatus(orderId, status) {
   else if (o.total <= (db.store.cod_limit ?? 350)) Object.assign(o, { payment_status: 'none', payment_method: 'cash', upi_ref: '' })
   else o.payment_status = 'failed'
   commit()
+}
+
+/* ---------- phone OTP (demo: the code is always 1234) ---------- */
+
+export async function phoneVerified(phone) {
+  return (db.verified ?? []).includes(cleanPhone(phone))
+}
+
+export async function sendOtp(phone) {
+  if (cleanPhone(phone).length !== 10) fail('Enter a valid 10-digit phone number.')
+  return { sent: true, timeout: 30, demo: true }
+}
+
+export async function verifyOtp(phone, code) {
+  if (String(code).trim() !== '1234') fail('Wrong OTP. Please check and try again. (Demo code: 1234)')
+  db.verified = [...new Set([...(db.verified ?? []), cleanPhone(phone)])]
+  commit()
+  return true
 }

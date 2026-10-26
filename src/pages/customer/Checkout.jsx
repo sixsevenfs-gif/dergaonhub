@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { ArrowLeft, BadgePercent, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, User, UserRound, Zap } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
@@ -6,7 +6,8 @@ import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
-import { codAllowed, currentCustomer, customerSignIn, nextDeliveryDate, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import { codAllowed, currentCustomer, customerSignIn, nextDeliveryDate, phoneVerified, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import OtpSheet from '../../components/OtpSheet.jsx'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
 import { cleanPhone, fmtTime, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
@@ -82,6 +83,8 @@ export default function Checkout() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [placed, setPlaced] = useState(null)
+  const [otpFor, setOtpFor] = useState(null) // phone waiting for its OTP
+  const formRef = useRef(null)
 
   const locate = async () => {
     setLocating(true)
@@ -115,7 +118,7 @@ export default function Checkout() {
       if (!live) return
       const ok = all.every(Boolean)
       setCodOk(ok)
-      if (!ok) setPayment((p) => (p === 'cash' ? 'upi' : p))
+      if (!ok) setPayment((p) => (p === 'cash' ? 'upi_now' : p))
     })
     return () => {
       live = false
@@ -156,6 +159,11 @@ export default function Checkout() {
     setError('')
     if (other && cleanPhone(receiver.phone) === cleanPhone(form.phone)) {
       setError("The receiver's number is the same as yours. Choose \"For me\", or enter their number.")
+      return
+    }
+    // OTP once per new phone: the number of the person ordering, before placing the order.
+    if (store.otp_required && cleanPhone(form.phone).length === 10 && !(await phoneVerified(form.phone))) {
+      setOtpFor(cleanPhone(form.phone))
       return
     }
     setBusy(true)
@@ -199,7 +207,18 @@ export default function Checkout() {
 
       <GlassTabs options={FOR_OPTIONS} value={forWho} onChange={setForWho} className="mt-4" />
 
-      <form onSubmit={submit} className="mt-3 space-y-3">
+      {otpFor && (
+        <OtpSheet
+          phone={otpFor}
+          onClose={() => setOtpFor(null)}
+          onVerified={() => {
+            setOtpFor(null)
+            formRef.current?.requestSubmit() // verified: place the order now
+          }}
+        />
+      )}
+
+      <form ref={formRef} onSubmit={submit} className="mt-3 space-y-3">
         {other && (
           <p className="flex gap-3 rounded-2xl border border-accent/30 bg-accent/[0.06] p-3 text-sm leading-snug">
             <Gift size={20} className="mt-0.5 shrink-0 text-accent" />
@@ -336,8 +355,7 @@ export default function Checkout() {
           )}
           {[
             ...(canPayNow ? [['upi_now', Zap, 'Pay now by UPI', other ? 'You pay now with GPay, PhonePe or Paytm' : 'GPay, PhonePe, Paytm or any UPI app']] : []),
-            ['cash', Banknote, 'Cash on delivery', other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash when you receive your items'],
-            ['upi', Smartphone, 'UPI on delivery', other ? `${firstName || 'They'} scan our QR at the door` : 'Scan our QR and pay at delivery'],
+            ['cash', Banknote, 'Cash on delivery', other ? `${firstName || 'They'} pay cash / UPI at the door` : 'Pay cash / UPI on delivery'],
           ].map(([value, Icon, title, note]) => {
             const noCod = value === 'cash' && !codOk
             const off = noCod || (overLimit && value !== 'upi_now')

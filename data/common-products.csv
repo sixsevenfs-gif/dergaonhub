@@ -1,0 +1,105 @@
+name,size,category,keywords,price
+Aashirvaad Atta,1 kg,atta,"atta aata gehu wheat flour",60
+Fortune Chakki Fresh Atta,1 kg,atta,"atta aata gehu wheat",55
+Sooji (Rava),1 kg,atta,"sooji suji rava semolina",60
+Besan,1 kg,atta,"besan gram flour",110
+Maida,1 kg,atta,"maida flour",55
+Rice Flour (Pitha Guri),500 g,atta,"rice flour pitha guri chawal atta",40
+Corn Flour,100 g,atta,"corn flour cornflour",20
+Bambino Vermicelli,400 g,atta,"vermicelli sewai semiya bambino",45
+Boiled Rice (Usna),1 kg,rice,"rice chawal saul usna boiled",55
+Bora Rice (Sticky),1 kg,rice,"bora saul sticky rice",90
+Daawat Basmati Rice,1 kg,rice,"basmati rice chawal daawat",150
+Poha (Chira),1 kg,rice,"poha chira chura flattened rice",65
+Sabudana,500 g,rice,"sabudana sago",45
+Urad Daal,1 kg,daal,"urad dal maah kalai",150
+Matar Daal,1 kg,daal,"matar dal yellow peas",90
+Toor Daal,500 g,daal,"toor arhar dal",80
+Masoor Daal,500 g,daal,"masoor dal red lentil",55
+Moong Daal,500 g,daal,"moong mung dal",65
+Kala Chana,1 kg,daal,"kala chana black chickpea boot",95
+Green Moong (Sabut),500 g,daal,"sabut moong green gram",70
+Nutrela Soya Chunks,200 g,daal,"soya bori chunks nutrela",55
+Peanuts (Groundnut),500 g,daal,"peanut groundnut badam china badam",90
+Fortune Kachi Ghani Mustard Oil,1 L,oil,"mustard oil sarson tel kachi ghani",170
+Engine Mustard Oil,500 ml,oil,"mustard oil sarson tel engine",90
+Saffola Gold Oil,1 L,oil,"saffola refined oil",205
+Dalda Vanaspati,1 L,oil,"dalda vanaspati ghee",160
+Amul Ghee,1 L,oil,"ghee amul",650
+Everest Coriander Powder,100 g,masala,"dhania powder coriander",30
+Everest Kitchen King Masala,100 g,masala,"kitchen king masala",80
+Everest Meat Masala,50 g,masala,"meat masala mangsho",40
+Everest Chicken Masala,50 g,masala,"chicken masala",40
+Black Pepper Powder,50 g,masala,"kali mirch pepper",65
+Rai (Mustard Seeds),100 g,masala,"rai sarson mustard seeds",20
+Methi (Fenugreek Seeds),100 g,masala,"methi fenugreek",20
+Panch Phoran,100 g,masala,"panch phoran paanch foron",25
+Tej Patta (Bay Leaf),25 g,masala,"tej patta bay leaf",15
+Elaichi (Green Cardamom),25 g,masala,"elaichi cardamom",80
+Laung (Cloves),25 g,masala,"laung cloves",40
+Dalchini (Cinnamon),50 g,masala,"dalchini cinnamon",30
+Hing,10 g,masala,"hing asafoetida",35
+Gur (Jaggery),500 g,masala,"gur jaggery",40
+Sendha Namak (Rock Salt),500 g,masala,"sendha namak rock salt",40
+Sugar,2 kg,masala,"sugar chini cheeni",96
+Kissan Tomato Ketchup,500 g,masala,"ketchup tomato sauce kissan",125
+Amul Taaza Milk,1 L,dairy,"milk doodh amul",56
+Amul Masti Dahi,400 g,dairy,"dahi curd doi",35
+Amul Fresh Cream,250 ml,dairy,"cream malai",65
+Amul Butter,500 g,dairy,"butter makhan amul",285
+Eggs,12 pcs,dairy,"eggs anda koni",96
+Parle-G Biscuit,800 g,snacks,"parle g biscuit",85
+Britannia Marie Gold,250 g,snacks,"marie biscuit britannia",40
+Britannia Bourbon,150 g,snacks,"bourbon biscuit",30
+Sunfeast Dark Fantasy Choco Fills,75 g,snacks,"dark fantasy biscuit",40
+Parle Hide & Seek,100 g,snacks,"hide and seek biscuit",30
+Parle Monaco,120 g,snacks,"monaco biscuit salty",30
+Oreo,120 g,snacks,"oreo biscuit",35
+Britannia Rusk,300 g,snacks,"rusk toast",50
+Brown Bread,400 g,snacks,"brown bread pauroti",55
+Kellogg's Corn Flakes,250 g,snacks,"cornflakes kelloggs breakfast",105
+Kissan Mixed Fruit Jam,200 g,snacks,"jam kissan",85
+Haldiram's Bhujia Sev,200 g,snacks,"bhujia sev namkeen haldiram",55
+Haldiram's Moong Dal,200 g,snacks,"moong dal namkeen haldiram",55
+Bingo Mad Angles,66 g,snacks,"bingo chips",20
+Lay's Magic Masala,52 g,snacks,"lays chips magic masala",20
+Yippee Noodles (4 pack),280 g,snacks,"yippee noodles",60
+Cadbury Dairy Milk,50 g,snacks,"chocolate dairy milk cadbury",50
+Tata Tea Premium,250 g,beverages,"tea chai tata premium",135
+Red Label Tea,500 g,beverages,"tea chai red label",280
+Assam CTC Tea (loose),500 g,beverages,"tea chai ctc assam loose",180
+Bru Instant Coffee,50 g,beverages,"coffee bru",160
+Horlicks,500 g,beverages,"horlicks health drink",260
+Tang Orange,500 g,beverages,"tang orange drink",170
+Rooh Afza,750 ml,beverages,"rooh afza sharbat",175
+Glucon-D,450 g,beverages,"glucon d glucose",200
+Bisleri Water,2 L,colddrinks,"water pani bisleri",30
+Pepsi,750 ml,colddrinks,"pepsi cold drink",40
+Mountain Dew,750 ml,colddrinks,"mountain dew cold drink",40
+7UP,750 ml,colddrinks,"7up seven up cold drink",40
+Coca-Cola,2 L,colddrinks,"coca cola coke cold drink",95
+Frooti,600 ml,colddrinks,"frooti mango drink",35
+Real Mixed Fruit Juice,1 L,colddrinks,"real juice mixed fruit",120
+Sting Energy Drink,250 ml,colddrinks,"sting energy drink",20
+Closeup Toothpaste,150 g,personal,"toothpaste closeup",100
+Colgate ZigZag Toothbrush,1 pc,personal,"toothbrush brush colgate",30
+Lux Soap,100 g,personal,"soap sabun lux",40
+Santoor Soap (4 x 100 g),400 g,personal,"soap sabun santoor",135
+Dettol Handwash Refill,175 ml,personal,"handwash dettol",99
+Dettol Antiseptic Liquid,125 ml,personal,"dettol antiseptic",75
+Head & Shoulders Shampoo,180 ml,personal,"shampoo head shoulders dandruff",199
+Himalaya Neem Face Wash,100 ml,personal,"face wash himalaya neem",170
+Whisper Choice (7 pads),1 pack,personal,"whisper sanitary pads",45
+Tide Plus Detergent,1 kg,cleaning,"detergent powder tide",125
+Wheel Detergent,1 kg,cleaning,"detergent powder wheel",70
+Surf Excel Bar,250 g,cleaning,"surf excel bar soap kapda",35
+Vim Liquid,500 ml,cleaning,"vim liquid dishwash",115
+Colin Glass Cleaner,500 ml,cleaning,"colin glass cleaner",115
+All Out Refill,45 ml,cleaning,"all out mosquito refill",85
+Mortein Coil (10 pcs),10 pcs,cleaning,"mosquito coil mortein",40
+Hit Spray,200 ml,cleaning,"hit spray cockroach mosquito",210
+Scotch-Brite Scrub Pad (3 pcs),3 pcs,cleaning,"scrub pad scotch brite bartan",40
+Garbage Bags Medium (30 pcs),30 pcs,cleaning,"garbage bag dustbin bag",99
+Matchbox (10 boxes),10 pcs,cleaning,"matchbox maachis",20
+Cycle Agarbatti,1 pack,cleaning,"agarbatti incense cycle",50
+Candles (6 pcs),6 pcs,cleaning,"candle mombatti",40

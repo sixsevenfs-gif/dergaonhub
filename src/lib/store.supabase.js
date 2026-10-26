@@ -127,6 +127,7 @@ export async function saveStore(data) {
     ...(data.whatsapp_auto === undefined ? {} : { whatsapp_auto: !!data.whatsapp_auto }),
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
+    ...(data.otp_required === undefined ? {} : { otp_required: !!data.otp_required }), // after 016
     ...(data.upi_id === undefined ? {} : { upi_id: upiId(data.upi_id), upi_name: (data.upi_name ?? '').trim(), cod_limit: Math.max(0, Number(data.cod_limit) || 0) }), // after 015
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
@@ -740,4 +741,33 @@ export async function submitUpiRef(orderNumber, ref) {
 export async function setPaymentStatus(orderId, status) {
   check(await sb.rpc('staff_set_payment', { p_order_id: orderId, p_status: status }))
   notify()
+}
+
+/* ---------- phone OTP (once per new phone) ---------- */
+
+// Is this number already verified on this phone browser?
+export async function phoneVerified(phone) {
+  await session()
+  const { data, error } = await sb.rpc('phone_verified', { p_phone: cleanPhone(phone) })
+  return !error && data === true
+}
+
+// The phone-otp Edge Function answers errors with { error }; show that message to the customer.
+async function otpCall(body) {
+  await session()
+  const { data, error } = await sb.functions.invoke('phone-otp', { body })
+  if (error) {
+    const detail = await error.context?.json?.().catch(() => null)
+    fail(detail?.error || 'OTP service is not available right now. Please try again.')
+  }
+  return data
+}
+
+export const sendOtp = (phone) => otpCall({ action: 'send', phone: cleanPhone(phone) })
+
+export async function verifyOtp(phone, code) {
+  const res = await otpCall({ action: 'verify', phone: cleanPhone(phone), code: String(code).trim() })
+  if (!res?.verified) fail(res?.error || 'Wrong OTP. Please try again.')
+  notify()
+  return true
 }

@@ -87,6 +87,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 12. `migrations/013_daily_cap.sql`: no limit on orders per person; orders per evening set in Admin → Settings; checkout shows the real delivery day.
 13. `migrations/014_private_cap.sql`: the orders-per-evening limit (50) is admin-only (`private_settings`), never shown to customers.
 14. `migrations/015_upi_pay_now.sql`: "Pay now by UPI" to the store's UPI ID with UTR check by admin/rider; orders above ₹350 must pay first; packaging with paise (₹3.80 / ₹7.80 / ₹13.60).
+15. `migrations/016_phone_otp.sql`: phone OTP once per new phone (Message Central VerifyNow), switched on in Admin → Settings.
 
 A new database made from the latest `schema.sql` already has all of them.
 
@@ -126,3 +127,25 @@ a small fee per message. One time:
 
 If an automatic message fails (for example a template is not approved yet), the rider page
 says so and offers the WhatsApp button instead. Every message is listed under the order.
+
+## Phone OTP (Message Central VerifyNow)
+
+The first time a number orders (or logs in to "My orders") on a phone, the customer gets a 4-digit SMS
+code. After that it is not asked again on that phone. SMS goes through Message Central (no DLT
+registration needed on your side). It stays off until you switch it on in Admin → Settings.
+
+1. Sign up at https://www.messagecentral.com → VerifyNow (free test OTPs). Note your
+   **Customer ID** (looks like `C-XXXXXXXX`) and your account **password** from the dashboard.
+   Add credit when the free OTPs run out.
+2. Run `migrations/016_phone_otp.sql` in the SQL Editor (once).
+3. On your computer, in the project folder:
+   ```
+   npx supabase login
+   npx supabase secrets set MC_CUSTOMER_ID=C-XXXXXXXX MC_PASSWORD=<your password> --project-ref <project ref>
+   npx supabase functions deploy phone-otp --project-ref <project ref>
+   ```
+   (The project ref is the part before `.supabase.co` in your Supabase URL.)
+4. Test it: on the site, log in to "My orders" with your own number and check the SMS arrives.
+5. **Admin → Settings → Phone OTP for new phones → on → Save changes.**
+
+At most 5 OTPs per hour go to one number or one phone, so nobody can run up the bill.

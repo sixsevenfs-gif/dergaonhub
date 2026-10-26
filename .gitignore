@@ -25,3 +25,6 @@ dist-ssr
 
 # Secrets (Supabase keys)
 .env
+
+# Supabase CLI local files
+supabase/.temp
