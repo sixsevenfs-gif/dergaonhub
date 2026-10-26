@@ -9,7 +9,7 @@ import { currentPosition, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
-import { CONFIG, DEMO_MODE } from '../../config.js'
+import { CONFIG, DEMO_MODE, LEGAL } from '../../config.js'
 
 // Delivery partners: each rider logs in on /partner with their own email + password.
 function Riders() {
@@ -115,6 +115,16 @@ function SettingsForm({ store }) {
         <div className="grid grid-cols-2 gap-3">
           <Field label="Phone (customers call)"><input required inputMode="numeric" value={v.phone} onChange={set('phone')} className={lfield} /></Field>
           <Field label="WhatsApp"><input required inputMode="numeric" value={v.whatsapp} onChange={set('whatsapp')} className={lfield} /></Field>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 p-3">
+          <span className="text-sm">
+            <b>Show "Powered by {LEGAL.COMPANY}"</b>
+            <span className="block text-neutral-500">Under the logo, in the footer and on the PDF bill.</span>
+            {v.show_powered_by === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/010_powered_by.sql first.</span>}
+          </span>
+          {(v.show_powered_by !== undefined || DEMO_MODE) && (
+            <Toggle checked={v.show_powered_by !== false} onChange={(on) => setV({ ...v, show_powered_by: on })} label="Show Powered by" />
+          )}
         </div>
       </section>
 

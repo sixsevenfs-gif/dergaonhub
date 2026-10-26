@@ -43,6 +43,8 @@ function PartnerRun({ session }) {
   const left = list.filter((o) => o.status === 'confirmed')
   const delivered = list.filter((o) => o.status === 'completed').length
   const cash = left.filter((o) => o.payment_method === 'cash').reduce((s, o) => s + o.total, 0)
+  // Cash already taken from delivered orders (what the rider should hand over).
+  const inHand = list.filter((o) => o.status === 'completed' && o.payment_method === 'cash').reduce((s, o) => s + (o.cash_collected || o.total), 0)
 
   // Everything still to buy for confirmed orders, added up.
   const shopping = Object.values(
@@ -87,10 +89,11 @@ function PartnerRun({ session }) {
       </div>
 
       <section className="mt-4 grid grid-cols-3 gap-2 text-center">
-        {[[left.length, 'To deliver'], [delivered, 'Delivered'], [rupee(cash), 'Cash to collect']].map(([n, label]) => (
+        {[[left.length, 'To deliver'], [delivered, 'Delivered'], cash > 0 ? [rupee(cash), 'Cash to collect'] : [rupee(inHand), 'Cash collected']].map(([n, label]) => (
           <div key={label} className={`${card} px-2 py-3`}>
             <div className="text-xl font-black leading-none">{n}</div>
             <div className="mt-1 text-[11px] text-muted">{label}</div>
+            {label === 'Cash to collect' && inHand > 0 && <div className="mt-0.5 text-[10px] text-emerald-300">{rupee(inHand)} collected</div>}
           </div>
         ))}
       </section>

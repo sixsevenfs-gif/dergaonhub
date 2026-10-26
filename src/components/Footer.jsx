@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { waLink } from '../lib/whatsapp.js'
 import { LEGAL } from '../config.js'
+import BrandMark from './BrandMark.jsx'
 
 const POLICY_LINKS = [
   ['about', 'About us'],
@@ -15,7 +16,14 @@ export default function Footer({ store }) {
   if (!store) return null
   return (
     <footer className="mt-10 space-y-3 border-t border-line pt-6 text-sm text-muted">
-      <img src="/brand/png/dergaon-hub-logo-footer.png" alt="Dergaon Hub, powered by Malchetra Groups" className="mb-5 h-auto w-full max-w-[340px]" loading="lazy" />
+      {store.show_powered_by !== false ? (
+        <img src="/brand/png/dergaon-hub-logo-footer.png" alt={`Dergaon Hub, powered by ${LEGAL.COMPANY}`} className="mb-5 h-auto w-full max-w-[340px]" loading="lazy" />
+      ) : (
+        <div className="mb-5 flex items-center gap-3">
+          <BrandMark className="h-16 w-16 shrink-0" />
+          <span className="font-logo text-[40px] font-black leading-none tracking-tight"><span className="text-white">dergaon</span> <span className="text-accent">hub</span></span>
+        </div>
+      )}
       <p>
         <Link to="/track" className="underline underline-offset-4">Track order</Link>
         {' · '}

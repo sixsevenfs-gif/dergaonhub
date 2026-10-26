@@ -896,3 +896,7 @@ begin
   if not found then raise exception 'Only confirmed orders can be marked delivered.'; end if;
 end
 $$;
+
+/* ================ "Powered by" switch (same as migrations/010_powered_by.sql) ================ */
+
+alter table public.store_settings add column if not exists show_powered_by boolean not null default true;

@@ -787,5 +787,8 @@ begin
 end
 $$;
 
+/* ======== 010_powered_by.sql ======== */
+alter table public.store_settings add column if not exists show_powered_by boolean not null default true;
+
 -- Tell the API about the new columns right away.
 notify pgrst, 'reload schema';

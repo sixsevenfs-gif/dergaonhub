@@ -27,9 +27,12 @@ export function billPdf({ order, items, store }) {
   doc.setTextColor(232, 255, 58)
   doc.text('hub', L + doc.getTextWidth('dergaon '), 13)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(6.5)
-  doc.setTextColor(170, 168, 160)
-  doc.text(`POWERED BY ${LEGAL.COMPANY.toUpperCase()}`, L, 18.5)
+  // "Powered by" follows the switch in Admin → Settings.
+  if (store?.show_powered_by !== false) {
+    doc.setFontSize(6.5)
+    doc.setTextColor(170, 168, 160)
+    doc.text(`POWERED BY ${LEGAL.COMPANY.toUpperCase()}`, L, 18.5)
+  }
   doc.setFontSize(8)
   doc.setTextColor(255, 255, 255)
   doc.text('BILL / RECEIPT', R, 13, { align: 'right' })

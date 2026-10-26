@@ -246,7 +246,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
         </div>
         <div className="text-right">
           <div className="text-lg font-black">{rupee(o.total)}</div>
-          <div className={`text-xs font-semibold ${isCash ? 'text-orange-300' : 'text-sky-300'}`}>{isCash ? 'Collect cash' : 'UPI'}</div>
+          <div className={`text-xs font-semibold ${done ? 'text-emerald-300' : isCash ? 'text-orange-300' : 'text-sky-300'}`}>
+            {done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : isCash ? 'Collect cash' : 'UPI'}
+          </div>
         </div>
         <ChevronDown size={20} className={`mt-1 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
