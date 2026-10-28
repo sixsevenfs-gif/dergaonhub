@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=block">
+<style>
+  :root { --brand:#1F6B3A; --brand-dark:#17532D; --leaf:#5FA63F; --mint:#EAF4E4; --gold:#F6C343; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { width:2000px; height:668px; overflow:hidden; background:#0F3B1D; font-family:'Poppins', 'Avenir Next', sans-serif; }
+  .banner { position:relative; width:2000px; height:668px; overflow:hidden;
+    background: radial-gradient(900px 500px at 15% 10%, rgba(95,166,63,.28), transparent 60%), linear-gradient(135deg,#1E6B37 0%,#14512A 45%,#0F3B1D 100%); }
+  .deco { position:absolute; opacity:.07; }
+  .photo { position:absolute; right:0; top:0; width:760px; height:598px; object-fit:cover; object-position:center 35%;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 34%); }
+  .left { position:absolute; left:110px; top:62px; }
+  .word { display:inline-flex; align-items:baseline; font-weight:900; font-size:66px; line-height:1; letter-spacing:-0.03em; color:#fff; }
+  .word .o { position:relative; }
+  .word .o svg { position:absolute; top:-0.42em; left:0.38em; width:0.5em; height:0.5em; transform:rotate(-6deg); }
+  .powered { margin-top:10px; font-size:15px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.65); }
+  .powered b { color:#fff; font-weight:600; }
+  .pill { display:inline-flex; align-items:center; gap:8px; margin-top:34px; padding:7px 18px; border-radius:999px; background:var(--mint); color:var(--brand); font-size:20px; font-weight:600; }
+  h1 { margin-top:14px; font-size:88px; font-weight:800; line-height:1.04; letter-spacing:-0.02em; color:#fff; }
+  h1 span { color:var(--gold); display:block; }
+  .sub { margin-top:16px; font-size:27px; font-weight:500; color:rgba(255,255,255,.85); }
+  .sub i { font-style:normal; color:var(--gold); padding:0 10px; }
+  .badge { position:absolute; left:1135px; top:70px; width:220px; height:220px; border-radius:50%; background:var(--gold);
+    border:8px solid #fff; box-shadow:0 18px 40px rgba(0,0,0,.35); transform:rotate(-8deg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--brand-dark); text-align:center; }
+  .badge small { font-size:19px; font-weight:700; letter-spacing:.12em; }
+  .badge strong { font-size:84px; font-weight:900; line-height:.9; letter-spacing:-0.03em; }
+  .badge em { font-style:normal; font-size:24px; font-weight:800; letter-spacing:.06em; }
+  .cta { position:absolute; left:110px; top:500px; display:flex; align-items:center; gap:28px; }
+  .btn { display:inline-flex; align-items:center; gap:12px; height:64px; padding:0 34px; border-radius:999px; background:var(--mint); color:var(--brand-dark); font-size:27px; font-weight:700; box-shadow:0 8px 20px rgba(0,0,0,.2); }
+  .loc { display:inline-flex; align-items:center; gap:8px; color:rgba(255,255,255,.85); font-size:22px; font-weight:500; }
+  .strip { position:absolute; left:0; right:0; bottom:0; height:70px; display:grid; grid-template-columns:repeat(3,1fr); background:rgba(0,0,0,.25); }
+  .strip div { display:flex; align-items:center; justify-content:center; gap:12px; color:#fff; font-size:22px; font-weight:600; }
+  .strip div + div { border-left:1px solid rgba(255,255,255,.2); }
+  svg.i { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+</head>
+<body>
+<div class="banner">
+  <!-- faint leaves in the background -->
+  <svg class="deco" style="left:820px;top:360px;width:260px;height:260px;transform:rotate(20deg)" viewBox="0 0 24 24"><path d="M3 21C3 10 10 3.5 22 2.5 21 14 14 21 3 21Z" fill="#fff"/></svg>
+  <svg class="deco" style="left:640px;top:-60px;width:200px;height:200px;transform:rotate(-30deg)" viewBox="0 0 24 24"><path d="M3 21C3 10 10 3.5 22 2.5 21 14 14 21 3 21Z" fill="#fff"/></svg>
+
+  <img class="photo" src="photo.jpg" alt="">
+
+  <div class="left">
+    <div class="word">JH<span class="o">O<svg viewBox="0 0 24 24"><path d="M3 21C3 10 10 3.5 22 2.5 21 14 14 21 3 21Z" fill="#5FA63F"/><path d="M4.5 19.5 15 9" stroke="#fff" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/></svg></span>LZO</div>
+    <div class="powered">Powered by <b>Malchetra Groups</b></div>
+    <h1>Groceries at <span>Cheapest Prices</span></h1>
+    <p class="sub">Lower than market prices<i>•</i>Very low delivery charge</p>
+  </div>
+
+  <div class="cta">
+    <span class="btn">Order Now <svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+    <span class="loc"><svg class="i" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>Dergaon Bazaar &amp; Dergaon Town</span>
+  </div>
+
+  <div class="badge"><small>DELIVERY IN</small><strong>30</strong><em>MINUTES</em></div>
+
+  <div class="strip">
+    <div><svg class="i" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>Delivery in 30 Minutes</div>
+    <div><svg class="i" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5"/></svg>Cheaper than Market</div>
+    <div><svg class="i" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>Cash or UPI</div>
+  </div>
+</div>
+</body>
+</html>

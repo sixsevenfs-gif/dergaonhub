@@ -3,8 +3,9 @@
 import { CONFIG } from '../config.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
-import { deliveryQuote, packagingFee, validPoint } from './delivery.js'
+import { deliveryQuote, expressStatus, packagingFee, validPoint } from './delivery.js'
 import { parseCSV } from './csv.js'
+import { walletRules } from './wallet.js'
 
 const KEY = 'dergaonhub-demo-v9' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
@@ -78,7 +79,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -96,7 +97,7 @@ export async function saveStore(data) {
   db.store.per_km_fee = Number(db.store.per_km_fee) || 0
   db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
   db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
-  for (const k of ['cod_limit', 'small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) {
+  for (const k of ['mid_order_fee', 'free_delivery_above', 'express_fee', 'express_minutes', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'cod_limit', 'small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) {
     if (db.store[k] !== undefined) db.store[k] = Number(db.store[k]) || 0 // fields an older demo store doesn't have stay unset
   }
   commit()
@@ -203,11 +204,12 @@ export function currentCustomer() {
   }
 }
 
-export async function customerSignIn(phone, name = '') {
+export async function customerSignIn(phone, name = '', verified = false) {
   const ph = cleanPhone(phone)
   if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   const known = db.customers.find((c) => c.phone === ph)
-  const session = { phone: ph, name: name.trim() || known?.name || '' }
+  const me = currentCustomer()
+  const session = { phone: ph, name: name.trim() || known?.name || '', verified: verified || (me?.phone === ph && !!me?.verified) }
   try {
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(session))
   } catch {
@@ -242,6 +244,88 @@ export async function customerSignOut() {
   notify()
 }
 
+/* ---------- Jholzo Money and Refer & Earn (same rules as supabase/migrations/017_wallet_referral.sql) ---------- */
+
+const entries = () => (db.wallet ??= [])
+const balanceOf = (customerId) => Math.round(sum(entries().filter((e) => e.customer_id === customerId), (e) => e.amount) * 100) / 100
+const ordererId = (o) => o.orderer_id ?? o.customer_id
+function addEntry(customerId, amount, kind, orderId = null, note = '') {
+  entries().push({ id: newId(), customer_id: customerId, amount, kind, order_id: orderId, note, created_at: now() })
+}
+
+// RAHUL482: up to 5 letters of the name + 3 digits, or JHOL + digits.
+function newReferralCode(name) {
+  let base = (name ?? '').replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase()
+  if (base.length < 3) base = 'JHOL'
+  let code
+  do code = `${base}${100 + Math.floor(Math.random() * 900)}`
+  while (db.customers.some((c) => c.referral_code === code))
+  return code
+}
+
+// Money follows the order status: cancelled → used money back; delivered → invite rewards on a
+// friend's first delivered order; delivered undone → those rewards taken back.
+function walletOnStatus(o, from) {
+  if (o.status === from) return
+  const rules = walletRules(db.store)
+  const meId = ordererId(o)
+  if (o.status === 'cancelled' && o.wallet_used > 0 && !entries().some((e) => e.order_id === o.id && e.kind === 'refund')) {
+    addEntry(meId, o.wallet_used, 'refund', o.id, `Order ${o.order_number} cancelled`)
+  }
+  if (o.status === 'completed' && rules.on) {
+    const me = db.customers.find((c) => c.id === meId)
+    const firstDelivered = !db.orders.some((x) => x.id !== o.id && x.status === 'completed' && ordererId(x) === meId)
+    const alreadyWelcomed = entries().some((e) => e.customer_id === meId && e.kind === 'welcome_bonus')
+    if (me?.referred_by && o.subtotal >= rules.minOrder && firstDelivered && !alreadyWelcomed) {
+      const first = me.name.split(' ')[0] || 'Your friend'
+      if (rules.referrerReward > 0) addEntry(me.referred_by, rules.referrerReward, 'referral_bonus', o.id, `${first}'s first order was delivered`)
+      if (rules.friendReward > 0) addEntry(meId, rules.friendReward, 'welcome_bonus', o.id, 'Welcome reward for joining with an invite')
+    }
+  }
+  if (from === 'completed') {
+    db.wallet = entries().filter((e) => !(e.order_id === o.id && (e.kind === 'referral_bonus' || e.kind === 'welcome_bonus')))
+  }
+}
+
+export async function myWallet(phone) {
+  const ph = cleanPhone(phone)
+  if (ph.length !== 10) return null
+  let c = customerByPhone(ph)
+  // Demo: this browser owns a number once it has ordered for it (or verified it).
+  const owns = (db.verified ?? []).includes(ph) || db.orders.some((o) => o.ordered_by_phone === ph || (o.customer_phone === ph && !o.ordered_by_phone))
+  if (!owns) return { locked: true }
+  // Verified but never ordered: the invite code comes with the first order (with their name).
+  if (!c) return { locked: false, code: null, balance: 0, referred: false, has_orders: false, entries: [], friends: [] }
+  if (!c.referral_code) {
+    c.referral_code = newReferralCode(c.name)
+    commit()
+  }
+  const orderNo = (id) => db.orders.find((o) => o.id === id)?.order_number ?? null
+  return clone({
+    locked: false,
+    code: c.referral_code,
+    balance: balanceOf(c.id),
+    referred: !!c.referred_by,
+    has_orders: db.orders.some((o) => ordererId(o) === c.id || o.customer_id === c.id),
+    entries: entries().filter((e) => e.customer_id === c.id).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 50)
+      .map((e) => ({ ...e, order_number: orderNo(e.order_id) })),
+    friends: db.customers.filter((f) => f.referred_by === c.id).map((f) => ({
+      name: f.name.split(' ')[0] || 'Friend',
+      joined_at: f.created_at,
+      earned: entries().some((e) => e.customer_id === c.id && e.kind === 'referral_bonus' && ordererId(db.orders.find((o) => o.id === e.order_id) ?? {}) === f.id),
+    })),
+  })
+}
+
+export async function adminWalletAdjust(customerId, amount, note) {
+  const value = Math.round(Number(amount) * 100) / 100
+  if (!value) fail('Enter an amount.')
+  if (!note?.trim()) fail('Write a short reason.')
+  db.customers.find((c) => c.id === customerId) ?? fail('Customer not found.')
+  addEntry(customerId, value, 'admin', null, note.trim())
+  commit()
+}
+
 /* ---------- orders (customer) ---------- */
 
 const customerByPhone = (phone) => db.customers.find((c) => c.phone === cleanPhone(phone))
@@ -263,7 +347,7 @@ export async function nextDeliveryDate() {
   return pickDate()
 }
 
-export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer }) {
+export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer, use_wallet, ref_code, express }) {
   const store = db.store
   if (store.paused) fail('The store is not taking orders right now. Please try again later.')
   const ph = cleanPhone(phone)
@@ -302,10 +386,34 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
 
   const subtotal = sum(items, (i) => i.line_total)
   if (subtotal < store.min_order) fail(`Minimum order is ${rupee(store.min_order)}.`)
-  // Small orders pay the small-order fee (see deliveryQuote).
-  const fee = deliveryQuote(store, location, subtotal).fee
+  // Evening charge by items total; Express (within an hour) adds its charge (see deliveryQuote).
+  if (express) {
+    const ex = expressStatus(store)
+    if (ex.off) fail('Express delivery is not available right now. Please choose evening delivery.')
+    if (!ex.ok) fail('Express delivery is not available at this time. Please choose evening delivery.')
+  }
+  const dq = deliveryQuote(store, location, subtotal, !!express)
+  const fee = dq.eveningFee
   const packaging = packagingFee(store, subtotal)
-  const total = Math.round((subtotal + fee + packaging) * 100) / 100
+  let total = Math.round((subtotal + fee + dq.expressFee + packaging) * 100) / 100
+
+  // The person ordering (their wallet, their invite code): the orderer when ordering for someone else.
+  const mePhone = ob?.phone ?? ph
+  let me = customerByPhone(mePhone)
+  const rules = walletRules(store)
+  const ref = (ref_code ?? '').replace(/\s/g, '').toUpperCase()
+  let referrer = null
+  if (ref && rules.on) {
+    referrer = db.customers.find((c) => c.referral_code === ref) ?? fail('This invite code is not valid. Check it or remove it.')
+    if (referrer.phone === mePhone) fail('You cannot use your own invite code.')
+    if (me && (me.referred_by || db.orders.some((o) => ordererId(o) === me.id || o.customer_id === me.id))) {
+      fail('Invite codes work only on your first order. Please remove the code.')
+    }
+  }
+  // Jholzo Money: up to the per-order limit (the demo has one phone, so it always owns the number).
+  const walletUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
+  total = Math.round((total - walletUsed) * 100) / 100
+
   if (payment_method !== 'upi_now' && total > (store.cod_limit ?? 350)) {
     fail(`Orders above ${rupee(store.cod_limit ?? 350)} are paid by UPI before delivery. Please choose "Pay now by UPI".`)
   }
@@ -317,20 +425,30 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   } else {
     customer.name = name.trim()
   }
+  if (!ob) me = customer
+  if (!me) {
+    me = { id: newId(), phone: ob.phone, name: ob.name, no_show_count: 0, blocked: false, created_at: now() }
+    db.customers.push(me)
+  }
+  if (referrer) me.referred_by = referrer.id
+  me.referral_code ??= newReferralCode(me.name)
 
   const order = {
     id: newId(), order_number: `DG-${db.next_order_number++}`, type: 'delivery',
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
     address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    subtotal, delivery_fee: fee, packaging_fee: packaging, total, payment_method, cash_collected: 0,
+    orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, total, payment_method, cash_collected: 0,
     payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
-    delivery_date: pickDate(), status: 'placed', cancel_reason: '',
+    delivery_date: express ? dateStr() : pickDate(), status: 'placed', cancel_reason: '',
+    delivery_type: express ? 'express' : 'evening', express_fee: dq.expressFee,
+    express_by: express ? new Date(Date.now() + expressStatus(store).minutes * 60000).toISOString() : null,
     created_at: now(), confirmed_at: null, completed_at: null,
     ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
   }
   db.orders.push(order)
   db.order_items.push(...items.map((i) => ({ ...i, order_id: order.id })))
+  if (walletUsed > 0) addEntry(me.id, -walletUsed, 'order_payment', order.id, `Used on order ${order.order_number}`)
   commit()
   return clone(order)
 }
@@ -341,8 +459,10 @@ function expireOld() {
   let changed = false
   for (const o of db.orders) {
     if ((o.status === 'placed' || o.status === 'confirmed') && o.delivery_date < today) {
+      const from = o.status
       o.status = 'cancelled'
       o.cancel_reason = 'Expired'
+      walletOnStatus(o, from)
       changed = true
     }
   }
@@ -487,9 +607,11 @@ export async function confirmOrder(id) {
 export async function completeOrder(id, cashCollected) {
   const o = orderOrFail(id)
   if (o.status === 'cancelled') fail('A cancelled order cannot be delivered.')
+  const from = o.status
   o.status = 'completed'
   o.completed_at = now()
   o.cash_collected = o.payment_method === 'cash' ? Number(cashCollected ?? o.total) || 0 : 0
+  walletOnStatus(o, from)
   commit()
 }
 
@@ -499,6 +621,7 @@ export async function reopenOrder(id) {
   o.status = 'confirmed'
   o.completed_at = null
   o.cash_collected = 0
+  walletOnStatus(o, 'completed')
   commit()
 }
 
@@ -506,8 +629,10 @@ export async function cancelOrder(id, reason) {
   const o = orderOrFail(id)
   if (o.status === 'completed') fail('A delivered order cannot be cancelled.')
   if (!reason) fail('Choose a reason for cancelling.')
+  const from = o.status
   o.status = 'cancelled'
   o.cancel_reason = reason
+  walletOnStatus(o, from)
   if (reason === 'No-show') {
     const c = db.customers.find((x) => x.id === o.customer_id)
     if (c) c.no_show_count += 1
@@ -524,7 +649,7 @@ export async function removeOrderItem(orderId, itemId) {
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
   o.packaging_fee = packagingFee(db.store, o.subtotal)
-  o.total = o.subtotal + o.delivery_fee + o.packaging_fee
+  o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee - (o.wallet_used ?? 0))
   commit()
 }
 
@@ -606,7 +731,10 @@ export async function setDailyExpense(date, amount, note = '') {
 export async function adminListCustomers() {
   return clone(
     db.customers
-      .map((c) => ({ ...c, orders: db.orders.filter((o) => o.customer_id === c.id).length, completed: completedCount(c.id) }))
+      .map((c) => ({
+        ...c, orders: db.orders.filter((o) => o.customer_id === c.id).length, completed: completedCount(c.id),
+        wallet: balanceOf(c.id), referred_by_name: db.customers.find((x) => x.id === c.referred_by)?.name ?? '',
+      }))
       .sort((a, b) => b.no_show_count - a.no_show_count || a.name.localeCompare(b.name)),
   )
 }
@@ -721,8 +849,10 @@ export async function cancelMyOrder(orderNumber) {
   if (o.status === 'cancelled') return
   if (o.status === 'completed') fail('This order is already delivered.')
   if (o.dispatch) fail("Our rider is already on the way, so this order can't be cancelled now.")
+  const from = o.status
   o.status = 'cancelled'
   o.cancel_reason = 'Cancelled by customer'
+  walletOnStatus(o, from)
   commit()
 }
 

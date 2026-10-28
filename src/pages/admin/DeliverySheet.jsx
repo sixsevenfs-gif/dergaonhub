@@ -6,7 +6,7 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
 import { deliverySheet, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { dateStr, dayLabel, rupee } from '../../lib/format.js'
+import { dateStr, dayLabel, fmtClock, isExpress, rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
 
 // The evening run: first the shopping list (buy everything in one trip), then deliveries by area.
@@ -69,6 +69,7 @@ export default function DeliverySheet() {
                       <div className="flex flex-wrap items-center gap-2">
                         <b>{o.customer_name}</b> <StatusBadge status={o.status} />
                         <Link to={`/admin/orders/${o.id}`} className="text-sm text-neutral-500 underline">#{o.order_number}</Link>
+                        {isExpress(o) && <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-800">⚡ by {fmtClock(o.express_by)}</span>}
                       </div>
                       <a href={`tel:${o.customer_phone}`} className="mt-0.5 flex items-center gap-1 text-sm font-semibold underline"><Phone size={14} /> {o.customer_phone}</a>
                       <p className="text-sm">{o.address}</p>

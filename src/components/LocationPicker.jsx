@@ -32,9 +32,9 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       attribution: '© OpenStreetMap',
     }).addTo(m)
     if (home) {
-      L.circleMarker([home.lat, home.lng], { radius: 7, color: '#0B0B0B', weight: 2, fillColor: '#E8FF3A', fillOpacity: 1 })
+      L.circleMarker([home.lat, home.lng], { radius: 7, color: '#FFFFFF', weight: 2, fillColor: '#1F6B3A', fillOpacity: 1 })
         .addTo(m)
-        .bindTooltip('Dergaon Hub')
+        .bindTooltip('Jholzo')
     }
     const report = (ll) => onChangeRef.current({ lat: ll.lat, lng: ll.lng })
     if (fixedPin) {
@@ -113,9 +113,9 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-10">
         <span className={`absolute -left-[7px] -top-[3px] h-1.5 w-3.5 rounded-full bg-black/35 transition-transform duration-150 ${moving ? 'scale-50' : ''}`} />
         <svg width="38" height="50" viewBox="0 0 38 50" className={`absolute -left-[19px] -top-[50px] drop-shadow-md transition-transform duration-150 ${moving ? '-translate-y-2.5' : ''}`}>
-          <path d="M19 49C19 49 2 30 2 18.5 2 8.8 9.6 1.5 19 1.5S36 8.8 36 18.5C36 30 19 49 19 49Z" fill="#0B0B0B" />
-          <circle cx="19" cy="18.5" r="11" fill="#E8FF3A" />
-          <circle cx="19" cy="18.5" r="4.5" fill="#0B0B0B" />
+          <path d="M19 49C19 49 2 30 2 18.5 2 8.8 9.6 1.5 19 1.5S36 8.8 36 18.5C36 30 19 49 19 49Z" fill="#1F6B3A" />
+          <circle cx="19" cy="18.5" r="11" fill="#FFFFFF" />
+          <circle cx="19" cy="18.5" r="4.5" fill="#1F6B3A" />
         </svg>
       </div>
     </div>

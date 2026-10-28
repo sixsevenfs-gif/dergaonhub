@@ -106,6 +106,8 @@ function upiId(v) {
   return id
 }
 
+const wholeRupees = (v) => Math.max(0, Math.round(Number(v) || 0))
+
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
   if (cleanPhone(data.phone).length !== 10) fail('Enter a valid 10-digit phone number.')
@@ -128,6 +130,15 @@ export async function saveStore(data) {
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
     ...(data.otp_required === undefined ? {} : { otp_required: !!data.otp_required }), // after 016
+    ...(data.referral_on === undefined ? {} : {
+      referral_on: !!data.referral_on, referrer_reward: wholeRupees(data.referrer_reward), friend_reward: wholeRupees(data.friend_reward),
+      referral_min_order: wholeRupees(data.referral_min_order), wallet_max_per_order: wholeRupees(data.wallet_max_per_order),
+    }), // after 017
+    ...(data.mid_order_fee === undefined ? {} : {
+      mid_order_fee: wholeRupees(data.mid_order_fee), free_delivery_above: wholeRupees(data.free_delivery_above),
+      express_on: !!data.express_on, express_fee: wholeRupees(data.express_fee),
+      express_minutes: Math.min(240, Math.max(15, wholeRupees(data.express_minutes) || 60)),
+    }), // after 018
     ...(data.upi_id === undefined ? {} : { upi_id: upiId(data.upi_id), upi_name: (data.upi_name ?? '').trim(), cod_limit: Math.max(0, Number(data.cod_limit) || 0) }), // after 015
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
@@ -249,11 +260,13 @@ function saveProfile(session) {
   return session
 }
 
-export async function customerSignIn(phone, name = '') {
+// verified: the number passed the OTP on this phone (kept while the same number stays logged in).
+export async function customerSignIn(phone, name = '', verified = false) {
   const ph = cleanPhone(phone)
   if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   await session()
-  return saveProfile({ phone: ph, name: name.trim() || currentCustomer()?.name || '' })
+  const me = currentCustomer()
+  return saveProfile({ phone: ph, name: name.trim() || me?.name || '', verified: verified || (me?.phone === ph && !!me?.verified) })
 }
 
 export async function updateMyName(name) {
@@ -279,11 +292,14 @@ const toOrder = (o) => ({
   distance_km: o.distance_km == null ? null : Number(o.distance_km),
   // Amounts with paise come from the database as numbers or strings.
   total: Number(o.total ?? 0), packaging_fee: Number(o.packaging_fee ?? 0), cash_collected: Number(o.cash_collected ?? 0),
+  wallet_used: Number(o.wallet_used ?? 0), express_fee: Number(o.express_fee ?? 0), delivery_type: o.delivery_type ?? 'evening',
 })
 
 // Price, fee, limits and delivery day are all decided by place_order() in the database.
 // orderer: { name, phone } when ordering for someone else (name/phone/address are then the receiver's).
-export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer }) {
+// use_wallet: pay part with Jholzo Money; ref_code: an invite code on the first order (update 017).
+// express: delivered within the hour for the Express charge (update 018).
+export async function placeOrder({ lines, name, phone, address, area, location, note, payment_method, allow_substitute, orderer, use_wallet, ref_code, express }) {
   await session()
   const orderNumber = check(await sb.rpc('place_order', {
     p_lines: lines.map((l) => ({ product_id: l.productId, qty: l.qty, note: l.note || '' })),
@@ -292,6 +308,9 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     p_note: note ?? '', p_payment: payment_method, p_allow_substitute: !!allow_substitute,
     // Only sent when used, so ordering for yourself works even before update 004 is run.
     ...(orderer ? { p_orderer_name: orderer.name.trim(), p_orderer_phone: cleanPhone(orderer.phone) } : {}),
+    ...(use_wallet ? { p_use_wallet: true } : {}),
+    ...(ref_code?.trim() ? { p_ref_code: ref_code.trim() } : {}),
+    ...(express ? { p_express: true } : {}),
   }))
   notify()
   return { order_number: orderNumber, customer_phone: cleanPhone(phone), customer_name: name.trim() }
@@ -442,7 +461,7 @@ export async function cancelOrder(id, reason) {
 
 // An item was not found at the shop: remove it and recalculate the total.
 export async function removeOrderItem(orderId, itemId) {
-  const o = check(await sb.from('orders').select('status, delivery_fee, packaging_fee').eq('id', orderId).single())
+  const o = check(await sb.from('orders').select('*').eq('id', orderId).single())
   if (o.status !== 'placed' && o.status !== 'confirmed') fail('This order can no longer be changed.')
   const items = check(await sb.from('order_items').select('id, line_total').eq('order_id', orderId))
   const remaining = items.filter((i) => i.id !== itemId)
@@ -451,7 +470,9 @@ export async function removeOrderItem(orderId, itemId) {
   const subtotal = sum(remaining, (i) => i.line_total)
   // Packaging follows the new items total; the delivery charge stays as quoted to the customer.
   const packaging = packagingFee(await getStore(), subtotal)
-  check(await sb.from('orders').update({ subtotal, packaging_fee: packaging, total: subtotal + o.delivery_fee + packaging }).eq('id', orderId))
+  // Jholzo Money used on the order stays used.
+  const total = Math.max(0, subtotal + o.delivery_fee + Number(o.express_fee ?? 0) + packaging - Number(o.wallet_used ?? 0))
+  check(await sb.from('orders').update({ subtotal, packaging_fee: packaging, total }).eq('id', orderId))
   notify()
 }
 
@@ -528,15 +549,19 @@ export async function setDailyExpense(date, amount, note = '') {
 /* ---------- admin: customers ---------- */
 
 export async function adminListCustomers() {
-  const [customers, orders] = await Promise.all([
+  const [customers, orders, money] = await Promise.all([
     sb.from('customers').select('*').then(check),
     sb.from('orders').select('customer_id, status').then(check),
+    // Before update 017 there is no wallet: everyone shows ₹0.
+    sb.from('wallet_entries').select('customer_id, amount').then((res) => res.data ?? []),
   ])
   return customers
     .map((c) => ({
       ...c,
       orders: orders.filter((o) => o.customer_id === c.id).length,
       completed: orders.filter((o) => o.customer_id === c.id && o.status === 'completed').length,
+      wallet: sum(money.filter((m) => m.customer_id === c.id), (m) => Number(m.amount)),
+      referred_by_name: customers.find((x) => x.id === c.referred_by)?.name ?? '',
     }))
     .sort((a, b) => b.no_show_count - a.no_show_count || a.name.localeCompare(b.name))
 }
@@ -770,4 +795,23 @@ export async function verifyOtp(phone, code) {
   if (!res?.verified) fail(res?.error || 'Wrong OTP. Please try again.')
   notify()
   return true
+}
+
+/* ---------- Jholzo Money and Refer & Earn (update 017) ---------- */
+
+// Balance, history, invite code and invited friends for a number this phone owns.
+// { locked: true } when this phone has not ordered for (or verified) the number. null before update 017.
+export async function myWallet(phone) {
+  const ph = cleanPhone(phone)
+  if (ph.length !== 10) return null
+  await session()
+  const { data, error } = await sb.rpc('my_wallet', { p_phone: ph })
+  if (error) return null
+  return data && { ...data, balance: Number(data.balance ?? 0), entries: (data.entries ?? []).map((e) => ({ ...e, amount: Number(e.amount) })) }
+}
+
+// Admin: add (or, with a minus amount, take back) money by hand, with a reason.
+export async function adminWalletAdjust(customerId, amount, note) {
+  check(await sb.rpc('admin_wallet_adjust', { p_customer_id: customerId, p_amount: Number(amount), p_note: note ?? '' }))
+  notify()
 }

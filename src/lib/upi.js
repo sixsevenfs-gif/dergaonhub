@@ -2,10 +2,10 @@
 export function upiLink(order, store) {
   const q = new URLSearchParams({
     pa: store.upi_id,
-    pn: store.upi_name || store.name || 'Dergaon Hub',
+    pn: store.upi_name || store.name || 'Jholzo',
     am: Number(order.total).toFixed(2),
     cu: 'INR',
-    tn: `Dergaon Hub ${order.order_number}`,
+    tn: `Jholzo ${order.order_number}`,
   })
   return `upi://pay?${q.toString().replace(/\+/g, '%20')}`
 }

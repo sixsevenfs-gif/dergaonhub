@@ -26,21 +26,21 @@ export default function OutOfArea({ location, label, km, compact = false }) {
 
   return (
     <div className="font-ui rounded-xl border border-orange-400/30 bg-orange-500/[0.07] px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-orange-200">
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-orange-700">
         <MapPinOff size={15} className="shrink-0" /> Not delivering here yet{km ? ` · ${km} km away` : ''}
       </p>
-      {!compact && <p className="mt-0.5 text-xs text-orange-100/70">Leave your number and we'll WhatsApp you when we start delivering here.</p>}
+      {!compact && <p className="mt-0.5 text-xs text-orange-700/70">Leave your number and we'll WhatsApp you when we start delivering here.</p>}
       {done ? (
-        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-accent"><Check size={15} /> Thanks! We will let you know.</p>
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand"><Check size={15} /> Thanks! We will let you know.</p>
       ) : (
         <form onSubmit={notify} className="mt-2 flex gap-2">
           <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="10 digit number" className={`${field} h-9 rounded-lg px-3 text-sm`} />
-          <button type="submit" className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-accent px-2.5 text-xs font-bold text-ink">
+          <button type="submit" className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-brand px-2.5 text-xs font-semibold text-white">
             <BellRing size={14} /> Notify me
           </button>
         </form>
       )}
-      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
     </div>
   )
 }

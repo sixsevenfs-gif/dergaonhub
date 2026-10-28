@@ -25,7 +25,7 @@ function Complaint({ k, orderId }) {
       {k.message && <p className="rounded-xl bg-neutral-100 p-3 text-sm">{k.message}</p>}
       <div className="grid grid-cols-2 gap-2">
         <a href={`tel:${k.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-        <a href={waLink(toWa(k.customer_phone), `Hello ${k.customer_name}, this is Dergaon Hub. We received your complaint about order #${k.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+        <a href={waLink(toWa(k.customer_phone), `Hello ${k.customer_name}, this is Jholzo. We received your complaint about order #${k.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
           <WhatsAppIcon size={17} /> WhatsApp
         </a>
       </div>

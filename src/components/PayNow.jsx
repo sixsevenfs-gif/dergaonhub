@@ -32,9 +32,9 @@ export default function PayNow({ order, store }) {
   if (status === 'paid') {
     return (
       <section className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-4">
-        <BadgeCheck size={28} className="shrink-0 text-emerald-300" />
+        <BadgeCheck size={28} className="shrink-0 text-emerald-700" />
         <span>
-          <span className="block font-bold text-emerald-200">Payment confirmed ✓</span>
+          <span className="block font-semibold text-emerald-700">Payment confirmed ✓</span>
           <span className="text-sm text-muted">We received {rupee(order.total)}. Your order is confirmed.</span>
         </span>
       </section>
@@ -44,8 +44,8 @@ export default function PayNow({ order, store }) {
   if (status === 'verifying') {
     return (
       <section className="mt-4 rounded-2xl border border-sky-400/40 bg-sky-500/10 p-4">
-        <p className="flex items-center gap-2 font-bold text-sky-100"><Clock3 size={20} /> Payment received, verifying it</p>
-        <p className="mt-1 text-sm text-sky-100/80">
+        <p className="flex items-center gap-2 font-semibold text-sky-700"><Clock3 size={20} /> Payment received, verifying it</p>
+        <p className="mt-1 text-sm text-sky-700/80">
           We are checking your payment with the bank. This usually takes under 10 minutes. We will send your order
           confirmation on WhatsApp as soon as it is confirmed.
         </p>
@@ -69,11 +69,11 @@ export default function PayNow({ order, store }) {
   return (
     <section className={`${card} mt-4 space-y-3 p-4`}>
       {status === 'failed' ? (
-        <p className="flex gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">
+        <p className="flex gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">
           <XCircle size={18} className="mt-0.5 shrink-0" /> We could not find your payment. Please pay again below, or call us.
         </p>
       ) : (
-        <p className="flex items-center gap-2 font-bold"><ShieldCheck size={20} className="text-accent" /> One last step: pay {rupee(order.total)} by UPI</p>
+        <p className="flex items-center gap-2 font-semibold"><ShieldCheck size={20} className="text-brand" /> One last step: pay {rupee(order.total)} by UPI</p>
       )}
 
       <a href={link} className={`${btnAccent} h-14 text-lg`}>
@@ -95,11 +95,11 @@ export default function PayNow({ order, store }) {
         </label>
         <div className="flex gap-2">
           <input value={ref} onChange={(e) => setRef(e.target.value)} inputMode="numeric" placeholder="e.g. 601723456789" className={`${field} h-12`} />
-          <button type="submit" disabled={busy || ref.trim().length < 6} className="h-12 shrink-0 rounded-xl bg-white px-4 font-bold text-ink disabled:opacity-40">
+          <button type="submit" disabled={busy || ref.trim().length < 6} className="h-12 shrink-0 rounded-xl bg-brand px-4 font-semibold text-white disabled:opacity-40">
             {busy ? '...' : 'I have paid'}
           </button>
         </div>
-        {error && <p className="text-sm text-red-300">{error}</p>}
+        {error && <p className="text-sm text-red-700">{error}</p>}
       </form>
     </section>
   )

@@ -1,31 +1,36 @@
 import { Link } from 'react-router-dom'
-import BrandMark from './BrandMark.jsx'
+import { Leaf } from './BrandMark.jsx'
 import { getStore } from '../lib/store.js'
 import { useData } from '../lib/useData.js'
 import { LEGAL } from '../config.js'
 
-// The Dergaon Hub logo: mark + "dergaon hub" + "Powered by Malchetra Groups" (public/brand/).
-// The "Powered by" line can be switched off in Admin → Settings.
-// theme="light" is for the white admin header, where yellow text would be hard to read.
-export default function Wordmark({ theme = 'dark' }) {
-  const light = theme === 'light'
+// The JHOLZO wordmark: heavy green letters with a leaf on the "O".
+// onBrand: white letters for the green home header. The "Powered by" line can be switched off
+// in Admin → Settings.
+export function JholzoText({ onBrand = false, className = '' }) {
+  return (
+    <span role="img" aria-label={LEGAL.BRAND} className={`inline-flex items-baseline font-logo font-black uppercase leading-none tracking-[-0.03em] ${onBrand ? 'text-white' : 'text-brand-dark'} ${className}`}>
+      JH
+      <span className="relative">
+        O
+        <Leaf className="absolute -top-[0.42em] left-[0.38em] h-[0.5em] w-[0.5em] -rotate-6" />
+      </span>
+      LZO
+    </span>
+  )
+}
+
+export default function Wordmark({ onBrand = false }) {
   const { data: store } = useData(getStore)
   const poweredBy = store?.show_powered_by !== false
   return (
-    <Link to="/" aria-label="Dergaon Hub home" className="flex items-center gap-2">
-      <BrandMark className="h-10 w-10 shrink-0" />
-      <span className="flex flex-col">
-        <span className="whitespace-nowrap font-logo text-[22px] font-black leading-none tracking-tight">
-          <span className={light ? 'text-ink' : 'text-white'}>dergaon</span>{' '}
-          <span className={light ? 'text-[#6E7F00]' : 'text-accent'}>hub</span>
+    <Link to="/" aria-label={`${LEGAL.BRAND} home`} className="flex flex-col pt-1.5">
+      <JholzoText onBrand={onBrand} className="text-[26px]" />
+      {poweredBy && (
+        <span className={`mt-1 whitespace-nowrap text-[7.5px] font-semibold uppercase leading-none tracking-[0.16em] ${onBrand ? 'text-white/65' : 'text-muted'}`}>
+          Powered by <span className={onBrand ? 'text-white' : 'text-brand'}>{LEGAL.COMPANY}</span>
         </span>
-        {poweredBy && (
-          <span className="mt-1 whitespace-nowrap font-tagline text-[7.5px] font-semibold uppercase leading-none tracking-[0.16em]">
-            <span className={light ? 'text-[#76746D]' : 'text-[#8F8D86]'}>Powered by </span>
-            <span className={light ? 'text-[#A07A2C]' : 'text-[#E2C27A]'}>{LEGAL.COMPANY}</span>
-          </span>
-        )}
-      </span>
+      )}
     </Link>
   )
 }

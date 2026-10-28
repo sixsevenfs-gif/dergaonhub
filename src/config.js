@@ -15,12 +15,13 @@ export const DEMO_MODE = !(import.meta.env?.VITE_SUPABASE_URL && import.meta.env
 // Business details shown on the policy pages (/policy/...). Fill the [TBD] ones before launch.
 // Phone and WhatsApp come from Admin → Settings.
 export const LEGAL = {
-  BRAND: 'Dergaon Hub',
+  BRAND: 'Jholzo',
   COMPANY: 'Malchetra Groups', // [TBD] exact registered name (proprietorship / LLP / Pvt Ltd)
+  GROUP_LINE: 'A Malchetra (MLC) company', // shown in the footer
   ADDRESS: '[TBD] Full address, Dergaon, Golaghat, Assam 785614', // [TBD] check PIN code
   EMAIL: '[TBD] support email',
   GRIEVANCE_OFFICER: '[TBD] Name', // required for online stores in India
-  FSSAI: '[TBD] FSSAI registration number',
+  FSSAI: '20326120001321', // Basic Registration (Retailer), issued 28 Oct 2026, valid to Oct 2027
   COMPLAINT_HOURS: 24, // report damaged / wrong / missing items within this many hours
   LAST_UPDATED: '25 October 2026',
 }

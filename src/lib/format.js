@@ -15,7 +15,7 @@ export function addDays(str, n) {
   return dateStr(new Date(y, m - 1, d + n))
 }
 
-const toMinutes = (t) => {
+export const toMinutes = (t) => {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
 }
@@ -103,3 +103,12 @@ export function slotWords(date, shop) {
   const when = day === 'Today' || day === 'Tomorrow' ? day.toLowerCase() : `on ${day}`
   return `${when} between ${fmtTime(shop.slot_start)} and ${fmtTime(shop.slot_end)}`
 }
+
+// When the order comes: "⚡ Express, by 3:45 PM" or "Today, 5 PM – 8 PM".
+export const isExpress = (o) => o?.delivery_type === 'express'
+export const deliveryWhen = (o, shop) =>
+  isExpress(o) && o.express_by ? `⚡ Express, by ${fmtClock(o.express_by)}` : slotText(o.delivery_date, shop)
+// For messages: "by 3:45 PM (Express)" or "today between 5 PM and 8 PM".
+export const deliveryWords = (o, shop) =>
+  isExpress(o) && o.express_by ? `by ${fmtClock(o.express_by)} (Express)` : slotWords(o.delivery_date, shop)
+

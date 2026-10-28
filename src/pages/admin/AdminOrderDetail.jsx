@@ -9,7 +9,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
 import { cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { fmtDateTime, rupee, slotText } from '../../lib/format.js'
+import { deliveryWhen, fmtDateTime, rupee } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
@@ -83,7 +83,7 @@ export default function AdminOrderDetail() {
             <WhatsAppIcon size={17} /> WhatsApp
           </a>
         </div>
-        <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address} · {slotText(order.delivery_date, store)}</p>
+        <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address} · {deliveryWhen(order, store)}</p>
         {order.location && (
           <a href={mapsLink(order.location)} target="_blank" rel="noreferrer" className={`${lbtnOutline} mt-2 w-full`}>
             <Navigation size={17} /> Directions in Google Maps · {order.distance_km} km
@@ -120,6 +120,12 @@ export default function AdminOrderDetail() {
           <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{rupee(order.subtotal)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Delivery charge{order.distance_km != null && ` (${order.distance_km} km)`}</span><span>{rupee(order.delivery_fee)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Packaging charge</span><span>{rupee(order.packaging_fee ?? 0)}</span></div>
+          {Number(order.express_fee) > 0 && (
+            <div className="flex justify-between font-semibold text-amber-700"><span>⚡ Express delivery</span><span>{rupee(order.express_fee)}</span></div>
+          )}
+          {Number(order.wallet_used) > 0 && (
+            <div className="flex justify-between font-semibold text-green-700"><span>Jholzo Money (wallet)</span><span>−{rupee(order.wallet_used)}</span></div>
+          )}
           <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{rupee(order.total)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Payment</span><span>{order.payment_method === 'cash' ? 'Cash on delivery' : 'UPI on delivery'}</span></div>
           {order.status === 'completed' && order.payment_method === 'cash' && (

@@ -57,10 +57,10 @@ export default function LocationSheet({ store, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[1000] bg-black/70 sm:p-6" onClick={onClose}>
-      <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-hidden bg-ink sm:rounded-3xl sm:border sm:border-line" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-hidden bg-white sm:rounded-3xl sm:border sm:border-line" onClick={(e) => e.stopPropagation()}>
         <header className="flex h-14 shrink-0 items-center gap-1 px-2">
           <button type="button" aria-label="Back" onClick={onClose} className="flex h-11 w-11 items-center justify-center"><ArrowLeft size={22} /></button>
-          <h2 className="text-lg font-bold">Select delivery location</h2>
+          <h2 className="text-lg font-semibold">Select delivery location</h2>
         </header>
 
         <div className="relative min-h-0 flex-1">
@@ -76,14 +76,14 @@ export default function LocationSheet({ store, onClose }) {
             type="button"
             onClick={locate}
             disabled={busy}
-            className="absolute bottom-8 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-accent/70 bg-ink px-4 text-sm font-semibold text-accent shadow-[0_6px_20px_rgb(0_0_0/0.35)] active:scale-[.98] disabled:opacity-80"
+            className="absolute bottom-8 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-sm font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] active:scale-[.98] disabled:opacity-80"
           >
             <LocateFixed size={17} className={busy ? 'animate-pulse' : ''} /> {busy ? 'Finding you...' : 'Use current location'}
           </button>
         </div>
 
         <div className="relative z-10 -mt-4 shrink-0 rounded-t-3xl border-t border-line bg-card px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5">
-          {status && <p className="mb-3 rounded-xl bg-orange-500/10 px-3 py-2 text-sm text-orange-200">{status}</p>}
+          {status && <p className="mb-3 rounded-xl bg-orange-500/10 px-3 py-2 text-sm text-orange-700">{status}</p>}
 
           {point && quote.tooFar ? (
             <OutOfArea location={point} label={label ?? ''} km={quote.km} compact />
@@ -91,19 +91,19 @@ export default function LocationSheet({ store, onClose }) {
             <>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted">Delivering to</p>
               <div className="mt-2 flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent"><MapPin size={20} /></span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/15 text-brand"><MapPin size={20} /></span>
                 <div className="min-w-0 flex-1">
                   {!point ? (
                     <p className="pt-2 font-semibold text-muted">No location chosen yet</p>
                   ) : label === null ? (
                     <div className="space-y-2 pt-1.5">
-                      <div className="h-4 w-2/3 animate-pulse rounded bg-white/10" />
-                      <div className="h-3 w-1/3 animate-pulse rounded bg-white/10" />
+                      <div className="h-4 w-2/3 animate-pulse rounded bg-black/10" />
+                      <div className="h-3 w-1/3 animate-pulse rounded bg-black/10" />
                     </div>
                   ) : (
                     <>
-                      <p className="truncate text-lg font-bold leading-tight">{label || 'Pinned location'}</p>
-                      <p className="mt-1 flex items-center gap-1 text-sm text-emerald-400"><CircleCheck size={15} /> We deliver here</p>
+                      <p className="truncate text-lg font-semibold leading-tight">{label || 'Pinned location'}</p>
+                      <p className="mt-1 flex items-center gap-1 text-sm text-emerald-700"><CircleCheck size={15} /> We deliver here</p>
                     </>
                   )}
                 </div>

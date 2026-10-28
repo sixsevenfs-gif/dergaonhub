@@ -40,7 +40,7 @@ export default function Report() {
         <Wordmark />
         <Link to={`/track/${orderNumber}`} className="flex items-center gap-2 text-muted"><ArrowLeft size={20} /> Back</Link>
       </header>
-      <h1 className="mt-5 text-3xl font-black">Report a problem</h1>
+      <h1 className="mt-5 text-2xl font-semibold">Report a problem</h1>
       <p className="text-muted">Order #{orderNumber}</p>
 
       {!data || notMine ? (
@@ -49,8 +49,8 @@ export default function Report() {
         </p>
       ) : sent ? (
         <section className={`${card} mt-4 p-6 text-center`}>
-          <Check size={44} className="mx-auto text-accent" />
-          <p className="mt-3 text-lg font-bold">Complaint received!</p>
+          <Check size={44} className="mx-auto text-brand" />
+          <p className="mt-3 text-lg font-semibold">Complaint received!</p>
           <p className="text-muted">We will look into it and get back to you soon.</p>
           <Link to={`/track/${orderNumber}`} className={`${btnAccent} mt-5`}>View order</Link>
         </section>
@@ -60,7 +60,7 @@ export default function Report() {
             <span className="mb-2 block text-sm text-muted">What went wrong?</span>
             <div className="flex flex-wrap gap-2">
               {CONFIG.COMPLAINT_TYPES.map((t) => (
-                <button key={t} type="button" onClick={() => setType(t)} className={cx('h-10 rounded-full border px-3 text-sm font-semibold', type === t ? 'border-accent bg-accent text-ink' : 'border-line text-muted')}>
+                <button key={t} type="button" onClick={() => setType(t)} className={cx('h-10 rounded-full border px-3 text-sm font-semibold', type === t ? 'border-brand bg-brand text-white' : 'border-line text-muted')}>
                   {t}
                 </button>
               ))}
@@ -68,9 +68,9 @@ export default function Report() {
           </div>
           <label className="block">
             <span className="mb-1 block text-sm text-muted">Tell us a little more</span>
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="e.g. The tea pack was missing" className="w-full rounded-xl border border-line bg-ink p-3 text-white placeholder:text-muted/60 focus:border-accent focus:outline-none" />
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="e.g. The tea pack was missing" className="w-full rounded-xl border border-line bg-white p-3 text-ink placeholder:text-muted/60 focus:border-brand focus:outline-none" />
           </label>
-          {error && <p className="text-sm text-red-300">{error}</p>}
+          {error && <p className="text-sm text-red-700">{error}</p>}
           <button type="submit" disabled={!type} className={`${btnAccent} h-14`}>Send complaint</button>
         </form>
       )}

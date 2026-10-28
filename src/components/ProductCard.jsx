@@ -1,22 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import { CategoryIcon } from './icons.jsx'
+import { categoryTint } from '../lib/categoryLook.js'
 import { percentOff, rupee } from '../lib/format.js'
-
-// Category colour and name for products without a real photo.
-const CATEGORY_LOOK = {
-  atta: ['#D4A853', 'Atta & Flour'],
-  rice: ['#E6DCC3', 'Rice & Poha'],
-  daal: ['#E3A23B', 'Dal & Pulses'],
-  oil: ['#E8C24A', 'Oil & Ghee'],
-  masala: ['#C8582F', 'Masala & Salt'],
-  dairy: ['#93BCE3', 'Dairy'],
-  snacks: ['#E2803F', 'Snacks'],
-  beverages: ['#A87452', 'Tea & Coffee'],
-  colddrinks: ['#DB4A43', 'Cold Drinks'],
-  personal: ['#BB98DA', 'Personal Care'],
-  cleaning: ['#52B6AB', 'Cleaning'],
-}
 
 // The placeholder pack drawings (public/demo/) are not real photos.
 const realPhoto = (url) => !!url && !url.includes('/demo/')
@@ -32,18 +18,19 @@ function unitPrice(price, size = '') {
   return `${rupee(price / qty)}/${unit}`
 }
 
-// A product without a photo gets a calm label-style tile instead of a fake pack drawing.
-function ProductArt({ p }) {
-  const [tint, label] = CATEGORY_LOOK[p.category_id] ?? ['#E8FF3A', 'Grocery']
+// Product photo, or the category icon on a soft tint when there is no photo.
+export function ProductTile({ p, className = 'h-[84px] w-[92px]' }) {
+  const photo = [p.photo_url, ...(p.photos ?? [])].find(realPhoto)
+  const tint = categoryTint(p.category_id)
   return (
-    <div
-      className="relative flex h-full w-full flex-col items-center justify-center px-4 pb-8 text-center"
-      style={{ background: `radial-gradient(110% 80% at 30% 15%, ${tint}38, transparent 62%), linear-gradient(160deg, #1f1e1b, #121211)` }}
-    >
-      <CategoryIcon id={p.category_id} size={120} strokeWidth={0.9} className="absolute -bottom-5 -right-5 -rotate-12 opacity-[0.09]" style={{ color: tint }} />
-      <span className="font-tagline text-[9px] font-semibold uppercase tracking-[0.24em]" style={{ color: tint }}>{label}</span>
-      <span className="mt-2 line-clamp-3 text-[25px] italic leading-[1] text-white/90">{p.name}</span>
-      <span className="mt-3 h-px w-8" style={{ background: `${tint}80` }} />
+    <div className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-mint-soft ${p.available ? '' : 'grayscale'} ${className}`}>
+      {photo ? (
+        <img src={photo} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center" style={{ background: `${tint}14`, color: tint }}>
+          <CategoryIcon id={p.category_id} size={34} strokeWidth={1.5} />
+        </span>
+      )}
     </div>
   )
 }
@@ -94,78 +81,71 @@ function PhotoSlider({ photos, alt }) {
           <img key={url} src={url} alt={i ? '' : alt} loading="lazy" className="h-full w-full shrink-0 snap-center object-cover" />
         ))}
       </div>
-      <span className="pointer-events-none absolute bottom-[26px] left-3 z-[1] flex gap-1">
+      <span className="pointer-events-none absolute bottom-2 left-1/2 z-[1] flex -translate-x-1/2 gap-1">
         {photos.map((url, i) => (
-          <span key={url} className={`h-1.5 rounded-full bg-white transition-all ${i === index ? 'w-4 opacity-100' : 'w-1.5 opacity-50'}`} />
+          <span key={url} className={`h-1.5 rounded-full bg-white transition-all ${i === index ? 'w-4 opacity-100' : 'w-1.5 opacity-60'}`} />
         ))}
       </span>
     </>
   )
 }
 
+// One product card in the 2-column grid: photo, name, size, price, and "+ Add" (or − 1 +).
 export default function ProductCard({ p, qty, onQty, disabled }) {
   const perUnit = unitPrice(p.price, p.size)
-  const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
+  const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
+  const tint = categoryTint(p.category_id)
   return (
-    <article className="group flex flex-col">
-      <div className={`relative aspect-square overflow-hidden rounded-[22px] bg-[#141413] ring-1 ring-white/[0.07] ${p.available ? '' : 'grayscale'}`}>
+    <article className="flex flex-col rounded-2xl border border-line bg-white p-2 shadow-[0_2px_10px_rgb(26_31_27/0.04)]">
+      <div className={`relative aspect-square overflow-hidden rounded-xl bg-mint-soft ${p.available ? '' : 'grayscale'}`}>
         {photos.length > 1 ? (
           <PhotoSlider photos={photos} alt={p.name} />
         ) : photos.length ? (
-          <img src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <ProductArt p={p} />
+          <span className="flex h-full w-full items-center justify-center" style={{ background: `${tint}14`, color: tint }}>
+            <CategoryIcon id={p.category_id} size={48} strokeWidth={1.4} />
+          </span>
         )}
-        {/* soft shade so the button and badge always read on top of the photo */}
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent" />
-
         {off > 0 && p.available && (
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-accent px-2 py-0.5 font-tagline text-[10px] font-bold text-ink shadow-[0_4px_12px_rgb(0_0_0/0.4)]">
-            {off}% OFF
-          </span>
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">{off}% OFF</span>
         )}
-        {p.featured && p.available && (
-          <span className="absolute left-2.5 top-2.5 rounded-full border border-white/20 bg-black/40 px-2 py-0.5 font-tagline text-[9px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-md">
-            Bestseller
-          </span>
-        )}
-
-        {!p.available ? (
-          <span className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-black/70 px-3 py-1 font-ui text-xs font-semibold text-white/85 backdrop-blur">
-            Out of stock
-          </span>
-        ) : qty > 0 ? (
-          <div className="absolute bottom-2.5 right-2.5 flex h-10 items-center rounded-full bg-accent font-ui text-ink shadow-[0_8px_20px_rgb(0_0_0/0.45)]">
-            <button type="button" aria-label="Remove one" onClick={() => onQty(qty - 1)} className="flex h-10 w-9 items-center justify-center"><Minus size={16} strokeWidth={2.6} /></button>
-            <span className="min-w-5 text-center text-[15px] font-bold">{qty}</span>
-            <button type="button" aria-label="Add one" onClick={() => onQty(qty + 1)} className="flex h-10 w-9 items-center justify-center"><Plus size={16} strokeWidth={2.6} /></button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            aria-label={`Add ${p.name}`}
-            disabled={disabled}
-            onClick={() => onQty(1)}
-            className="absolute bottom-2.5 right-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-accent text-ink shadow-[0_8px_20px_rgb(0_0_0/0.45)] transition-transform active:scale-90 disabled:opacity-40"
-          >
-            <Plus size={20} strokeWidth={2.6} />
-          </button>
+        {!p.available && (
+          <span className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white">Out of stock</span>
         )}
       </div>
 
-      <div className="px-1 pt-3">
-        <p className="font-tagline text-[10px] font-medium uppercase tracking-[0.18em] text-muted">{p.size}</p>
-        <h3 className="mt-1 line-clamp-2 text-[19px] leading-[1.08]">{p.name}</h3>
-        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-tagline">
-          <span className="text-[18px] font-semibold tracking-tight">{rupee(p.price)}</span>
-          {off > 0 ? (
-            <span className="text-[13px] text-muted line-through decoration-white/40">{rupee(p.compare_price)}</span>
+      <div className="flex flex-1 flex-col px-1 pt-2">
+        <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-medium leading-[1.25] text-ink">{p.name}</h3>
+        <p className="mt-0.5 text-[12px] text-muted">{p.size}</p>
+        <div className="mt-auto flex items-end justify-between gap-1 pt-2">
+          <span className="min-w-0 leading-tight">
+            <span className="block text-[15px] font-semibold text-ink">{rupee(p.price)}</span>
+            {off > 0 ? (
+              <span className="block text-[11px] text-muted line-through">{rupee(p.compare_price)}</span>
+            ) : (
+              perUnit && <span className="block text-[10.5px] text-muted">{perUnit}</span>
+            )}
+          </span>
+          {!p.available ? null : qty > 0 ? (
+            <span className="flex h-8 shrink-0 items-center rounded-full bg-brand text-white">
+              <button type="button" aria-label="Remove one" onClick={() => onQty(qty - 1)} className="flex h-8 w-7 items-center justify-center"><Minus size={14} strokeWidth={2.6} /></button>
+              <span className="min-w-3 text-center text-[13px] font-semibold">{qty}</span>
+              <button type="button" aria-label="Add one" onClick={() => onQty(qty + 1)} className="flex h-8 w-7 items-center justify-center"><Plus size={14} strokeWidth={2.6} /></button>
+            </span>
           ) : (
-            perUnit && <span className="text-[11px] text-muted">{perUnit}</span>
+            <button
+              type="button"
+              aria-label={`Add ${p.name}`}
+              disabled={disabled}
+              onClick={() => onQty(1)}
+              className="flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-brand px-3 text-[12.5px] font-semibold text-white active:scale-95 disabled:opacity-40"
+            >
+              <Plus size={14} strokeWidth={2.6} /> Add
+            </button>
           )}
-        </p>
-        {off > 0 && <p className="mt-0.5 font-tagline text-[11px] font-semibold text-emerald-400">You save {rupee(p.compare_price - p.price)}</p>}
+        </div>
       </div>
     </article>
   )

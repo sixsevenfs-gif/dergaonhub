@@ -20,6 +20,7 @@ settings, categories and the 67 starter products (regenerate with `node scripts/
 | `private_settings` | Orders per evening (kept from customers) | Admin only |
 | `riders` | Delivery partner logins (name, phone, access on/off) | Admin manages · rider reads own row |
 | `order_messages` | WhatsApp messages sent to customers (automatic or by tap) | Admin and riders read · written by functions only |
+| `wallet_entries` | Jholzo Money: every reward, use, refund and admin change (balance = sum) | Admin reads · changed only by the wallet functions and order status |
 
 ## Logins
 
@@ -88,6 +89,9 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 13. `migrations/014_private_cap.sql`: the orders-per-evening limit (50) is admin-only (`private_settings`), never shown to customers.
 14. `migrations/015_upi_pay_now.sql`: "Pay now by UPI" to the store's UPI ID with UTR check by admin/rider; orders above ₹350 must pay first; packaging with paise (₹3.80 / ₹7.80 / ₹13.60).
 15. `migrations/016_phone_otp.sql`: phone OTP once per new phone (Message Central VerifyNow), switched on in Admin → Settings.
+16. `migrations/017_wallet_referral.sql`: Jholzo Money (wallet) and Refer & Earn: invite codes, rewards when a friend's first order is delivered, wallet money at checkout (Admin → Settings → Refer & earn).
+17. `migrations/018_delivery_express.sql`: evening delivery charge by order value (₹40 below ₹99, ₹11 up to ₹298, FREE from ₹299) and Express delivery within an hour for ₹40 extra (switched on in Admin → Settings).
+18. `migrations/019_telegram_notify.sql`: Telegram message to the admin for every new order (Express marked URGENT and pinned) and when a customer submits a UPI UTR. Deploy the function first, see **Telegram order alerts** below.
 
 A new database made from the latest `schema.sql` already has all of them.
 
@@ -110,9 +114,9 @@ a small fee per message. One time:
    phone number for the store (it must not be in use on the WhatsApp app).
 2. **Message templates → Create**, category **Utility**, language **English**, these three
    (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
-   - `order_placed`: Hello {{1}}, your Dergaon Hub order #{{2}} is placed successfully ✅ It will be delivered {{3}}. Total: {{4}}. Thank you!
-   - `rider_on_the_way`: Hello {{1}}, our rider has left with your Dergaon Hub order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
-   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Dergaon Hub order #{{2}} 📍 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
+   - `order_placed`: Hello {{1}}, your Jholzo order #{{2}} is placed successfully ✅ It will be delivered {{3}}. Total: {{4}}. Thank you!
+   - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
+   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Jholzo order #{{2}} 📍 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
 3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
    access token (Business settings → System users → Generate token, permission
    `whatsapp_business_messaging`).
@@ -127,6 +131,28 @@ a small fee per message. One time:
 
 If an automatic message fails (for example a template is not approved yet), the rider page
 says so and offers the WhatsApp button instead. Every message is listed under the order.
+
+## Telegram order alerts
+
+Every new order arrives on your phone as a Telegram message with the exact time, name, phone, address
+(with a map link), items, totals and payment (Cash on delivery, or UPI with the UTR). Express orders say
+**URGENT** and stay pinned at the top of the chat. When a customer submits a UTR later, a second message
+shows it. The database sends these itself, so no order is missed even if the customer closes the page.
+
+1. In Telegram open **@BotFather** → `/newbot` → give it a name → copy the **token**. Never paste the token
+   in a chat or a file; if it was shared, send `/revoke` to BotFather and use the new one.
+2. Open your new bot and tap **Start**.
+3. Find your chat id: open **@userinfobot** in Telegram and tap Start; it replies with your **Id** (a number).
+4. In a terminal in this project:
+   ```
+   npx supabase login
+   npx supabase secrets set TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<your id> --project-ref <project ref>
+   npx supabase functions deploy telegram-notify --no-verify-jwt --project-ref <project ref>
+   ```
+   For more than one person (you and a rider), put the ids together: `TELEGRAM_CHAT_ID=111,222`.
+   Each of them must also tap Start in the bot once.
+5. Supabase → **SQL Editor** → paste `migrations/019_telegram_notify.sql` → **Run**.
+6. Place a test order on the site: the message should arrive within a few seconds.
 
 ## Phone OTP (Message Central VerifyNow)
 

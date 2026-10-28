@@ -8,7 +8,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
 import { adminListOrders, confirmOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { dayLabel, fmtClock, itemsText, rupee } from '../../lib/format.js'
+import { dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 
 const FILTERS = [
@@ -90,7 +90,7 @@ export default function AdminOrders() {
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
-                <Truck size={15} /> {dayLabel(o.delivery_date)}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
+                <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express by {fmtClock(o.express_by)}</b> : dayLabel(o.delivery_date)}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
               </p>
               {o.status === 'cancelled' && <p className="mt-1 text-sm text-neutral-500">Reason: {o.cancel_reason}</p>}
               <div className="mt-1"><CustomerHint hint={o.hint} /></div>
@@ -98,7 +98,7 @@ export default function AdminOrders() {
             {o.status === 'placed' && (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <a href={`tel:${o.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
-                <a href={waLink(toWa(o.customer_phone), `Hello ${o.customer_name}, this is Dergaon Hub. We have received your order #${o.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
+                <a href={waLink(toWa(o.customer_phone), `Hello ${o.customer_name}, this is Jholzo. We have received your order #${o.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
                   <WhatsAppIcon size={17} />
                 </a>
                 <button type="button" onClick={() => confirmOrder(o.id)} className={lbtnDark}>Confirm</button>
