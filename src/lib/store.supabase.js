@@ -683,6 +683,7 @@ export const partnerNoShow = (id) => partnerCall('partner_no_show', { p_order_id
 export async function codAllowed(phone) {
   const ph = cleanPhone(phone)
   if (ph.length !== 10) return true
+  await session() // update 020: logged-in callers only
   const { data, error } = await sb.rpc('cod_allowed', { p_phone: ph })
   return error ? true : data !== false
 }

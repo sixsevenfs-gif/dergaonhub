@@ -92,6 +92,7 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 16. `migrations/017_wallet_referral.sql`: Jholzo Money (wallet) and Refer & Earn: invite codes, rewards when a friend's first order is delivered, wallet money at checkout (Admin → Settings → Refer & earn).
 17. `migrations/018_delivery_express.sql`: evening delivery charge by order value (₹40 below ₹99, ₹11 up to ₹298, FREE from ₹299) and Express delivery within an hour for ₹40 extra (switched on in Admin → Settings).
 18. `migrations/019_telegram_notify.sql`: Telegram message to the admin for every new order (Express marked URGENT and pinned) and when a customer submits a UPI UTR. Deploy the function first, see **Telegram order alerts** below.
+19. `migrations/020_security_hardening.sql`: each Telegram alert goes out only once (repeat calls do nothing), and admin, rider and customer functions need a login. Deploy telegram-notify again after running it.
 
 A new database made from the latest `schema.sql` already has all of them.
 

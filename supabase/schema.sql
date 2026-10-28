@@ -2265,3 +2265,28 @@ create trigger orders_telegram_placed after insert on public.orders
 drop trigger if exists orders_telegram_utr on public.orders;
 create trigger orders_telegram_utr after update of upi_ref on public.orders
   for each row execute function public.telegram_notify();
+
+/* ================ security hardening (same as migrations/020_security_hardening.sql) ================ */
+
+alter table public.orders
+  add column if not exists tg_placed_sent boolean not null default false,
+  add column if not exists tg_utr_sent text not null default '';
+
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = any (array[
+      'admin_add_rider', 'admin_list_riders', 'admin_wallet_adjust', 'cancel_order', 'expire_old_orders',
+      'log_order_message', 'partner_complete', 'partner_no_show', 'partner_set_dispatch', 'partner_undo_delivered',
+      'staff_set_payment', 'customer_cancel_order', 'customer_submit_upi_ref', 'my_wallet', 'phone_verified',
+      'cod_allowed'])
+  loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    execute format('grant execute on function %s to authenticated', f.sig);
+  end loop;
+end
+$$;

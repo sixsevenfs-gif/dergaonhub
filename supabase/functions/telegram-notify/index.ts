@@ -20,6 +20,19 @@ async function rows(path: string) {
   return res.json()
 }
 
+// Claims "this event is being sent" in one atomic update; returns false if another call already claimed it.
+// Before update 020 the flag columns do not exist: then it sends without the once-only guard.
+async function claim(filter: string, patch: Record<string, unknown>) {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/orders?${filter}`, {
+    method: 'PATCH',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) return true
+  return (await res.json()).length > 0
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function telegram(method: string, body: Record<string, unknown>) {
@@ -46,6 +59,12 @@ Deno.serve(async (req) => {
     if (kind === 'placed' && Date.now() - new Date(o.created_at).getTime() > 15 * 60_000) return json({ sent: false, reason: 'old' })
     if (kind === 'utr' && !o.upi_ref) return json({ sent: false, reason: 'no utr' })
 
+    // Once per event: a repeat call (or someone replaying it) sends nothing.
+    const claimed = kind === 'placed'
+      ? await claim(`id=eq.${o.id}&tg_placed_sent=eq.false`, { tg_placed_sent: true })
+      : await claim(`id=eq.${o.id}&tg_utr_sent=neq.${encodeURIComponent(o.upi_ref)}`, { tg_utr_sent: o.upi_ref })
+    if (!claimed) return json({ sent: false, reason: 'already sent' })
+
     let text: string
     if (kind === 'placed') {
       const items = await rows(`order_items?order_id=eq.${o.id}&select=name_snapshot,quantity,line_total,note`)
@@ -66,7 +85,10 @@ Deno.serve(async (req) => {
       }
       results.push({ chat_id, ok: !!r.ok, error: r.ok ? undefined : r.description })
     }
-    return json({ sent: results.some((r) => r.ok), results })
+    const sent = results.some((r) => r.ok)
+    // Nothing reached Telegram: release the claim so a retry can send it.
+    if (!sent) await claim(`id=eq.${o.id}`, kind === 'placed' ? { tg_placed_sent: false } : { tg_utr_sent: '' })
+    return json({ sent, results })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)
   }
