@@ -11,7 +11,7 @@ export const CATEGORY_LOOK = {
   colddrinks: ['#D9443C', 'Cold Drinks'],
   personal: ['#8D62C4', 'Personal Care'],
   cleaning: ['#2A9D8F', 'Cleaning'],
-  vegetables: ['#4F8A2E', 'Vegetables'],
+  vegetables: ['#4F8A2E', 'Fruits & Vegetables'],
 }
 export const categoryTint = (id) => CATEGORY_LOOK[id]?.[0] ?? '#1F6B3A'
 

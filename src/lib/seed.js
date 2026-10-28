@@ -15,7 +15,7 @@ export const CATEGORIES = [
   { id: 'colddrinks', name: 'Cold Drinks & Water', short: 'Cold drinks' },
   { id: 'personal', name: 'Personal Care', short: 'Personal care' },
   { id: 'cleaning', name: 'Cleaning', short: 'Cleaning' },
-  { id: 'vegetables', name: 'Vegetables', short: 'Vegetables' },
+  { id: 'vegetables', name: 'Fruits & Vegetables', short: 'Fruits & Veg' },
 ]
 
 // [name, size, category, keywords, demo price]
