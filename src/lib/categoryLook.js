@@ -12,6 +12,7 @@ export const CATEGORY_LOOK = {
   personal: ['#8D62C4', 'Personal Care'],
   cleaning: ['#2A9D8F', 'Cleaning'],
   vegetables: ['#4F8A2E', 'Fruits & Vegetables'],
+  dryfruits: ['#9A6A3A', 'Dry Fruits & Seeds'],
 }
 export const categoryTint = (id) => CATEGORY_LOOK[id]?.[0] ?? '#1F6B3A'
 

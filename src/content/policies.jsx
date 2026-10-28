@@ -20,7 +20,6 @@ import { H, P, UL } from '../components/Prose.jsx'
 const PHOTO_CREDITS = [
   ['Masoor Dal', 'Fumikas Sagisavas', 'CC0'],
   ['Urad Dal', 'Thamizhpparithi Maari', 'CC BY-SA 4.0'],
-  ['Poha', 'Ajay Suresh', 'CC BY 2.0'],
   ['Red Bull', 'DYVER', 'CC BY-SA 4.0'],
 ]
 
