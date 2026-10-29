@@ -75,9 +75,9 @@ function InviteCard({ code, store }) {
   )
 }
 
-const STEPS = [
+const steps = (r) => [
   [UserPlus, 'Share your code', 'Send it to friends in Dergaon on WhatsApp.'],
-  [ShoppingBag, 'Friend orders', 'They enter your code on their first order.'],
+  [ShoppingBag, 'Friend orders', `They use your code on their first order of ${rupee(r.minOrder)} or more.`],
   [Truck, 'Order delivered', 'You both get Jholzo Money in your wallet.'],
 ]
 
@@ -120,7 +120,7 @@ export default function Wallet() {
             <section className="mt-6">
               <h2 className="text-[17px] font-semibold">How it works</h2>
               <div className="mt-3 space-y-3">
-                {STEPS.map(([Icon, title, note], i) => (
+                {steps(r).map(([Icon, title, note], i) => (
                   <div key={title} className="flex items-center gap-3">
                     <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mint text-brand">
                       <Icon size={20} />

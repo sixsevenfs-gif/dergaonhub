@@ -11,7 +11,7 @@ export function walletRules(store) {
     on: store?.referral_on !== false,
     referrerReward: n(store?.referrer_reward, 30),
     friendReward: n(store?.friend_reward, 20),
-    minOrder: n(store?.referral_min_order, 200),
+    minOrder: n(store?.referral_min_order, 149),
     maxPerOrder: n(store?.wallet_max_per_order, 50),
   }
 }
@@ -50,7 +50,7 @@ export const inviteLink = (code) => `${window.location.origin}/?ref=${code}`
 
 export function inviteMessage(code, store) {
   const r = walletRules(store)
-  return `Order groceries from Jholzo, delivered to your door in Dergaon 🛒\nUse my invite code *${code}* on your first order and get ₹${r.friendReward} Jholzo Money after it is delivered.\n${inviteLink(code)}`
+  return `Order groceries from Jholzo, delivered to your door in Dergaon 🛒\nUse my invite code *${code}* on your first order (₹${r.minOrder} or more) and get ₹${r.friendReward} Jholzo Money after it is delivered.\n${inviteLink(code)}`
 }
 
 // Words for each row of the money history.
