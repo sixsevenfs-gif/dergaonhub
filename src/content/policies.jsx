@@ -169,7 +169,7 @@ export const POLICIES = {
         <H>Prices and items</H>
         <UL items={[
           'Prices on the website are in Indian Rupees and can change. You pay the price shown when you placed the order.',
-          'Photos are for reference only. The actual pack may look different.',
+          'Photos are for reference only. The packaging of some products may look slightly different from the photo (for example a new pack design), but you always get the same brand and flavour you chose.',
           'If your chosen brand is not available and you allowed a similar brand, we may send one of the same type and size at about the same price. Otherwise we remove the item and tell you the new total.',
         ]} />
         <H>Payment</H>
