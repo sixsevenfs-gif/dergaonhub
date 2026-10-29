@@ -31,8 +31,26 @@ export const POLICIES = {
     body: (store) => (
       <>
         <P>
-          {LEGAL.BRAND} is an online grocery store for Dergaon, run by {LEGAL.COMPANY}. You order daily essentials
-          on our website, and we bring them to your door the same evening.
+          {LEGAL.BRAND} is Dergaon's own online grocery store. Right now we serve Dergaon: you order daily
+          essentials on our website, and we bring them to your door.
+        </P>
+        <H>Why order from us</H>
+        <UL items={[
+          'Lower prices than the local market on everyday items like atta, daal, oil, milk and fruits.',
+          `FREE delivery on orders of ${rupee(deliveryRules(store).freeAbove)} and above.`,
+          'Fresh stock, packed at our store in Dergaon and delivered by our own team.',
+          'Cash on delivery or UPI, whichever is easier for you.',
+        ]} />
+        <H>Who we are</H>
+        <P>
+          {LEGAL.BRAND} is part of {LEGAL.COMPANY}, founded by co-founders Pinku Chetry and Dijendra Mallah.
+          The two started out as PG mates in Guwahati, where a late-night talk about how hard it is to find
+          reliable everyday help turned into their first venture, ApnaServo, a home-services platform.
+        </P>
+        <P>
+          They believe real change starts when you stop waiting for someone else to fix a problem. {LEGAL.BRAND} brings
+          that same idea home to Dergaon: everyday shopping should be simple, fair on price and easy on your time,
+          and it should create work for people right here in our town.
         </P>
         <H>How it works</H>
         <UL items={[

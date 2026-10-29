@@ -23,5 +23,5 @@ export const LEGAL = {
   GRIEVANCE_OFFICER: '[TBD] Name', // required for online stores in India
   FSSAI: '20326120001321', // Basic Registration (Retailer), issued 28 Oct 2026, valid to Oct 2027
   COMPLAINT_HOURS: 24, // report damaged / wrong / missing items within this many hours
-  LAST_UPDATED: '25 October 2026',
+  LAST_UPDATED: '29 October 2026',
 }
