@@ -32,7 +32,7 @@ function PhotoStep({ orderId, photo, onPhoto, onError }) {
     setBusy(true)
     onError('')
     try {
-      const small = await compressImage(file, 1000, 0.7)
+      const small = await compressImage(file, 1000, 100) // proof photo: big enough to see the items, at most 100 KB
       setPreview(small)
       onPhoto(await uploadDeliveryPhoto(orderId, small))
     } catch (err) {
