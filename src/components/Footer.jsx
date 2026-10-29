@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { Instagram } from 'lucide-react'
-import { waLink } from '../lib/whatsapp.js'
 import { LEGAL } from '../config.js'
 import { JholzoText } from './Wordmark.jsx'
 
@@ -37,12 +36,6 @@ export default function Footer({ store }) {
           <Link key={slug} to={`/policy/${slug}`} className="text-ink/80 underline-offset-4 hover:underline">{label}</Link>
         ))}
       </nav>
-      <p>
-        Want a website for your shop?{' '}
-        <a href={waLink(store.whatsapp, 'Hello, I would like a website for my shop.')} target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-4">
-          WhatsApp us
-        </a>
-      </p>
       <p className="pt-2 text-xs">© {new Date().getFullYear()} {LEGAL.COMPANY} · FSSAI: {LEGAL.FSSAI}</p>
     </footer>
   )
