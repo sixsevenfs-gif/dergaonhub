@@ -60,7 +60,7 @@ export const POLICIES = {
           'You pay on delivery, by cash or UPI.',
         ]} />
         <H>Where we deliver</H>
-        <P>Right now we deliver within {store.max_delivery_km} km of our store in Dergaon. We will keep growing this area, so more of Dergaon can order soon.</P>
+        <P>Right now we deliver within Dergaon, up to {store.max_delivery_km} km from our store. We will keep growing this area, so more of Dergaon can order soon.</P>
         <H>Photo credits</H>
         <P>Some product photos are from Wikimedia Commons, cropped by us:</P>
         <UL items={PHOTO_CREDITS.map(([item, author, license]) => `${item}: ${author}, ${license}`)} />
@@ -226,7 +226,7 @@ export const POLICIES = {
     body: (store) => (
       <>
         <H>Delivery area</H>
-        <P>We currently deliver within {store.max_delivery_km} km of our store in Dergaon (the website checks your map pin). We will expand to more areas later.</P>
+        <P>We currently deliver within Dergaon, up to {store.max_delivery_km} km from our store (the website checks your map pin). We will expand to more areas later.</P>
         <H>Delivery time</H>
         <UL items={[
           `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
