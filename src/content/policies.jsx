@@ -44,13 +44,11 @@ export const POLICIES = {
         <H>Who we are</H>
         <P>
           {LEGAL.BRAND} is part of {LEGAL.COMPANY}, founded by co-founders Pinku Chetry and Dijendra Mallah.
-          The two started out as PG mates in Guwahati, where a late-night talk about how hard it is to find
-          reliable everyday help turned into their first venture, ApnaServo, a home-services platform.
         </P>
         <P>
-          They believe real change starts when you stop waiting for someone else to fix a problem. {LEGAL.BRAND} brings
-          that same idea home to Dergaon: everyday shopping should be simple, fair on price and easy on your time,
-          and it should create work for people right here in our town.
+          They believe real change starts when you stop waiting for someone else to fix a problem. With {LEGAL.BRAND},
+          everyday shopping in Dergaon should be simple, fair on price and easy on your time, and it should create
+          work for people right here in our town.
         </P>
         <H>How it works</H>
         <UL items={[
