@@ -20,7 +20,8 @@ insert into public.categories (id, name, short, sort) values
   ('personal', 'Personal Care', 'Personal care', 9),
   ('cleaning', 'Cleaning', 'Cleaning', 10),
   ('vegetables', 'Fruits & Vegetables', 'Fruits & Veg', 11),
-  ('dryfruits', 'Dry Fruits & Seeds', 'Dry fruits', 12)
+  ('dryfruits', 'Dry Fruits & Seeds', 'Dry fruits', 12),
+  ('pooja', 'Pooja Needs', 'Pooja', 13)
 on conflict (id) do nothing;
 
 insert into public.products (name, size, category_id, keywords, price, photo_url, featured, available) values
