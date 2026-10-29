@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Instagram } from 'lucide-react'
 import { waLink } from '../lib/whatsapp.js'
 import { LEGAL } from '../config.js'
 import { JholzoText } from './Wordmark.jsx'
@@ -22,6 +23,9 @@ export default function Footer({ store }) {
         </p>
         <p className="mt-2 text-[13px] text-ink">Fresh Groceries. Right at Your Door.</p>
         <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand">{LEGAL.GROUP_LINE}</p>
+        <a href={LEGAL.INSTAGRAM} target="_blank" rel="noreferrer" className="mt-4 inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-[13px] font-semibold text-ink">
+          <Instagram size={18} className="text-[#E1306C]" /> Follow us on Instagram · @jholzo
+        </a>
       </div>
       <p>
         <Link to="/track" className="underline underline-offset-4">My orders</Link>
