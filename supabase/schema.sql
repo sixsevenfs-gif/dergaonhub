@@ -2290,3 +2290,7 @@ begin
   end loop;
 end
 $$;
+
+/* ================ Popular essentials order (same as migrations/021_featured_rank.sql) ================ */
+
+alter table public.products add column if not exists featured_rank int;

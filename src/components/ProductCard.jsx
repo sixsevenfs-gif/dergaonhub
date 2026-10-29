@@ -7,8 +7,13 @@ import { percentOff, rupee } from '../lib/format.js'
 // The placeholder pack drawings (public/demo/) are not real photos.
 const realPhoto = (url) => !!url && !url.includes('/demo/')
 
+// Per-kg price only where people compare by weight (staples, loose produce, dry fruits),
+// not on chocolates, snacks, drinks or soaps where it reads oddly.
+const UNIT_PRICE_CATEGORIES = new Set(['atta', 'rice', 'daal', 'oil', 'masala', 'vegetables', 'dryfruits'])
+
 // "5 kg" at ₹285 → "₹57/kg"; grams per kg, ml per litre. Nothing for pieces or packs.
-function unitPrice(price, size = '') {
+function unitPrice(price, size = '', categoryId = '') {
+  if (!UNIT_PRICE_CATEGORIES.has(categoryId)) return ''
   const m = size.trim().toLowerCase().match(/^([\d.]+)\s*(kg|g|l|ltr|litre|ml)$/)
   if (!m) return ''
   const n = Number(m[1])
@@ -92,7 +97,7 @@ function PhotoSlider({ photos, alt }) {
 
 // One product card in the 2-column grid: photo, name, size, price, and "+ Add" (or − 1 +).
 export default function ProductCard({ p, qty, onQty, disabled }) {
-  const perUnit = unitPrice(p.price, p.size)
+  const perUnit = unitPrice(p.price, p.size, p.category_id)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
   const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
   const tint = categoryTint(p.category_id)

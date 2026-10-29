@@ -152,6 +152,15 @@ export async function setPaused(paused) {
   notify()
 }
 
+// A photo from PhotoPicker (a data: URL) as a file to upload. Decoded here rather than with fetch(),
+// which the site's Content-Security-Policy (public/_headers) blocks for data: URLs.
+function dataUrlToBlob(dataUrl) {
+  const [head, body] = String(dataUrl).split(',')
+  const type = head.match(/^data:([^;]+)/)?.[1] ?? 'image/jpeg'
+  const bytes = Uint8Array.from(atob(body), (c) => c.charCodeAt(0))
+  return new Blob([bytes], { type })
+}
+
 /* ---------- products ---------- */
 
 export function listCategories() {
@@ -207,7 +216,7 @@ export async function updateProduct(id, patch) {
 export async function setProductPhoto(id, photoUrl) {
   let url = ''
   if (photoUrl) {
-    const blob = await (await fetch(photoUrl)).blob()
+    const blob = dataUrlToBlob(photoUrl)
     const path = `products/${id}-${Date.now()}.jpg`
     check(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true }))
     url = sb.storage.from('photos').getPublicUrl(path).data.publicUrl
@@ -616,7 +625,7 @@ export const partnerComplete = (id, cash, photo) =>
 
 // Photo of the items at the door (data URL from the camera), saved in the private "deliveries" bucket.
 export async function uploadDeliveryPhoto(orderId, photoUrl) {
-  const blob = await (await fetch(photoUrl)).blob()
+  const blob = dataUrlToBlob(photoUrl)
   const path = `orders/${orderId}-${Date.now()}.jpg`
   check(await sb.storage.from('deliveries').upload(path, blob, { contentType: 'image/jpeg' }))
   return path
@@ -691,7 +700,7 @@ export async function codAllowed(phone) {
 /* ---------- extra product photos ---------- */
 
 export async function addProductPhoto(id, photoUrl) {
-  const blob = await (await fetch(photoUrl)).blob()
+  const blob = dataUrlToBlob(photoUrl)
   const path = `products/${id}-${Date.now()}.jpg`
   check(await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: true }))
   const url = sb.storage.from('photos').getPublicUrl(path).data.publicUrl

@@ -103,16 +103,18 @@ export default function Home() {
   const usedCats = categories.filter((c) => products.some((p) => p.category_id === c.id))
   const searching = q.trim() !== ''
   const browsing = showAll || allParam || cat || searching
-  // Popular items follow the category order (atta, rice, daal, oil...), like the shelf in a shop.
+  // Popular items in the admin's chosen order (featured_rank, update 021); unranked ones after,
+  // in category order (atta, rice, daal, oil...), like the shelf in a shop.
   const catOrder = (p) => categories.findIndex((c) => c.id === p.category_id)
-  const popular = products.filter((p) => p.featured).sort((a, b) => catOrder(a) - catOrder(b))
+  const rank = (p) => p.featured_rank ?? Infinity
+  const popular = products.filter((p) => p.featured).sort((a, b) => rank(a) - rank(b) || catOrder(a) - catOrder(b))
   const shown = useMemo(
     // While searching, every category is searched; otherwise the chosen category is shown.
     () => products.filter((p) => (q.trim() ? matches(`${p.name} ${p.size} ${p.keywords}`, q) : !cat || p.category_id === cat)),
     [products, cat, q],
   )
-  // Home shows 6 popular items (3 rows of 2); starred ones first, then others to fill.
-  const POPULAR_COUNT = 6
+  // Home shows 8 popular items (4 rows of 2); starred ones first, then others to fill.
+  const POPULAR_COUNT = 8
   const filler = products.filter((p) => !p.featured && p.available)
   const list = browsing ? shown : [...popular, ...filler].slice(0, POPULAR_COUNT)
   const title = q.trim() ? 'Search results' : cat ? categories.find((c) => c.id === cat)?.name : browsing ? 'All products' : 'Popular essentials'
