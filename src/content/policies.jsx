@@ -36,8 +36,8 @@ export const POLICIES = {
         </P>
         <H>Our story</H>
         <P>
-          In this heat, people still have to step out to buy everyday things. And when they do, they often pay
-          more than they should. Take a Monster energy drink: its MRP is ₹125, but many shops charge ₹130 and
+          Summers in Dergaon are hard, and they get hotter every year. Even on the hottest days, people still have
+          to step out to buy everyday things. And when they do, they often pay more than they should. Take a Monster energy drink: its MRP is ₹125, but many shops charge ₹130 and
           call the extra ₹5 a "cooling charge". That is not fair to the customer.
         </P>
         <P>
