@@ -34,6 +34,17 @@ export const POLICIES = {
           {LEGAL.BRAND} is Dergaon's own online grocery store. Right now we serve Dergaon: you order daily
           essentials on our website, and we bring them to your door.
         </P>
+        <H>Our story</H>
+        <P>
+          In this heat, people still have to step out to buy everyday things. And when they do, they often pay
+          more than they should. Take a Monster energy drink: its MRP is ₹125, but many shops charge ₹130 and
+          call the extra ₹5 a "cooling charge". That is not fair to the customer.
+        </P>
+        <P>
+          So we asked ourselves: why not bring things to people's homes instead, and charge MRP or less, never a
+          rupee above it? That is why we built {LEGAL.BRAND}: honest prices, delivered to your door, with FREE
+          delivery on orders of {rupee(deliveryRules(store).freeAbove)} and above.
+        </P>
         <H>Why order from us</H>
         <UL items={[
           'Lower prices than the local market on everyday items like atta, daal, oil, milk and fruits.',
@@ -45,10 +56,11 @@ export const POLICIES = {
         <P>
           {LEGAL.BRAND} is part of {LEGAL.COMPANY}, founded by co-founders Pinku Chetry and Dijendra Mallah.
         </P>
+        <H>Our vision</H>
         <P>
-          They believe real change starts when you stop waiting for someone else to fix a problem. With {LEGAL.BRAND},
-          everyday shopping in Dergaon should be simple, fair on price and easy on your time, and it should create
-          work for people right here in our town.
+          Dergaon is home for one of us. We want to do our part, in whatever way we can, to help Dergaon grow
+          and upgrade: everyday shopping that is simple, fair on price and easy on your time, and work for
+          people right here in our town.
         </P>
         <H>How it works</H>
         <UL items={[
