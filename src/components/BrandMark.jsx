@@ -1,4 +1,4 @@
-// App icon: a white jhola (bag) with a leaf on dark green. Same drawing as public/favicon.svg.
+// App icon: a white jhola (bag) with a leaf on dark green.
 export default function BrandMark({ className = 'h-10 w-10' }) {
   return (
     <svg viewBox="0 0 128 128" className={className} aria-hidden="true">
