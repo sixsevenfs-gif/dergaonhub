@@ -66,7 +66,7 @@ export default function OtpSheet({ phone, onVerified, onClose }) {
         <div>
           <h2 className="text-xl font-semibold">Verify your number</h2>
           <p className="mt-1 text-sm text-muted">
-            {sent ? `We sent a 4-digit code by SMS to +91 ${phone}.` : busy ? `Sending a code to +91 ${phone}...` : `We will send a code to +91 ${phone}.`} This is only needed once on this phone.
+            {sent ? `We sent a 4-digit code by SMS to +91 ${phone}.` : busy ? `Sending a code to +91 ${phone}...` : `We will send a code to +91 ${phone}.`} We ask again only after you log out.
           </p>
         </div>
         <input
