@@ -1,0 +1,8 @@
+# Netlify settings (used when the site builds from GitHub).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Product photos from Supabase may go through Netlify's image service: smaller WebP, cached (src/lib/img.js).
+[images]
+  remote_images = ["https://nyzwehemganasxwcxeai\\.supabase\\.co/storage/v1/object/public/.*"]

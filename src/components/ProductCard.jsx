@@ -3,6 +3,7 @@ import { Minus, Plus } from 'lucide-react'
 import { CategoryIcon } from './icons.jsx'
 import { categoryTint } from '../lib/categoryLook.js'
 import { percentOff, rupee } from '../lib/format.js'
+import FastImg from './FastImg.jsx'
 
 // The placeholder pack drawings (public/demo/) are not real photos.
 const realPhoto = (url) => !!url && !url.includes('/demo/')
@@ -30,7 +31,7 @@ export function ProductTile({ p, className = 'h-[84px] w-[92px]' }) {
   return (
     <div className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-mint-soft ${p.available ? '' : 'grayscale'} ${className}`}>
       {photo ? (
-        <img src={photo} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+        <FastImg src={photo} width={200} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
       ) : (
         <span className="flex h-full w-full items-center justify-center" style={{ background: `${tint}14`, color: tint }}>
           <CategoryIcon id={p.category_id} size={34} strokeWidth={1.5} />
@@ -83,7 +84,7 @@ function PhotoSlider({ photos, alt }) {
         className="flex h-full w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {photos.map((url, i) => (
-          <img key={url} src={url} alt={i ? '' : alt} loading="lazy" className="h-full w-full shrink-0 snap-center object-cover" />
+          <FastImg key={url} src={url} alt={i ? '' : alt} loading="lazy" className="h-full w-full shrink-0 snap-center object-cover" />
         ))}
       </div>
       <span className="pointer-events-none absolute bottom-2 left-1/2 z-[1] flex -translate-x-1/2 gap-1">
@@ -107,7 +108,7 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
         {photos.length > 1 ? (
           <PhotoSlider photos={photos} alt={p.name} />
         ) : photos.length ? (
-          <img src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+          <FastImg src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
           <span className="flex h-full w-full items-center justify-center" style={{ background: `${tint}14`, color: tint }}>
             <CategoryIcon id={p.category_id} size={48} strokeWidth={1.4} />
