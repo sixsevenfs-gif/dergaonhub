@@ -130,6 +130,11 @@ export async function saveStore(data) {
     ...(data.free_delivery === undefined ? {} : { free_delivery: !!data.free_delivery }), // after update 005
     ...(data.show_powered_by === undefined ? {} : { show_powered_by: !!data.show_powered_by }), // after 010
     ...(data.otp_required === undefined ? {} : { otp_required: !!data.otp_required }), // after 016
+    ...(data.otp_credits_left === undefined ? {} : {
+      otp_credits_left: data.otp_credits_left === '' || data.otp_credits_left == null ? null : Math.max(0, wholeRupees(data.otp_credits_left)),
+      otp_alert_at: Math.max(1, wholeRupees(data.otp_alert_at) || 50),
+      ...(data.otp_required ? { otp_auto_off: false, otp_failures: 0 } : {}),
+    }), // after 024
     ...(data.referral_on === undefined ? {} : {
       referral_on: !!data.referral_on, referrer_reward: wholeRupees(data.referrer_reward), friend_reward: wholeRupees(data.friend_reward),
       referral_min_order: wholeRupees(data.referral_min_order), wallet_max_per_order: wholeRupees(data.wallet_max_per_order),
@@ -519,7 +524,10 @@ export async function adminStats() {
     count(sb.from('waitlist').select('id', { count: 'exact', head: true }).eq('notified', false)),
     getStore(),
   ])
-  return { newOrders, todayOrders: todays.length, todayValue: sum(todays, (o) => o.total), openComplaints, outOfStock, waitlist, paused: store.paused }
+  return {
+    newOrders, todayOrders: todays.length, todayValue: sum(todays, (o) => o.total), openComplaints, outOfStock, waitlist, paused: store.paused,
+    otpOff: !!store.otp_auto_off && !store.otp_required, otpLeft: store.otp_credits_left, otpAlertAt: store.otp_alert_at ?? 50, // after 024
+  }
 }
 
 // The evening run: orders for one day grouped by area, plus one shopping list for the trip.

@@ -43,6 +43,17 @@ export default function AdminHome() {
         <Toggle checked={!stats.paused} onChange={(open) => setPaused(!open)} label="Store open" />
       </section>
 
+      {(stats.otpOff || (stats.otpLeft != null && stats.otpLeft <= stats.otpAlertAt)) && (
+        <Link to="/admin/settings" className={`${lcard} flex items-center justify-between gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-800`}>
+          <span>
+            {stats.otpOff
+              ? <><b>OTP is off</b>: SMS could not be sent, customers are ordering without OTP. Recharge Message Central, then turn OTP on.</>
+              : <><b>Only {stats.otpLeft} OTPs left.</b> Recharge Message Central, then update the count in Settings.</>}
+          </span>
+          <ChevronRight size={18} className="shrink-0" />
+        </Link>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="New orders" value={stats.newOrders} to="/admin/orders" hot={stats.newOrders > 0} />
         <Stat label="Today's deliveries" value={stats.todayOrders} to="/admin/delivery" />

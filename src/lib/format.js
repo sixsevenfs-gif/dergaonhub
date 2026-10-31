@@ -69,6 +69,18 @@ export function timeAgo(iso) {
 
 export const cleanPhone = (p) => String(p ?? '').replace(/\D/g, '').slice(-10)
 
+// Same rules as the database (update 024): a real name and an Indian mobile number. '' when fine.
+export function nameProblem(name) {
+  const n = String(name ?? '').trim()
+  if (/\d/.test(n) || (n.match(/[A-Za-z\u0980-\u09FF\u0900-\u097F]/g) ?? []).length < 2) return 'Enter your full name (letters only).'
+  return ''
+}
+export function phoneProblem(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '')
+  const p = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits.replace(/^0(?=\d{10}$)/, '')
+  return /^[6-9]\d{9}$/.test(p) ? '' : 'Enter a valid 10-digit mobile number.'
+}
+
 // Search that tolerates spelling variants: "aata" and "atta" both become "ata".
 export function normalize(s) {
   return String(s ?? '')

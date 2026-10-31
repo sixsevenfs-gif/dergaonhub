@@ -6,7 +6,7 @@ import Wordmark from '../../components/Wordmark.jsx'
 import { btnAccent, card, field } from '../../components/ui.js'
 import { currentCustomer, customerSignIn, getStore, phoneVerified } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { cleanPhone } from '../../lib/format.js'
+import { cleanPhone, nameProblem, phoneProblem } from '../../lib/format.js'
 import OtpSheet from '../../components/OtpSheet.jsx'
 
 // Customer login: name + phone, and (when OTP is on) a one-time SMS code. The login is kept on this
@@ -31,7 +31,8 @@ export default function Login({ gate = false }) {
     e.preventDefault()
     setError('')
     try {
-      if (cleanPhone(phone).length !== 10) throw new Error('Enter a valid 10-digit phone number.')
+      const problem = nameProblem(name) || phoneProblem(phone)
+      if (problem) throw new Error(problem)
       if (store?.otp_required) {
         // Verified on this phone before: no new SMS.
         if (await phoneVerified(phone)) return await signIn(true)
@@ -52,7 +53,7 @@ export default function Login({ gate = false }) {
         <OtpSheet
           phone={otpFor}
           onClose={() => setOtpFor(null)}
-          onVerified={() => signIn(true).catch((err) => { setOtpFor(null); setError(err.message) })}
+          onVerified={(skipped) => signIn(!skipped).catch((err) => { setOtpFor(null); setError(err.message) })}
         />
       )}
       {gate ? <header className="flex h-12 items-center"><Wordmark /></header> : <TopBar />}
@@ -72,7 +73,7 @@ export default function Login({ gate = false }) {
       <form onSubmit={submit} className={`${card} mt-6 space-y-3 p-4`}>
         <label className="flex items-center gap-3 rounded-xl border border-line px-3 focus-within:border-brand">
           <User size={20} className="text-muted" />
-          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Your name" className={`${field} border-0 bg-transparent px-0 focus:border-0`} />
+          <input required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Your name" className={`${field} border-0 bg-transparent px-0 focus:border-0`} />
         </label>
         <label className="flex items-center gap-3 rounded-xl border border-line px-3 focus-within:border-brand">
           <Phone size={20} className="text-muted" />

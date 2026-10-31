@@ -19,6 +19,8 @@ export default function OtpSheet({ phone, onVerified, onClose }) {
     setBusy(true)
     try {
       const res = await sendOtp(phone)
+      // The SMS service is down: OTP has switched itself off (the founder got a Telegram alert), go on without it.
+      if (res?.skip) return onVerified(true)
       setSent(true)
       setWait(res?.timeout || 60)
       input.current?.focus()

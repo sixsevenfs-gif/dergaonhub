@@ -11,7 +11,7 @@ import { clearRefCode, savedRefCode, walletRules, walletToUse } from '../../lib/
 import OtpSheet from '../../components/OtpSheet.jsx'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
-import { cleanPhone, fmtTime, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
+import { cleanPhone, fmtTime, nameProblem, phoneProblem, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
 import { currentPosition, deliveryQuote, deliveryRules, expressStatus, expressTimeText, packagingFee, validPoint } from '../../lib/delivery.js'
 import { getSavedDetails, getSavedLocation, getSavedReceiver, placeName, saveDetails, saveLocation, saveReceiver } from '../../lib/customerLocation.js'
@@ -103,6 +103,7 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false)
   const [placed, setPlaced] = useState(null)
   const [otpFor, setOtpFor] = useState(null) // phone waiting for its OTP
+  const otpSkipped = useRef(false) // the SMS service is down and OTP switched itself off
   const [useWallet, setUseWallet] = useState(true)
   const [wantExpress, setWantExpress] = useState(false)
   const [refCode, setRefCode] = useState(savedRefCode)
@@ -197,6 +198,12 @@ export default function Checkout() {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
+    const problem = nameProblem(form.name) || phoneProblem(form.phone) ||
+      (other && (nameProblem(receiver.name).replace('your', 'their') || phoneProblem(receiver.phone).replace('number', 'number for them')))
+    if (problem) {
+      setError(problem)
+      return
+    }
     if (other && cleanPhone(receiver.phone) === cleanPhone(form.phone)) {
       setError("The receiver's number is the same as yours. Choose \"For me\", or enter their number.")
       return
@@ -214,7 +221,7 @@ export default function Checkout() {
     }
     const address = manual ? joinAddress(addr.parts) : addr.address
     // OTP once per new phone: the number of the person ordering, before placing the order.
-    if (store.otp_required && cleanPhone(form.phone).length === 10 && !(await phoneVerified(form.phone))) {
+    if (store.otp_required && !otpSkipped.current && !(await phoneVerified(form.phone))) {
       setOtpFor(cleanPhone(form.phone))
       return
     }
@@ -268,7 +275,8 @@ export default function Checkout() {
         <OtpSheet
           phone={otpFor}
           onClose={() => setOtpFor(null)}
-          onVerified={() => {
+          onVerified={(skipped) => {
+            otpSkipped.current = !!skipped
             setOtpFor(null)
             formRef.current?.requestSubmit() // verified: place the order now
           }}

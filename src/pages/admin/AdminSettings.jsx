@@ -279,7 +279,8 @@ function SettingsForm({ store }) {
         )}
       </section>
 
-      <section className={`${lcard} flex items-start justify-between gap-3 p-4`}>
+      <section className={`${lcard} space-y-3 p-4`}>
+      <div className="flex items-start justify-between gap-3">
         <span className="text-sm">
           <b>Phone OTP for new phones</b>
           <span className="block text-neutral-500">
@@ -290,7 +291,24 @@ function SettingsForm({ store }) {
           {v.otp_required === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/016_phone_otp.sql first.</span>}
         </span>
         {(v.otp_required !== undefined || DEMO_MODE) && (
-          <Toggle checked={!!v.otp_required} onChange={(on) => setV({ ...v, otp_required: on })} label="Phone OTP" />
+          <Toggle checked={!!v.otp_required} onChange={(on) => setV({ ...v, otp_required: on, otp_auto_off: false })} label="Phone OTP" />
+        )}
+      </div>
+        {v.otp_auto_off && !v.otp_required && (
+          <p className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
+            OTP switched itself off because SMS could not be sent (balance over or service down). Customers are ordering without OTP.
+            Recharge Message Central, then turn it on again and Save.
+          </p>
+        )}
+        {v.otp_credits_left !== undefined && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="OTP credits left" hint="Type the number after each recharge. Each SMS takes one off.">
+              <input type="number" min="0" value={v.otp_credits_left ?? ''} onChange={set('otp_credits_left')} placeholder="Not counting" className={lfield} />
+            </Field>
+            <Field label="Warn me on Telegram at" hint="Also at 10 and at 0">
+              <input type="number" min="1" value={v.otp_alert_at ?? 50} onChange={set('otp_alert_at')} className={lfield} />
+            </Field>
+          </div>
         )}
       </section>
 
