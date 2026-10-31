@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LocateFixed, UserPlus } from 'lucide-react'
+import { Home, LocateFixed, UserPlus } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -7,6 +7,7 @@ import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '..
 import { adminAddRider, adminListRiders, getPrivateSettings, getStore, resetDemo, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
 import { currentPosition, deliveryRules, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
+import { countHouses, savedHouseCount } from '../../lib/houses.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG, DEMO_MODE, LEGAL } from '../../config.js'
@@ -188,6 +189,7 @@ function SettingsForm({ store }) {
           <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-dashed border-[#1F6B3A] bg-[#5FA63F]/20" />
           Green circle = where we deliver: up to {v.max_delivery_km || 0} km by road (about {Math.round(((Number(v.max_delivery_km) || 0) / CONFIG.ROAD_FACTOR) * 10) / 10} km straight on the map, since roads bend).
         </p>
+        <HouseCount point={v.location} km={Number(v.max_delivery_km) || 0} />
         <Field label="Deliver up to (km)" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12 · the circle changes as you type"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
 
         <h3 className="pt-2 font-bold">Evening delivery ({v.slot_start}–{v.slot_end}) by order value</h3>
@@ -338,6 +340,43 @@ function SettingsForm({ store }) {
       {msg && <p className="text-sm font-semibold text-green-700">{msg}</p>}
       <button type="submit" className={`${lbtnDark} h-12 w-full`}>Save changes</button>
     </form>
+  )
+}
+
+// How many buildings are mapped inside the delivery circle (OpenStreetMap), counted when tapped.
+function HouseCount({ point, km }) {
+  const [state, setState] = useState({ busy: false, error: '' })
+  const [, refresh] = useState(0)
+  const saved = point && km > 0 ? savedHouseCount(point.lat, point.lng, km) : null
+  const count = async () => {
+    setState({ busy: true, error: '' })
+    try {
+      await countHouses(point.lat, point.lng, km)
+      setState({ busy: false, error: '' })
+      refresh((n) => n + 1)
+    } catch (err) {
+      setState({ busy: false, error: err.message })
+    }
+  }
+  if (!point || !(km > 0)) return null
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+      <Home size={20} className="shrink-0 text-[#1F6B3A]" />
+      <span className="min-w-0 flex-1 text-sm">
+        {saved ? (
+          <>
+            <b className="text-lg">~{saved.total.toLocaleString('en-IN')}</b> buildings in this circle
+            <span className="block text-xs text-neutral-500">Mapped on OpenStreetMap. Many village homes are not mapped yet, so real homes are more.</span>
+          </>
+        ) : (
+          <span className="text-neutral-600">How many homes are inside this circle?</span>
+        )}
+        {state.error && <span className="block text-xs text-red-600">{state.error}</span>}
+      </span>
+      <button type="button" onClick={count} disabled={state.busy} className={`${lbtnOutline} min-h-9 px-3 text-sm`}>
+        {state.busy ? 'Counting…' : saved ? 'Count again' : 'Count homes'}
+      </button>
+    </div>
   )
 }
 

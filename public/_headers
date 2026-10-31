@@ -2,7 +2,7 @@
 # CSP: only our own code runs; data only from our Supabase project, OpenStreetMap (map tiles, address
 # lookup) and Google Fonts. If you add a new outside service, add its address here or it will be blocked.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://nyzwehemganasxwcxeai.supabase.co https://tile.openstreetmap.org; connect-src 'self' https://nyzwehemganasxwcxeai.supabase.co wss://nyzwehemganasxwcxeai.supabase.co https://nominatim.openstreetmap.org; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://nyzwehemganasxwcxeai.supabase.co https://tile.openstreetmap.org; connect-src 'self' https://nyzwehemganasxwcxeai.supabase.co wss://nyzwehemganasxwcxeai.supabase.co https://nominatim.openstreetmap.org https://overpass-api.de; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
