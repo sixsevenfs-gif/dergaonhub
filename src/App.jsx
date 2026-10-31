@@ -6,6 +6,7 @@ import Cart from './pages/customer/Cart.jsx'
 import Checkout from './pages/customer/Checkout.jsx'
 import Bill from './pages/customer/Bill.jsx'
 import RequireLogin from './components/RequireLogin.jsx'
+import LaunchCountdown from './components/LaunchCountdown.jsx'
 import OrderPlaced from './pages/customer/OrderPlaced.jsx'
 import Track from './pages/customer/Track.jsx'
 import Login from './pages/customer/Login.jsx'
@@ -35,6 +36,8 @@ import NotFound from './pages/NotFound.jsx'
 export default function App() {
   return (
     <CartProvider>
+      {/* Opening day: covers the customer site until LAUNCH_AT (config.js). */}
+      <LaunchCountdown />
       <Routes>
         <Route path="/" element={<RequireLogin><Home /></RequireLogin>} />
         <Route path="/cart" element={<RequireLogin><Cart /></RequireLogin>} />
