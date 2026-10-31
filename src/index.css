@@ -47,23 +47,19 @@ body {
 }
 
 /* Launch countdown (src/components/LaunchCountdown.jsx) */
-@keyframes lc-flip { from { transform: rotateX(-90deg); opacity: 0; filter: blur(2px); } 60% { opacity: 1; } to { transform: none; opacity: 1; filter: none; } }
-.lc-flip { display: inline-block; transform-origin: 50% 0; animation: lc-flip 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
-@keyframes lc-rays { to { transform: translateX(-50%) rotate(360deg); } }
-.lc-rays { animation: lc-rays 120s linear infinite; }
+@keyframes lc-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.lc-rise { display: inline-block; animation: lc-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes lc-fade { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.lc-fade { animation: lc-fade 1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes lc-breathe { 50% { opacity: 0.6; } }
+.lc-breathe { animation: lc-breathe 7s ease-in-out infinite; }
 .lc-grain { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-@keyframes lc-blink { 50% { opacity: 0.2; } }
-.lc-blink { animation: lc-blink 1s steps(1) infinite; }
-@keyframes lc-glow { 50% { opacity: 0.55; } }
-.lc-glow { animation: lc-glow 6s ease-in-out infinite; }
-@keyframes lc-pop { from { transform: scale(0.8); opacity: 0; } to { transform: none; opacity: 1; } }
-.lc-pop { animation: lc-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes lc-confetti {
-  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.6; }
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(110vh); opacity: 0.4; }
 }
-.lc-confetti { animation: lc-confetti 3s ease-in infinite; }
+.lc-confetti { animation: lc-confetti 3.5s ease-in infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .lc-glow, .lc-blink, .lc-rays, .lc-flip { animation: none; }
+  .lc-rise, .lc-fade, .lc-breathe { animation: none; }
   .lc-confetti { display: none; }
 }
