@@ -39,7 +39,7 @@ export default function App() {
       {/* Opening day: covers the customer site until LAUNCH_AT (config.js). */}
       <LaunchCountdown />
       <Routes>
-        <Route path="/" element={<RequireLogin><Home /></RequireLogin>} />
+        <Route path="/" element={<Home />} />
         <Route path="/cart" element={<RequireLogin><Cart /></RequireLogin>} />
         <Route path="/checkout" element={<RequireLogin><Checkout /></RequireLogin>} />
         <Route path="/order/:orderNumber" element={<RequireLogin><OrderPlaced /></RequireLogin>} />

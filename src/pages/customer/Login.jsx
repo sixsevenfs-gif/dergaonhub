@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { Phone, ShieldCheck, User } from 'lucide-react'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Phone, ShieldCheck, User } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import Wordmark from '../../components/Wordmark.jsx'
 import { btnAccent, card, field } from '../../components/ui.js'
@@ -56,12 +56,17 @@ export default function Login({ gate = false }) {
           onVerified={(skipped) => signIn(!skipped).catch((err) => { setOtpFor(null); setError(err.message) })}
         />
       )}
-      {gate ? <header className="flex h-12 items-center"><Wordmark /></header> : <TopBar />}
+      {gate ? (
+        <header className="flex h-12 items-center justify-between">
+          <Wordmark />
+          <Link to="/" className="flex items-center gap-2 text-muted"><ArrowLeft size={20} /> Shop</Link>
+        </header>
+      ) : <TopBar />}
 
       {gate ? (
         <>
-          <h1 className="mt-10 text-[28px] font-semibold leading-tight">Welcome to <span className="text-brand">Jholzo</span></h1>
-          <p className="mt-2 text-muted">Log in once with your phone number to start shopping. You stay logged in on this phone.</p>
+          <h1 className="mt-10 text-[28px] font-semibold leading-tight">Create your <span className="text-brand">Jholzo</span> account</h1>
+          <p className="mt-2 text-muted">Only once: add your name and mobile number to see your cart and order. You stay logged in on this phone.</p>
         </>
       ) : (
         <>
@@ -81,7 +86,7 @@ export default function Login({ gate = false }) {
           <input required value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" autoComplete="tel" placeholder="10 digit mobile number" className={`${field} border-0 bg-transparent px-0 focus:border-0`} />
         </label>
         {error && <p className="text-sm text-red-700">{error}</p>}
-        <button type="submit" className={`${btnAccent} h-14`}>{store?.otp_required ? 'Send OTP' : 'Continue'}</button>
+        <button type="submit" className={`${btnAccent} h-14`}>{store?.otp_required ? 'Send OTP' : gate ? 'Create account' : 'Continue'}</button>
         {store?.otp_required && (
           <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted">
             <ShieldCheck size={14} className="text-brand" /> We send a one-time code by SMS. Only once on this phone.

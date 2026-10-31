@@ -2,12 +2,13 @@ import { currentCustomer, getStore } from '../lib/store.js'
 import { useData } from '../lib/useData.js'
 import Login from '../pages/customer/Login.jsx'
 
-// With phone OTP switched on (Admin → Settings), the shop opens with a login first. After one OTP the
-// login is kept on this phone, so it is not asked again. With OTP off, the shop opens as before.
+// Anyone can browse the shop. The cart, checkout and account pages ask a new customer to create their
+// account once (name + phone, and the SMS code when OTP is on). It is kept on this phone, so it is
+// not asked again.
 export default function RequireLogin({ children }) {
   const { data: store } = useData(getStore) // also re-renders after login / logout
   if (store === undefined) return null
   const me = currentCustomer()
-  if (store?.otp_required && !(me?.phone && me?.verified)) return <Login gate />
+  if (!me?.phone || (store?.otp_required && !me.verified)) return <Login gate />
   return children
 }
