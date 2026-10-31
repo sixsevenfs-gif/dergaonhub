@@ -6,11 +6,13 @@ import { getStore } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { POLICIES } from '../../content/policies.jsx'
 import { LEGAL } from '../../config.js'
+import { usePageTitle } from '../../lib/usePageTitle.js'
 
 export default function Policy() {
   const { slug } = useParams()
   const { data: store } = useData(getStore)
   const policy = POLICIES[slug]
+  usePageTitle(policy?.title, `/policy/${slug}`)
 
   if (!policy) return <Navigate to="/" replace />
   if (!store) return null

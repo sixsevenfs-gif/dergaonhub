@@ -1,3 +1,13 @@
 User-agent: *
 Disallow: /admin
 Disallow: /partner
+Disallow: /checkout
+Disallow: /cart
+Disallow: /order/
+Disallow: /bill/
+Disallow: /track
+Disallow: /account
+Disallow: /wallet
+Disallow: /login
+
+Sitemap: https://jholzo.com/sitemap.xml
