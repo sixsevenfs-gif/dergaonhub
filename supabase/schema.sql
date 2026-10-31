@@ -1,4 +1,4 @@
--- Dergaon Hub database (Supabase / Postgres)
+-- Jholzo database (Supabase / Postgres)
 -- Run once in Supabase → SQL Editor, then run seed.sql. See supabase/README.md.
 --
 -- Who can do what (row-level security):
@@ -29,7 +29,7 @@ $$;
 
 create table public.store_settings (
   id int primary key default 1 check (id = 1),
-  name text not null default 'Dergaon Hub Store',
+  name text not null default 'Jholzo Dergaon',
   phone text not null check (phone ~ '^[0-9]{10}$'),
   whatsapp text not null check (whatsapp ~ '^91[0-9]{10}$'),
   open_time time not null default '08:00',
@@ -1603,3 +1603,932 @@ end
 $$;
 
 grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text) to authenticated;
+
+/* ================ Jholzo Money and Refer & Earn (same as migrations/017_wallet_referral.sql) ================ */
+--
+-- How it works:
+-- · Every customer gets an invite code after their first order (e.g. RAHUL482).
+-- · A friend who is new (no orders yet) enters the code on their first order.
+-- · When that first order is DELIVERED (and its items total is at least referral_min_order),
+--   the inviter gets referrer_reward and the friend gets friend_reward in Jholzo Money.
+-- · Jholzo Money is used at checkout: up to wallet_max_per_order per order.
+-- · A cancelled order gives the used money back. If a delivered order is undone, its rewards are taken back.
+-- · Only a phone that owns the number (verified by OTP, or has placed orders for it from this browser)
+--   can see or spend its money, so typing someone else's number does nothing.
+-- All amounts and the on/off switch are in Admin → Settings → Refer & earn.
+
+alter table public.store_settings
+  add column if not exists referral_on boolean not null default true,
+  add column if not exists referrer_reward int not null default 30,
+  add column if not exists friend_reward int not null default 20,
+  add column if not exists referral_min_order int not null default 200,
+  add column if not exists wallet_max_per_order int not null default 50;
+
+alter table public.customers
+  add column if not exists referral_code text unique,
+  add column if not exists referred_by uuid references public.customers on delete set null;
+
+alter table public.orders
+  add column if not exists orderer_id uuid references public.customers on delete set null,  -- whose wallet and referral
+  add column if not exists wallet_used numeric(10,2) not null default 0;
+
+-- The money book: one row per change. Balance = sum(amount).
+create table if not exists public.wallet_entries (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references public.customers on delete cascade,
+  amount numeric(10,2) not null,
+  kind text not null check (kind in ('referral_bonus', 'welcome_bonus', 'order_payment', 'refund', 'admin')),
+  order_id uuid references public.orders on delete set null,
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists wallet_entries_customer_idx on public.wallet_entries (customer_id, created_at desc);
+create index if not exists wallet_entries_order_idx on public.wallet_entries (order_id);
+alter table public.wallet_entries enable row level security;
+drop policy if exists "admin reads wallet" on public.wallet_entries;
+create policy "admin reads wallet" on public.wallet_entries for select using (is_admin());
+-- No other policies: money only moves through the functions below.
+
+create or replace function public.wallet_balance(p_customer_id uuid) returns numeric
+language sql stable security definer set search_path = public as $$
+  select coalesce(sum(amount), 0) from wallet_entries where customer_id = p_customer_id
+$$;
+revoke execute on function public.wallet_balance(uuid) from public, anon, authenticated;
+
+-- Does this browser own the number? Verified by OTP here, or it placed orders for this number itself.
+create or replace function public.owns_phone(p_phone text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and (
+    exists (select 1 from verified_phones where user_id = auth.uid() and phone = p_phone)
+    or exists (select 1 from orders where placed_by = auth.uid()
+               and (ordered_by_phone = p_phone or (customer_phone = p_phone and ordered_by_phone = '')))
+  )
+$$;
+revoke execute on function public.owns_phone(text) from public, anon, authenticated;
+
+-- Invite code: up to 5 letters of the name + 3 digits (RAHUL482), or JHOL + digits.
+create or replace function public.new_referral_code(p_name text) returns text
+language plpgsql volatile security definer set search_path = public as $$
+declare
+  v_base text := upper(left(regexp_replace(coalesce(p_name, ''), '[^A-Za-z]', '', 'g'), 5));
+  v_code text;
+begin
+  if length(v_base) < 3 then v_base := 'JHOL'; end if;
+  loop
+    v_code := v_base || (100 + floor(random() * 900))::int;
+    exit when not exists (select 1 from customers where referral_code = v_code);
+  end loop;
+  return v_code;
+end
+$$;
+revoke execute on function public.new_referral_code(text) from public, anon, authenticated;
+
+-- "My Jholzo Money" page: balance, history, invite code and invited friends, for a number this browser owns.
+create or replace function public.my_wallet(p_phone text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  c customers;
+begin
+  if p_phone is null or p_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number.'; end if;
+  if not owns_phone(p_phone) then
+    return jsonb_build_object('locked', true);
+  end if;
+  select * into c from customers where phone = p_phone;
+  if c.id is null then
+    -- Verified by OTP but never ordered: nothing yet. The invite code comes with the first order (with their name).
+    return jsonb_build_object('locked', false, 'code', null, 'balance', 0, 'referred', false, 'has_orders', false,
+                              'entries', '[]'::jsonb, 'friends', '[]'::jsonb);
+  end if;
+  if c.referral_code is null then
+    update customers set referral_code = new_referral_code(c.name) where id = c.id returning * into c;
+  end if;
+  return jsonb_build_object(
+    'locked', false,
+    'code', c.referral_code,
+    'balance', wallet_balance(c.id),
+    'referred', c.referred_by is not null,
+    'has_orders', exists (select 1 from orders where orderer_id = c.id or customer_id = c.id),
+    'entries', (select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'amount', e.amount, 'kind', e.kind, 'note', e.note,
+                                                             'created_at', e.created_at,
+                                                             'order_number', (select order_number from orders where id = e.order_id))
+                                          order by e.created_at desc), '[]')
+                from (select * from wallet_entries where customer_id = c.id order by created_at desc limit 50) e),
+    -- Invited friends: first name only, and whether the reward came.
+    'friends', (select coalesce(jsonb_agg(jsonb_build_object(
+                  'name', coalesce(nullif(split_part(f.name, ' ', 1), ''), 'Friend'),
+                  'joined_at', f.created_at,
+                  'earned', exists (select 1 from wallet_entries w join orders o on o.id = w.order_id
+                                    where w.customer_id = c.id and w.kind = 'referral_bonus'
+                                      and coalesce(o.orderer_id, o.customer_id) = f.id))
+                order by f.created_at desc), '[]')
+                from customers f where f.referred_by = c.id)
+  );
+end
+$$;
+revoke execute on function public.my_wallet(text) from public, anon;
+grant execute on function public.my_wallet(text) to authenticated;
+
+-- Admin: add or take back money by hand (a goodwill credit for a complaint, say).
+create or replace function public.admin_wallet_adjust(p_customer_id uuid, p_amount numeric, p_note text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'Admins only.'; end if;
+  if p_amount is null or p_amount = 0 then raise exception 'Enter an amount.'; end if;
+  if coalesce(trim(p_note), '') = '' then raise exception 'Write a short reason.'; end if;
+  insert into wallet_entries (customer_id, amount, kind, note) values (p_customer_id, round(p_amount, 2), 'admin', trim(p_note));
+end
+$$;
+revoke execute on function public.admin_wallet_adjust(uuid, numeric, text) from public, anon;
+grant execute on function public.admin_wallet_adjust(uuid, numeric, text) to authenticated;
+
+-- Money follows the order status, whichever screen changes it (admin, rider, customer, expiry).
+create or replace function public.orders_wallet_on_status() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  s store_settings;
+  me customers;
+  v_me uuid := coalesce(new.orderer_id, new.customer_id);
+begin
+  if new.status = old.status then return new; end if;
+  select * into s from store_settings where id = 1;
+
+  -- Cancelled: the Jholzo Money used on it comes back (once).
+  if new.status = 'cancelled' and new.wallet_used > 0
+     and not exists (select 1 from wallet_entries where order_id = new.id and kind = 'refund') then
+    insert into wallet_entries (customer_id, amount, kind, order_id, note)
+    values (v_me, new.wallet_used, 'refund', new.id, 'Order ' || new.order_number || ' cancelled');
+  end if;
+
+  -- Delivered: first delivered order of an invited friend pays both rewards.
+  if new.status = 'completed' and s.referral_on then
+    select * into me from customers where id = v_me;
+    if me.referred_by is not null
+       and new.subtotal >= s.referral_min_order
+       and not exists (select 1 from orders o where o.id <> new.id and o.status = 'completed'
+                       and coalesce(o.orderer_id, o.customer_id) = v_me)
+       and not exists (select 1 from wallet_entries where customer_id = v_me and kind = 'welcome_bonus') then
+      if s.referrer_reward > 0 then
+        insert into wallet_entries (customer_id, amount, kind, order_id, note)
+        values (me.referred_by, s.referrer_reward, 'referral_bonus', new.id,
+                coalesce(nullif(split_part(me.name, ' ', 1), ''), 'Your friend') || '''s first order was delivered');
+      end if;
+      if s.friend_reward > 0 then
+        insert into wallet_entries (customer_id, amount, kind, order_id, note)
+        values (v_me, s.friend_reward, 'welcome_bonus', new.id, 'Welcome reward for joining with an invite');
+      end if;
+    end if;
+  end if;
+
+  -- A delivered order was undone: its rewards are taken back (they come again when it is delivered).
+  if old.status = 'completed' then
+    delete from wallet_entries where order_id = new.id and kind in ('referral_bonus', 'welcome_bonus');
+  end if;
+  return new;
+end
+$$;
+drop trigger if exists orders_wallet_on_status on public.orders;
+create trigger orders_wallet_on_status after update of status on public.orders
+  for each row execute function public.orders_wallet_on_status();
+
+-- Order page for strangers: also the Jholzo Money used (the bill shows it).
+create or replace function public.get_order(p_order_number text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'order', case when o.placed_by = auth.uid() or is_staff() then to_jsonb(o) - array['placed_by', 'customer_id', 'orderer_id']
+                  else jsonb_build_object(
+                    'id', o.id, 'order_number', o.order_number, 'status', o.status, 'dispatch', o.dispatch,
+                    'delivery_date', o.delivery_date, 'created_at', o.created_at, 'completed_at', o.completed_at,
+                    'subtotal', o.subtotal, 'delivery_fee', o.delivery_fee, 'packaging_fee', o.packaging_fee,
+                    'wallet_used', o.wallet_used,
+                    'total', o.total, 'payment_method', o.payment_method, 'payment_status', o.payment_status,
+                    'cancel_reason', o.cancel_reason, 'customer_name', '', 'ordered_by_phone', '', 'ordered_by_name', '') end,
+    'items', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'name_snapshot', i.name_snapshot, 'price_snapshot', i.price_snapshot,
+                                                           'quantity', i.quantity, 'line_total', i.line_total, 'note', i.note) order by i.name_snapshot), '[]')
+              from order_items i where i.order_id = o.id),
+    'complaints', (select coalesce(jsonb_agg(to_jsonb(k)), '[]') from complaints k
+                   where k.order_id = o.id and (o.placed_by = auth.uid() or is_admin())),
+    'mine', o.placed_by = auth.uid()
+  )
+  from orders o
+  where upper(o.order_number) = upper(p_order_number)
+$$;
+
+-- place_order: + use Jholzo Money (p_use_wallet) and an invite code on the first order (p_ref_code).
+drop function if exists public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text);
+create or replace function public.place_order(
+  p_lines jsonb, p_name text, p_phone text, p_address text, p_area text,
+  p_lat double precision, p_lng double precision,
+  p_note text, p_payment text, p_allow_substitute boolean,
+  p_orderer_name text default '', p_orderer_phone text default '',
+  p_use_wallet boolean default false, p_ref_code text default ''
+) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  s store_settings;
+  c customers;
+  ob customers;
+  me customers;
+  r customers;
+  v_ob_name text := coalesce(trim(p_orderer_name), '');
+  v_ob_phone text := coalesce(p_orderer_phone, '');
+  v_ref text := upper(regexp_replace(coalesce(p_ref_code, ''), '\s', '', 'g'));
+  q record;
+  p products;
+  line jsonb;
+  v_qty int;
+  v_subtotal int := 0;
+  v_fee int;
+  v_total numeric;
+  v_packaging numeric;
+  v_wallet numeric := 0;
+  v_date date;
+  v_order orders;
+  no_show_limit constant int := 2;         -- CONFIG.NO_SHOW_LIMIT
+begin
+  if auth.uid() is null then raise exception 'Please reload the page and try again.'; end if;
+  select * into s from store_settings where id = 1;
+  if s.paused then raise exception 'The store is not taking orders right now. Please try again later.'; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Enter your name.'; end if;
+  if p_phone is null or p_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number.'; end if;
+  if coalesce(trim(p_address), '') = '' then raise exception 'Enter your address or a landmark.'; end if;
+  if not (p_area = any (s.delivery_area)) then raise exception 'Choose your area.'; end if;
+  if p_payment not in ('cash', 'upi', 'upi_now') then raise exception 'Choose a payment method.'; end if;
+  if p_lat is null or p_lng is null then raise exception 'Set your home location on the map.'; end if;
+  if v_ob_phone = p_phone then v_ob_phone := ''; v_ob_name := ''; end if;   -- ordering for themselves
+  if v_ob_phone <> '' then
+    if v_ob_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number for yourself.'; end if;
+    if v_ob_name = '' then raise exception 'Enter your name.'; end if;
+  end if;
+
+  -- OTP (when switched on): the number of the person ordering must be verified on this phone.
+  if s.otp_required and not exists (
+    select 1 from verified_phones where user_id = auth.uid() and phone = case when v_ob_phone <> '' then v_ob_phone else p_phone end
+  ) then
+    raise exception 'Please verify your phone number with the OTP first.';
+  end if;
+
+  select * into q from delivery_quote(p_lat, p_lng);
+  if q.too_far then
+    raise exception 'We are currently not available at your location (% km away). We will be available soon!', q.km;
+  end if;
+
+  -- Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery (cod_allowed()).
+  select * into c from customers where phone = p_phone;
+  if v_ob_phone <> '' then select * into ob from customers where phone = v_ob_phone; end if;
+  if coalesce(c.blocked, false) or coalesce(ob.blocked, false) then
+    raise exception 'Online ordering is blocked for this number. Please call us to order.';
+  end if;
+  if p_payment = 'cash' and (coalesce(c.no_show_count, 0) >= no_show_limit or coalesce(ob.no_show_count, 0) >= no_show_limit) then
+    raise exception 'Due to misuse of cash on delivery, we have temporarily restricted it for this number. Please choose UPI.';
+  end if;
+
+  -- Every line is priced from the products table, never from the browser.
+  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then raise exception 'Your cart is empty.'; end if;
+  for line in select * from jsonb_array_elements(p_lines) loop
+    v_qty := (line ->> 'qty')::int;
+    select * into p from products where id = (line ->> 'product_id')::uuid and status = 'active' and available;
+    if not found or v_qty is null or v_qty < 1 or v_qty > 50 then
+      raise exception 'Some items are no longer available. Please check your cart.';
+    end if;
+    v_subtotal := v_subtotal + p.price * v_qty;
+  end loop;
+
+  if v_subtotal < s.min_order then raise exception 'Minimum order is ₹%.', s.min_order; end if;
+  -- Same rule as deliveryQuote in src/lib/delivery.js.
+  if v_subtotal < s.small_order_below then
+    v_fee := greatest(s.small_order_fee, s.min_delivery_fee, ceil(q.km)::int * s.per_km_fee);
+  else
+    v_fee := q.fee;
+  end if;
+  v_packaging := packaging_fee(v_subtotal);
+  v_total := v_subtotal + v_fee + v_packaging;
+
+  if c.id is null then
+    insert into customers (phone, name) values (p_phone, trim(p_name)) returning * into c;
+  else
+    update customers set name = trim(p_name) where id = c.id;
+  end if;
+  -- The person ordering (their wallet, their invite code): the orderer when ordering for someone else.
+  if v_ob_phone <> '' then
+    if ob.id is null then
+      insert into customers (phone, name) values (v_ob_phone, v_ob_name) returning * into ob;
+    end if;
+    me := ob;
+  else
+    me := c;
+  end if;
+  -- Lock the wallet so two orders at once cannot spend the same money.
+  select * into me from customers where id = me.id for update;
+
+  -- Invite code: only on the very first order of a new number, never your own, never from the inviter's phone.
+  if v_ref <> '' and s.referral_on then
+    select * into r from customers where referral_code = v_ref;
+    if r.id is null then raise exception 'This invite code is not valid. Check it or remove it.'; end if;
+    if r.id = me.id then raise exception 'You cannot use your own invite code.'; end if;
+    if me.referred_by is not null or exists (select 1 from orders where coalesce(orderer_id, customer_id) = me.id or customer_id = me.id) then
+      raise exception 'Invite codes work only on your first order. Please remove the code.';
+    end if;
+    if exists (select 1 from orders where placed_by = auth.uid()
+               and (coalesce(orderer_id, customer_id) = r.id or customer_phone = r.phone or ordered_by_phone = r.phone)) then
+      raise exception 'This invite code cannot be used from this phone.';
+    end if;
+    update customers set referred_by = r.id where id = me.id;
+  end if;
+
+  -- Jholzo Money: only from a phone that owns the number, up to the per-order limit.
+  if p_use_wallet then
+    if not owns_phone(me.phone) then raise exception 'Jholzo Money can be used only from your own phone.'; end if;
+    v_wallet := least(greatest(wallet_balance(me.id), 0), s.wallet_max_per_order, v_total);
+    v_total := v_total - v_wallet;
+  end if;
+
+  -- Big orders are paid first by UPI (no cash or UPI on delivery above cod_limit).
+  if p_payment <> 'upi_now' and v_total > s.cod_limit then
+    raise exception 'Orders above ₹% are paid by UPI before delivery. Please choose "Pay now by UPI".', s.cod_limit;
+  end if;
+  if p_payment = 'upi_now' and coalesce(s.upi_id, '') = '' then
+    raise exception 'Online payment is not available right now. Please choose another payment method.';
+  end if;
+
+  -- Before the cut-off: today; after it: tomorrow. A full evening (daily_order_cap) moves to the next day.
+  -- The lock makes two orders at the same moment take turns, so a day never goes over the limit.
+  perform pg_advisory_xact_lock(4815162342);
+  v_date := next_delivery_date();
+
+  insert into orders (customer_id, orderer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
+                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, wallet_used, total, payment_method, delivery_date,
+                      ordered_by_name, ordered_by_phone, payment_status)
+  values (c.id, me.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, q.km,
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, v_fee, v_packaging, v_wallet, v_total, p_payment, v_date,
+          v_ob_name, v_ob_phone, case when p_payment = 'upi_now' then 'awaiting' else 'none' end)
+  returning * into v_order;
+
+  insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
+  select v_order.id, pr.id, trim(pr.name || ' ' || pr.size), pr.price, (l ->> 'qty')::int,
+         coalesce(l ->> 'note', ''), pr.price * (l ->> 'qty')::int
+  from jsonb_array_elements(p_lines) l
+  join products pr on pr.id = (l ->> 'product_id')::uuid;
+
+  if v_wallet > 0 then
+    insert into wallet_entries (customer_id, amount, kind, order_id, note)
+    values (me.id, -v_wallet, 'order_payment', v_order.id, 'Used on order ' || v_order.order_number);
+  end if;
+  -- After the first order the customer gets their own invite code.
+  if me.referral_code is null then
+    update customers set referral_code = new_referral_code(case when v_ob_phone <> '' then v_ob_name else trim(p_name) end) where id = me.id;
+  end if;
+
+  return v_order.order_number;
+end
+$$;
+
+grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text, boolean, text) to authenticated;
+
+/* ================ evening delivery slabs and Express (same as migrations/018_delivery_express.sql) ================ */
+--
+-- Evening delivery (5–8 PM), by items total:
+--   below small_order_below (₹99)            → small_order_fee (₹40)
+--   ₹99 up to free_delivery_above − 1 (₹298) → mid_order_fee (₹11)
+--   free_delivery_above (₹299) and more      → FREE
+-- "Free delivery (launch offer)" still makes the ₹11 slab free; small orders always pay.
+-- Express: delivered within express_minutes (60) for express_fee (₹40) extra, while express_on is switched on,
+-- from opening time until express_minutes before closing. Distance only decides whether we deliver at all.
+-- All numbers are in Admin → Settings → Delivery charges.
+
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'store_settings' and column_name = 'mid_order_fee') then
+    alter table public.store_settings
+      add column mid_order_fee int not null default 11 check (mid_order_fee >= 0),
+      add column free_delivery_above int not null default 299 check (free_delivery_above >= 0),
+      add column express_on boolean not null default false,
+      add column express_fee int not null default 40 check (express_fee >= 0),
+      add column express_minutes int not null default 60 check (express_minutes between 15 and 240);
+    -- First run only: the new evening slabs (later changes in Admin → Settings are kept).
+    update public.store_settings set small_order_below = 99, small_order_fee = 40 where id = 1;
+  end if;
+end
+$$;
+
+alter table public.orders
+  add column if not exists delivery_type text not null default 'evening' check (delivery_type in ('evening', 'express')),
+  add column if not exists express_fee int not null default 0,
+  add column if not exists express_by timestamptz;   -- Express: deliver before this time
+
+-- Evening delivery charge for an items total (same rule as deliveryQuote in src/lib/delivery.js).
+create or replace function public.evening_delivery_fee(p_subtotal int) returns int
+language sql stable security definer set search_path = public as $$
+  select case when p_subtotal < s.small_order_below then s.small_order_fee
+              when s.free_delivery then 0
+              when p_subtotal < s.free_delivery_above then s.mid_order_fee
+              else 0 end
+  from store_settings s where s.id = 1
+$$;
+grant execute on function public.evening_delivery_fee(int) to anon, authenticated;
+
+-- Order page for strangers: also Express or evening.
+create or replace function public.get_order(p_order_number text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'order', case when o.placed_by = auth.uid() or is_staff() then to_jsonb(o) - array['placed_by', 'customer_id', 'orderer_id']
+                  else jsonb_build_object(
+                    'id', o.id, 'order_number', o.order_number, 'status', o.status, 'dispatch', o.dispatch,
+                    'delivery_date', o.delivery_date, 'created_at', o.created_at, 'completed_at', o.completed_at,
+                    'subtotal', o.subtotal, 'delivery_fee', o.delivery_fee, 'packaging_fee', o.packaging_fee,
+                    'wallet_used', o.wallet_used, 'delivery_type', o.delivery_type, 'express_fee', o.express_fee, 'express_by', o.express_by,
+                    'total', o.total, 'payment_method', o.payment_method, 'payment_status', o.payment_status,
+                    'cancel_reason', o.cancel_reason, 'customer_name', '', 'ordered_by_phone', '', 'ordered_by_name', '') end,
+    'items', (select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'name_snapshot', i.name_snapshot, 'price_snapshot', i.price_snapshot,
+                                                           'quantity', i.quantity, 'line_total', i.line_total, 'note', i.note) order by i.name_snapshot), '[]')
+              from order_items i where i.order_id = o.id),
+    'complaints', (select coalesce(jsonb_agg(to_jsonb(k)), '[]') from complaints k
+                   where k.order_id = o.id and (o.placed_by = auth.uid() or is_admin())),
+    'mine', o.placed_by = auth.uid()
+  )
+  from orders o
+  where upper(o.order_number) = upper(p_order_number)
+$$;
+
+-- place_order: + Express delivery (p_express).
+drop function if exists public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text, boolean, text);
+create or replace function public.place_order(
+  p_lines jsonb, p_name text, p_phone text, p_address text, p_area text,
+  p_lat double precision, p_lng double precision,
+  p_note text, p_payment text, p_allow_substitute boolean,
+  p_orderer_name text default '', p_orderer_phone text default '',
+  p_use_wallet boolean default false, p_ref_code text default '', p_express boolean default false
+) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  s store_settings;
+  c customers;
+  ob customers;
+  me customers;
+  r customers;
+  v_ob_name text := coalesce(trim(p_orderer_name), '');
+  v_ob_phone text := coalesce(p_orderer_phone, '');
+  v_ref text := upper(regexp_replace(coalesce(p_ref_code, ''), '\s', '', 'g'));
+  q record;
+  p products;
+  line jsonb;
+  v_qty int;
+  v_subtotal int := 0;
+  v_fee int;
+  v_total numeric;
+  v_packaging numeric;
+  v_wallet numeric := 0;
+  v_express int := 0;
+  v_now timestamp := now() at time zone 'Asia/Kolkata';
+  v_date date;
+  v_order orders;
+  no_show_limit constant int := 2;         -- CONFIG.NO_SHOW_LIMIT
+begin
+  if auth.uid() is null then raise exception 'Please reload the page and try again.'; end if;
+  select * into s from store_settings where id = 1;
+  if s.paused then raise exception 'The store is not taking orders right now. Please try again later.'; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Enter your name.'; end if;
+  if p_phone is null or p_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number.'; end if;
+  if coalesce(trim(p_address), '') = '' then raise exception 'Enter your address or a landmark.'; end if;
+  if not (p_area = any (s.delivery_area)) then raise exception 'Choose your area.'; end if;
+  if p_payment not in ('cash', 'upi', 'upi_now') then raise exception 'Choose a payment method.'; end if;
+  if p_lat is null or p_lng is null then raise exception 'Set your home location on the map.'; end if;
+  if v_ob_phone = p_phone then v_ob_phone := ''; v_ob_name := ''; end if;   -- ordering for themselves
+  if v_ob_phone <> '' then
+    if v_ob_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number for yourself.'; end if;
+    if v_ob_name = '' then raise exception 'Enter your name.'; end if;
+  end if;
+
+  -- OTP (when switched on): the number of the person ordering must be verified on this phone.
+  if s.otp_required and not exists (
+    select 1 from verified_phones where user_id = auth.uid() and phone = case when v_ob_phone <> '' then v_ob_phone else p_phone end
+  ) then
+    raise exception 'Please verify your phone number with the OTP first.';
+  end if;
+
+  select * into q from delivery_quote(p_lat, p_lng);
+  if q.too_far then
+    raise exception 'We are currently not available at your location (% km away). We will be available soon!', q.km;
+  end if;
+
+  -- Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery (cod_allowed()).
+  select * into c from customers where phone = p_phone;
+  if v_ob_phone <> '' then select * into ob from customers where phone = v_ob_phone; end if;
+  if coalesce(c.blocked, false) or coalesce(ob.blocked, false) then
+    raise exception 'Online ordering is blocked for this number. Please call us to order.';
+  end if;
+  if p_payment = 'cash' and (coalesce(c.no_show_count, 0) >= no_show_limit or coalesce(ob.no_show_count, 0) >= no_show_limit) then
+    raise exception 'Due to misuse of cash on delivery, we have temporarily restricted it for this number. Please choose UPI.';
+  end if;
+
+  -- Every line is priced from the products table, never from the browser.
+  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then raise exception 'Your cart is empty.'; end if;
+  for line in select * from jsonb_array_elements(p_lines) loop
+    v_qty := (line ->> 'qty')::int;
+    select * into p from products where id = (line ->> 'product_id')::uuid and status = 'active' and available;
+    if not found or v_qty is null or v_qty < 1 or v_qty > 50 then
+      raise exception 'Some items are no longer available. Please check your cart.';
+    end if;
+    v_subtotal := v_subtotal + p.price * v_qty;
+  end loop;
+
+  if v_subtotal < s.min_order then raise exception 'Minimum order is ₹%.', s.min_order; end if;
+  -- Evening delivery by items total; Express (within an hour) adds express_fee. Same rule as deliveryQuote in src/lib/delivery.js.
+  v_fee := evening_delivery_fee(v_subtotal);
+  if p_express then
+    if not s.express_on then raise exception 'Express delivery is not available right now. Please choose evening delivery.'; end if;
+    if v_now::time < s.open_time or v_now::time > s.close_time - make_interval(mins => s.express_minutes) then
+      raise exception 'Express delivery works from % to %. Please choose evening delivery.',
+        to_char(s.open_time, 'HH12:MI AM'), to_char(s.close_time - make_interval(mins => s.express_minutes), 'HH12:MI AM');
+    end if;
+    v_express := s.express_fee;
+  end if;
+  v_packaging := packaging_fee(v_subtotal);
+  v_total := v_subtotal + v_fee + v_express + v_packaging;
+
+  if c.id is null then
+    insert into customers (phone, name) values (p_phone, trim(p_name)) returning * into c;
+  else
+    update customers set name = trim(p_name) where id = c.id;
+  end if;
+  -- The person ordering (their wallet, their invite code): the orderer when ordering for someone else.
+  if v_ob_phone <> '' then
+    if ob.id is null then
+      insert into customers (phone, name) values (v_ob_phone, v_ob_name) returning * into ob;
+    end if;
+    me := ob;
+  else
+    me := c;
+  end if;
+  -- Lock the wallet so two orders at once cannot spend the same money.
+  select * into me from customers where id = me.id for update;
+
+  -- Invite code: only on the very first order of a new number, never your own, never from the inviter's phone.
+  if v_ref <> '' and s.referral_on then
+    select * into r from customers where referral_code = v_ref;
+    if r.id is null then raise exception 'This invite code is not valid. Check it or remove it.'; end if;
+    if r.id = me.id then raise exception 'You cannot use your own invite code.'; end if;
+    if me.referred_by is not null or exists (select 1 from orders where coalesce(orderer_id, customer_id) = me.id or customer_id = me.id) then
+      raise exception 'Invite codes work only on your first order. Please remove the code.';
+    end if;
+    if exists (select 1 from orders where placed_by = auth.uid()
+               and (coalesce(orderer_id, customer_id) = r.id or customer_phone = r.phone or ordered_by_phone = r.phone)) then
+      raise exception 'This invite code cannot be used from this phone.';
+    end if;
+    update customers set referred_by = r.id where id = me.id;
+  end if;
+
+  -- Jholzo Money: only from a phone that owns the number, up to the per-order limit.
+  if p_use_wallet then
+    if not owns_phone(me.phone) then raise exception 'Jholzo Money can be used only from your own phone.'; end if;
+    v_wallet := least(greatest(wallet_balance(me.id), 0), s.wallet_max_per_order, v_total);
+    v_total := v_total - v_wallet;
+  end if;
+
+  -- Big orders are paid first by UPI (no cash or UPI on delivery above cod_limit).
+  if p_payment <> 'upi_now' and v_total > s.cod_limit then
+    raise exception 'Orders above ₹% are paid by UPI before delivery. Please choose "Pay now by UPI".', s.cod_limit;
+  end if;
+  if p_payment = 'upi_now' and coalesce(s.upi_id, '') = '' then
+    raise exception 'Online payment is not available right now. Please choose another payment method.';
+  end if;
+
+  -- Before the cut-off: today; after it: tomorrow. A full evening (daily_order_cap) moves to the next day.
+  -- The lock makes two orders at the same moment take turns, so a day never goes over the limit.
+  perform pg_advisory_xact_lock(4815162342);
+  -- Express is always today; evening orders go to the next free evening.
+  v_date := case when p_express then v_now::date else next_delivery_date() end;
+
+  insert into orders (customer_id, orderer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
+                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, wallet_used, total, payment_method, delivery_date,
+                      ordered_by_name, ordered_by_phone, payment_status, delivery_type, express_fee, express_by)
+  values (c.id, me.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, q.km,
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, v_fee, v_packaging, v_wallet, v_total, p_payment, v_date,
+          v_ob_name, v_ob_phone, case when p_payment = 'upi_now' then 'awaiting' else 'none' end,
+          case when p_express then 'express' else 'evening' end, v_express,
+          case when p_express then now() + make_interval(mins => s.express_minutes) end)
+  returning * into v_order;
+
+  insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
+  select v_order.id, pr.id, trim(pr.name || ' ' || pr.size), pr.price, (l ->> 'qty')::int,
+         coalesce(l ->> 'note', ''), pr.price * (l ->> 'qty')::int
+  from jsonb_array_elements(p_lines) l
+  join products pr on pr.id = (l ->> 'product_id')::uuid;
+
+  if v_wallet > 0 then
+    insert into wallet_entries (customer_id, amount, kind, order_id, note)
+    values (me.id, -v_wallet, 'order_payment', v_order.id, 'Used on order ' || v_order.order_number);
+  end if;
+  -- After the first order the customer gets their own invite code.
+  if me.referral_code is null then
+    update customers set referral_code = new_referral_code(case when v_ob_phone <> '' then v_ob_name else trim(p_name) end) where id = me.id;
+  end if;
+
+  return v_order.order_number;
+end
+$$;
+
+grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text, boolean, text, boolean) to authenticated;
+
+/* ================ Telegram order alerts (same as migrations/019_telegram_notify.sql) ================ */
+
+create extension if not exists pg_net with schema extensions;
+
+create or replace function public.telegram_notify() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_kind text;
+begin
+  if tg_op = 'INSERT' then
+    v_kind := 'placed';
+  elsif coalesce(new.upi_ref, '') <> '' and new.upi_ref is distinct from old.upi_ref then
+    v_kind := 'utr';
+  else
+    return new;
+  end if;
+  -- Your project's function address (Supabase → Project Settings → API → Project URL + /functions/v1/telegram-notify).
+  perform net.http_post(
+    url := 'https://nyzwehemganasxwcxeai.supabase.co/functions/v1/telegram-notify',
+    body := jsonb_build_object('order_id', new.id, 'kind', v_kind),
+    headers := '{"Content-Type": "application/json"}'::jsonb
+  );
+  return new;
+exception when others then
+  return new;
+end
+$$;
+
+drop trigger if exists orders_telegram_placed on public.orders;
+create trigger orders_telegram_placed after insert on public.orders
+  for each row execute function public.telegram_notify();
+
+drop trigger if exists orders_telegram_utr on public.orders;
+create trigger orders_telegram_utr after update of upi_ref on public.orders
+  for each row execute function public.telegram_notify();
+
+/* ================ security hardening (same as migrations/020_security_hardening.sql) ================ */
+
+alter table public.orders
+  add column if not exists tg_placed_sent boolean not null default false,
+  add column if not exists tg_utr_sent text not null default '';
+
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = any (array[
+      'admin_add_rider', 'admin_list_riders', 'admin_wallet_adjust', 'cancel_order', 'expire_old_orders',
+      'log_order_message', 'partner_complete', 'partner_no_show', 'partner_set_dispatch', 'partner_undo_delivered',
+      'staff_set_payment', 'customer_cancel_order', 'customer_submit_upi_ref', 'my_wallet', 'phone_verified',
+      'cod_allowed'])
+  loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    execute format('grant execute on function %s to authenticated', f.sig);
+  end loop;
+end
+$$;
+
+/* ================ Popular essentials order (same as migrations/021_featured_rank.sql) ================ */
+
+alter table public.products add column if not exists featured_rank int;
+
+/* ================ Order without a map pin (same as migrations/022_manual_address.sql) ================ */
+
+create or replace function public.place_order(
+  p_lines jsonb, p_name text, p_phone text, p_address text, p_area text,
+  p_lat double precision, p_lng double precision,
+  p_note text, p_payment text, p_allow_substitute boolean,
+  p_orderer_name text default '', p_orderer_phone text default '',
+  p_use_wallet boolean default false, p_ref_code text default '', p_express boolean default false
+) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  s store_settings;
+  c customers;
+  ob customers;
+  me customers;
+  r customers;
+  v_ob_name text := coalesce(trim(p_orderer_name), '');
+  v_ob_phone text := coalesce(p_orderer_phone, '');
+  v_ref text := upper(regexp_replace(coalesce(p_ref_code, ''), '\s', '', 'g'));
+  q record;
+  v_km numeric;                            -- null when the address was typed without a map pin
+  p products;
+  line jsonb;
+  v_qty int;
+  v_subtotal int := 0;
+  v_fee int;
+  v_total numeric;
+  v_packaging numeric;
+  v_wallet numeric := 0;
+  v_express int := 0;
+  v_now timestamp := now() at time zone 'Asia/Kolkata';
+  v_date date;
+  v_order orders;
+  no_show_limit constant int := 2;         -- CONFIG.NO_SHOW_LIMIT
+begin
+  if auth.uid() is null then raise exception 'Please reload the page and try again.'; end if;
+  select * into s from store_settings where id = 1;
+  if s.paused then raise exception 'The store is not taking orders right now. Please try again later.'; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Enter your name.'; end if;
+  if p_phone is null or p_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number.'; end if;
+  if coalesce(trim(p_address), '') = '' then raise exception 'Enter your address or a landmark.'; end if;
+  if not (p_area = any (s.delivery_area)) then raise exception 'Choose your area.'; end if;
+  if p_payment not in ('cash', 'upi', 'upi_now') then raise exception 'Choose a payment method.'; end if;
+  -- No map pin is allowed (map or location not working): the address is typed by hand and the store calls to confirm.
+  if (p_lat is null) <> (p_lng is null) then raise exception 'Set your home location on the map again.'; end if;
+  if v_ob_phone = p_phone then v_ob_phone := ''; v_ob_name := ''; end if;   -- ordering for themselves
+  if v_ob_phone <> '' then
+    if v_ob_phone !~ '^[0-9]{10}$' then raise exception 'Enter a valid 10-digit phone number for yourself.'; end if;
+    if v_ob_name = '' then raise exception 'Enter your name.'; end if;
+  end if;
+
+  -- OTP (when switched on): the number of the person ordering must be verified on this phone.
+  if s.otp_required and not exists (
+    select 1 from verified_phones where user_id = auth.uid() and phone = case when v_ob_phone <> '' then v_ob_phone else p_phone end
+  ) then
+    raise exception 'Please verify your phone number with the OTP first.';
+  end if;
+
+  if p_lat is not null then
+    select * into q from delivery_quote(p_lat, p_lng);
+    if q.too_far then
+      raise exception 'We are currently not available at your location (% km away). We will be available soon!', q.km;
+    end if;
+    v_km := q.km;
+  end if;
+
+  -- Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery (cod_allowed()).
+  select * into c from customers where phone = p_phone;
+  if v_ob_phone <> '' then select * into ob from customers where phone = v_ob_phone; end if;
+  if coalesce(c.blocked, false) or coalesce(ob.blocked, false) then
+    raise exception 'Online ordering is blocked for this number. Please call us to order.';
+  end if;
+  if p_payment = 'cash' and (coalesce(c.no_show_count, 0) >= no_show_limit or coalesce(ob.no_show_count, 0) >= no_show_limit) then
+    raise exception 'Due to misuse of cash on delivery, we have temporarily restricted it for this number. Please choose UPI.';
+  end if;
+
+  -- Every line is priced from the products table, never from the browser.
+  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then raise exception 'Your cart is empty.'; end if;
+  for line in select * from jsonb_array_elements(p_lines) loop
+    v_qty := (line ->> 'qty')::int;
+    select * into p from products where id = (line ->> 'product_id')::uuid and status = 'active' and available;
+    if not found or v_qty is null or v_qty < 1 or v_qty > 50 then
+      raise exception 'Some items are no longer available. Please check your cart.';
+    end if;
+    v_subtotal := v_subtotal + p.price * v_qty;
+  end loop;
+
+  if v_subtotal < s.min_order then raise exception 'Minimum order is ₹%.', s.min_order; end if;
+  -- Evening delivery by items total; Express (within an hour) adds express_fee. Same rule as deliveryQuote in src/lib/delivery.js.
+  v_fee := evening_delivery_fee(v_subtotal);
+  if p_express then
+    if not s.express_on then raise exception 'Express delivery is not available right now. Please choose evening delivery.'; end if;
+    if v_now::time < s.open_time or v_now::time > s.close_time - make_interval(mins => s.express_minutes) then
+      raise exception 'Express delivery works from % to %. Please choose evening delivery.',
+        to_char(s.open_time, 'HH12:MI AM'), to_char(s.close_time - make_interval(mins => s.express_minutes), 'HH12:MI AM');
+    end if;
+    v_express := s.express_fee;
+  end if;
+  v_packaging := packaging_fee(v_subtotal);
+  v_total := v_subtotal + v_fee + v_express + v_packaging;
+
+  if c.id is null then
+    insert into customers (phone, name) values (p_phone, trim(p_name)) returning * into c;
+  else
+    update customers set name = trim(p_name) where id = c.id;
+  end if;
+  -- The person ordering (their wallet, their invite code): the orderer when ordering for someone else.
+  if v_ob_phone <> '' then
+    if ob.id is null then
+      insert into customers (phone, name) values (v_ob_phone, v_ob_name) returning * into ob;
+    end if;
+    me := ob;
+  else
+    me := c;
+  end if;
+  -- Lock the wallet so two orders at once cannot spend the same money.
+  select * into me from customers where id = me.id for update;
+
+  -- Invite code: only on the very first order of a new number, never your own, never from the inviter's phone.
+  if v_ref <> '' and s.referral_on then
+    select * into r from customers where referral_code = v_ref;
+    if r.id is null then raise exception 'This invite code is not valid. Check it or remove it.'; end if;
+    if r.id = me.id then raise exception 'You cannot use your own invite code.'; end if;
+    if me.referred_by is not null or exists (select 1 from orders where coalesce(orderer_id, customer_id) = me.id or customer_id = me.id) then
+      raise exception 'Invite codes work only on your first order. Please remove the code.';
+    end if;
+    if exists (select 1 from orders where placed_by = auth.uid()
+               and (coalesce(orderer_id, customer_id) = r.id or customer_phone = r.phone or ordered_by_phone = r.phone)) then
+      raise exception 'This invite code cannot be used from this phone.';
+    end if;
+    update customers set referred_by = r.id where id = me.id;
+  end if;
+
+  -- Jholzo Money: only from a phone that owns the number, up to the per-order limit.
+  if p_use_wallet then
+    if not owns_phone(me.phone) then raise exception 'Jholzo Money can be used only from your own phone.'; end if;
+    v_wallet := least(greatest(wallet_balance(me.id), 0), s.wallet_max_per_order, v_total);
+    v_total := v_total - v_wallet;
+  end if;
+
+  -- Big orders are paid first by UPI (no cash or UPI on delivery above cod_limit).
+  if p_payment <> 'upi_now' and v_total > s.cod_limit then
+    raise exception 'Orders above ₹% are paid by UPI before delivery. Please choose "Pay now by UPI".', s.cod_limit;
+  end if;
+  if p_payment = 'upi_now' and coalesce(s.upi_id, '') = '' then
+    raise exception 'Online payment is not available right now. Please choose another payment method.';
+  end if;
+
+  -- Before the cut-off: today; after it: tomorrow. A full evening (daily_order_cap) moves to the next day.
+  -- The lock makes two orders at the same moment take turns, so a day never goes over the limit.
+  perform pg_advisory_xact_lock(4815162342);
+  -- Express is always today; evening orders go to the next free evening.
+  v_date := case when p_express then v_now::date else next_delivery_date() end;
+
+  insert into orders (customer_id, orderer_id, placed_by, customer_name, customer_phone, address, area, lat, lng, distance_km,
+                      note, allow_substitute, subtotal, delivery_fee, packaging_fee, wallet_used, total, payment_method, delivery_date,
+                      ordered_by_name, ordered_by_phone, payment_status, delivery_type, express_fee, express_by)
+  values (c.id, me.id, auth.uid(), trim(p_name), p_phone, trim(p_address), p_area, p_lat, p_lng, v_km,
+          coalesce(trim(p_note), ''), coalesce(p_allow_substitute, true), v_subtotal, v_fee, v_packaging, v_wallet, v_total, p_payment, v_date,
+          v_ob_name, v_ob_phone, case when p_payment = 'upi_now' then 'awaiting' else 'none' end,
+          case when p_express then 'express' else 'evening' end, v_express,
+          case when p_express then now() + make_interval(mins => s.express_minutes) end)
+  returning * into v_order;
+
+  insert into order_items (order_id, product_id, name_snapshot, price_snapshot, quantity, note, line_total)
+  select v_order.id, pr.id, trim(pr.name || ' ' || pr.size), pr.price, (l ->> 'qty')::int,
+         coalesce(l ->> 'note', ''), pr.price * (l ->> 'qty')::int
+  from jsonb_array_elements(p_lines) l
+  join products pr on pr.id = (l ->> 'product_id')::uuid;
+
+  if v_wallet > 0 then
+    insert into wallet_entries (customer_id, amount, kind, order_id, note)
+    values (me.id, -v_wallet, 'order_payment', v_order.id, 'Used on order ' || v_order.order_number);
+  end if;
+  -- After the first order the customer gets their own invite code.
+  if me.referral_code is null then
+    update customers set referral_code = new_referral_code(case when v_ob_phone <> '' then v_ob_name else trim(p_name) end) where id = me.id;
+  end if;
+
+  return v_order.order_number;
+end
+$$;
+
+grant execute on function public.place_order(jsonb, text, text, text, text, double precision, double precision, text, text, boolean, text, text, boolean, text, boolean) to authenticated;
+
+/* ================ UPI pay timer (same as migrations/023_upi_pay_timer.sql) ================ */
+
+alter table public.store_settings
+  add column if not exists upi_pay_minutes int not null default 15 check (upi_pay_minutes between 5 and 120);
+
+-- Cancels UPI orders still waiting for payment after upi_pay_minutes. Any logged-in phone may run it:
+-- it only touches orders that are really late, so the order page can run it when its timer ends.
+create or replace function public.expire_unpaid_orders() returns void
+language sql security definer set search_path = public as $$
+  update orders o set status = 'cancelled', cancel_reason = 'Not paid in time'
+  from store_settings s
+  where s.id = 1 and o.payment_method = 'upi_now' and o.payment_status = 'awaiting' and o.status = 'placed'
+    and o.created_at < now() - make_interval(mins => s.upi_pay_minutes)
+$$;
+revoke execute on function public.expire_unpaid_orders() from public, anon;
+grant execute on function public.expire_unpaid_orders() to authenticated;
+
+-- The admin's clean-up (runs when admin and rider pages load): late UPI orders, then old days.
+create or replace function public.expire_old_orders() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform expire_unpaid_orders();
+  if is_admin() then
+    update orders set status = 'cancelled', cancel_reason = 'Expired'
+    where status in ('placed', 'confirmed') and delivery_date < (now() at time zone 'Asia/Kolkata')::date;
+  end if;
+end
+$$;
+
+-- UTR from the customer. Paid after the timer ended: the order comes back for the admin to check,
+-- and the Jholzo Money given back at cancelling is used on it again.
+create or replace function public.customer_submit_upi_ref(p_order_number text, p_ref text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  o orders;
+  v_ref text := regexp_replace(coalesce(p_ref, ''), '\s', '', 'g');
+begin
+  select * into o from orders where upper(order_number) = upper(p_order_number) and placed_by = auth.uid();
+  if o.id is null then raise exception 'Order not found on this phone.'; end if;
+  if o.payment_method <> 'upi_now' then raise exception 'This order is not paid online.'; end if;
+  if o.payment_status = 'paid' then return; end if;
+  if v_ref !~ '^[0-9A-Za-z]{6,30}$' then raise exception 'Enter the UPI Ref No. / UTR shown in your UPI app (usually 12 digits).'; end if;
+  if o.status = 'cancelled' then
+    if o.cancel_reason <> 'Not paid in time' then raise exception 'This order is cancelled. Please call us.'; end if;
+    delete from wallet_entries where order_id = o.id and kind = 'refund';
+    update orders set status = 'placed', cancel_reason = '', upi_ref = v_ref, payment_status = 'verifying' where id = o.id;
+    return;
+  end if;
+  update orders set upi_ref = v_ref, payment_status = 'verifying' where id = o.id;
+end
+$$;
+

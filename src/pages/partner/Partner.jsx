@@ -63,7 +63,7 @@ function PartnerRun({ session }) {
       <header className="flex h-12 items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-1">
-          <span className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-ink">Partner</span>
+          <span className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white">Partner</span>
           {!DEMO_MODE && (
             <button type="button" aria-label="Log out" title={session.email} onClick={adminSignOut} className="flex h-11 w-10 items-center justify-center text-muted"><LogOut size={20} /></button>
           )}
@@ -71,14 +71,14 @@ function PartnerRun({ session }) {
       </header>
 
       <div className="mt-4 flex items-center gap-2">
-        <div className="flex flex-1 rounded-full border border-white/10 bg-white/[0.05] p-1 shadow-[inset_0_2px_6px_rgb(0_0_0/0.45)]">
+        <div className="flex flex-1 rounded-full bg-mint p-1">
           {days.map(([d, label]) => (
             <button
               key={d}
               type="button"
               onClick={() => setDate(d)}
-              className={`h-10 flex-1 rounded-full text-sm font-bold transition-all ${
-                date === d ? 'border border-white/25 bg-gradient-to-b from-white/20 to-white/5 text-accent shadow-[inset_0_1px_0_rgb(255_255_255/0.4),0_4px_12px_rgb(0_0_0/0.4)]' : 'text-white/70'
+              className={`h-10 flex-1 rounded-full text-sm font-semibold transition-all ${
+                date === d ? 'bg-brand text-white shadow-sm' : 'text-ink/70'
               }`}
             >
               {label}
@@ -91,9 +91,9 @@ function PartnerRun({ session }) {
       <section className="mt-4 grid grid-cols-3 gap-2 text-center">
         {[[left.length, 'To deliver'], [delivered, 'Delivered'], cash > 0 ? [rupee(cash), 'Cash to collect'] : [rupee(inHand), 'Cash collected']].map(([n, label]) => (
           <div key={label} className={`${card} px-2 py-3`}>
-            <div className="text-xl font-black leading-none">{n}</div>
+            <div className="text-xl font-semibold leading-none">{n}</div>
             <div className="mt-1 text-[11px] text-muted">{label}</div>
-            {label === 'Cash to collect' && inHand > 0 && <div className="mt-0.5 text-[10px] text-emerald-300">{rupee(inHand)} collected</div>}
+            {label === 'Cash to collect' && inHand > 0 && <div className="mt-0.5 text-[10px] text-emerald-700">{rupee(inHand)} collected</div>}
           </div>
         ))}
       </section>
@@ -101,8 +101,8 @@ function PartnerRun({ session }) {
       {shopping.length > 0 && (
         <section className={`${card} mt-3 overflow-hidden`}>
           <button type="button" onClick={() => setShowList(!showList)} className="flex w-full items-center gap-3 p-4 text-left">
-            <ShoppingBasket size={20} className="text-accent" />
-            <span className="flex-1 font-bold">Shopping list · {shopping.length} items</span>
+            <ShoppingBasket size={20} className="text-brand" />
+            <span className="flex-1 font-semibold">Shopping list · {shopping.length} items</span>
             <ChevronDown size={20} className={`text-muted transition-transform ${showList ? 'rotate-180' : ''}`} />
           </button>
           {showList && (
@@ -115,7 +115,7 @@ function PartnerRun({ session }) {
         </section>
       )}
 
-      {error && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{error.message}</p>}
+      {error && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{error.message}</p>}
 
       <div className="mt-4 space-y-3">
         {list.map((o) => (

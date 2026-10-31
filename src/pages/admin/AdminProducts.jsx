@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { BadgePercent, Plus, Search, Star, Upload } from 'lucide-react'
+import { BadgePercent, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { addProduct, addProductPhoto, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductPhoto, updateProduct } from '../../lib/store.js'
+import { addProduct, addProductPhoto, deleteProduct, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductPhoto, updateProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { percentOff, rupee, timeAgo } from '../../lib/format.js'
 import { DEMO_MODE } from '../../config.js'
@@ -194,11 +194,22 @@ export default function AdminProducts() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [onlyOut, setOnlyOut] = useState(false)
+  const [onlyNoPhoto, setOnlyNoPhoto] = useState(false)
   const [adding, setAdding] = useState(false)
   const { data: products = [] } = useData(() => listProducts({ q, categoryId: cat, includeHidden: true }), [q, cat])
   const { data: categories = [] } = useData(listCategories)
-  const shown = products.filter((p) => !onlyOut || !p.available)
+  const shown = products.filter((p) => (!onlyOut || !p.available) && (!onlyNoPhoto || !p.photo_url))
   const outCount = products.filter((p) => !p.available).length
+  const noPhotoCount = products.filter((p) => !p.photo_url).length
+
+  const remove = async (p) => {
+    if (!window.confirm(`Delete "${p.name} ${p.size}"? This cannot be undone. Old orders keep the item name. To stop selling for a while, use Hide instead.`)) return
+    try {
+      await deleteProduct(p.id)
+    } catch (err) {
+      window.alert(err.message)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -229,6 +240,9 @@ export default function AdminProducts() {
         <button type="button" onClick={() => setOnlyOut(!onlyOut)} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${onlyOut ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
           Out of stock ({outCount})
         </button>
+        <button type="button" onClick={() => setOnlyNoPhoto(!onlyNoPhoto)} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${onlyNoPhoto ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
+          No photo ({noPhotoCount})
+        </button>
       </div>
 
       <div className="space-y-2">
@@ -255,6 +269,9 @@ export default function AdminProducts() {
               <Toggle checked={p.available} onChange={(v) => updateProduct(p.id, { available: v })} label={`${p.name} available`} />
               <button type="button" onClick={() => updateProduct(p.id, { status: p.status === 'active' ? 'hidden' : 'active' })} className={`${lbtnOutline} min-h-9 px-3 text-xs`}>
                 {p.status === 'active' ? 'Hide' : 'Show'}
+              </button>
+              <button type="button" onClick={() => remove(p)} aria-label={`Delete ${p.name}`} title="Delete product" className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600">
+                <Trash2 size={16} />
               </button>
             </div>
             {/* More photos: on the home page they slide when the customer touches or hovers the product. */}

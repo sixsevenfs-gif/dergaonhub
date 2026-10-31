@@ -1,6 +1,6 @@
-# Dergaon Hub
+# Jholzo · Dergaon
 
-One grocery store website for Dergaon. Customers order online; the founder confirms
+Jholzo (powered by Malchetra Group): one grocery store website for Dergaon. Customers order online; the founder confirms
 by phone, buys everything from local shops in one trip, and delivers in the evening.
 
 ## Run on your computer
@@ -24,7 +24,7 @@ Admin → Settings → "Reset demo data" starts fresh.
 | My orders (phone login, no OTP in demo) | `/account` |
 | Admin panel | `/admin` (no login in demo mode) |
 
-All phone and WhatsApp numbers in the demo data are fake (`90000...`).
+The store number is the company number (9181061864). Customer numbers in the demo data are fake (`90000...`).
 
 ## How a day works
 

@@ -3,7 +3,25 @@
 // Plain-language starting point: have it checked by someone qualified before launch.
 import { CONFIG, LEGAL } from '../config.js'
 import { fmtTime, rupee } from '../lib/format.js'
+import { deliveryRules, expressTimeText } from '../lib/delivery.js'
+
+// "₹40 below ₹99, ₹11 up to ₹298, FREE from ₹299"
+const eveningCharges = (store) => {
+  const r = deliveryRules(store)
+  return `${rupee(r.smallFee)} for orders below ${rupee(r.smallBelow)}, ${store.free_delivery ? 'FREE' : rupee(r.midFee)} up to ${rupee(r.freeAbove - 1)}, and FREE from ${rupee(r.freeAbove)} (items total)`
+}
+const expressLine = (store) => {
+  const r = deliveryRules(store)
+  return `Express delivery (when available): within ${expressTimeText(r.expressMinutes)} for ${rupee(r.expressFee)} extra.`
+}
 import { H, P, UL } from '../components/Prose.jsx'
+
+// Free-licence photos used for products (the licence asks for this credit line).
+const PHOTO_CREDITS = [
+  ['Masoor Dal', 'Fumikas Sagisavas', 'CC0'],
+  ['Urad Dal', 'Thamizhpparithi Maari', 'CC BY-SA 4.0'],
+  ['Red Bull', 'DYVER', 'CC BY-SA 4.0'],
+]
 
 const contactLine = (store) => `phone/WhatsApp +91 ${store.phone}, email ${LEGAL.EMAIL}`
 
@@ -13,8 +31,36 @@ export const POLICIES = {
     body: (store) => (
       <>
         <P>
-          {LEGAL.BRAND} is an online grocery store for Dergaon, run by {LEGAL.COMPANY}. You order daily essentials
-          on our website, and we bring them to your door the same evening.
+          {LEGAL.BRAND} is Dergaon's own online grocery store. Right now we serve Dergaon: you order daily
+          essentials on our website, and we bring them to your door.
+        </P>
+        <H>Our story</H>
+        <P>
+          Summers in Dergaon are hard, and they get hotter every year. Even on the hottest days, people still have
+          to step out to buy everyday things. And when they do, they often pay more than they should. Take a Monster energy drink: its MRP is ₹125, but many shops charge ₹130 and
+          call the extra ₹5 a "cooling charge". That is not fair to the customer.
+        </P>
+        <P>
+          So we asked ourselves: why not bring things to people's homes instead, and charge MRP or less, never a
+          rupee above it? That is why we built {LEGAL.BRAND}: honest prices, delivered to your door, with FREE
+          delivery on orders of {rupee(deliveryRules(store).freeAbove)} and above.
+        </P>
+        <H>Why order from us</H>
+        <UL items={[
+          'Lower prices than the local market on everyday items like atta, daal, oil, milk and fruits.',
+          `FREE delivery on orders of ${rupee(deliveryRules(store).freeAbove)} and above.`,
+          'Fresh stock, packed at our store in Dergaon and delivered by our own team.',
+          'Cash on delivery or UPI, whichever is easier for you.',
+        ]} />
+        <H>Who we are</H>
+        <P>
+          {LEGAL.BRAND} is part of {LEGAL.COMPANY}, founded by co-founders Pinku Chetry and Dijendra Mallah.
+        </P>
+        <H>Our vision</H>
+        <P>
+          Dergaon is home for one of us. We want to do our part, in whatever way we can, to help Dergaon grow
+          and upgrade: everyday shopping that is simple, fair on price and easy on your time, and work for
+          people right here in our town.
         </P>
         <H>How it works</H>
         <UL items={[
@@ -24,7 +70,10 @@ export const POLICIES = {
           'You pay on delivery, by cash or UPI.',
         ]} />
         <H>Where we deliver</H>
-        <P>Right now we deliver within {store.max_delivery_km} km of our store in Dergaon. We will keep growing this area, so more of Dergaon can order soon.</P>
+        <P>Right now we deliver within Dergaon, up to {store.max_delivery_km} km from our store. We will keep growing this area, so more of Dergaon can order soon.</P>
+        <H>Photo credits</H>
+        <P>Some product photos are from Wikimedia Commons, cropped by us:</P>
+        <UL items={PHOTO_CREDITS.map(([item, author, license]) => `${item}: ${author}, ${license}`)} />
       </>
     ),
   },
@@ -47,7 +96,7 @@ export const POLICIES = {
         </P>
         <H>Grievance officer</H>
         <P>
-          {LEGAL.GRIEVANCE_OFFICER}, {LEGAL.COMPANY}, {LEGAL.ADDRESS}. Contact: {contactLine(store)}. We acknowledge
+          {LEGAL.GRIEVANCE_OFFICER || `Customer Support, ${LEGAL.BRAND}`}, {LEGAL.COMPANY}, {LEGAL.ADDRESS}. Contact: {contactLine(store)}. We acknowledge
           complaints within 48 hours and aim to resolve them within one month.
         </P>
       </>
@@ -113,14 +162,14 @@ export const POLICIES = {
         <H>Orders</H>
         <UL items={[
           'Placing an order is a request. It is final only after we call you and confirm it.',
-          `A delivery charge (by distance, minimum ${rupee(store.min_delivery_fee)}) and a packaging charge (${rupee(store.pack_fee_low)} to ${rupee(store.pack_fee_high)} by order value) are added and shown before you place the order.`,
-          `Orders below ${rupee(store.small_order_below ?? 149)} have a delivery charge of ${rupee(store.small_order_fee ?? 40)}, or the distance charge if that is higher.`,
+          `A delivery charge (evening: ${eveningCharges(store)}) and a packaging charge (${rupee(store.pack_fee_low)} to ${rupee(store.pack_fee_high)} by order value) are added and shown before you place the order.`,
+          expressLine(store),
           'We may refuse or cancel an order, for example if an item is not available, the address is outside our delivery area, or details look fake.',
         ]} />
         <H>Prices and items</H>
         <UL items={[
           'Prices on the website are in Indian Rupees and can change. You pay the price shown when you placed the order.',
-          'Photos are for reference only. The actual pack may look different.',
+          'Photos are for reference only. The packaging of some products may look slightly different from the photo (for example a new pack design), but you always get the same brand and flavour you chose.',
           'If your chosen brand is not available and you allowed a similar brand, we may send one of the same type and size at about the same price. Otherwise we remove the item and tell you the new total.',
         ]} />
         <H>Payment</H>
@@ -187,18 +236,19 @@ export const POLICIES = {
     body: (store) => (
       <>
         <H>Delivery area</H>
-        <P>We currently deliver within {store.max_delivery_km} km of our store in Dergaon (the website checks your map pin). We will expand to more areas later.</P>
+        <P>We currently deliver within Dergaon, up to {store.max_delivery_km} km from our store (the website checks your map pin). We will expand to more areas later.</P>
         <H>Delivery time</H>
         <UL items={[
           `We deliver every evening between ${fmtTime(store.slot_start)} and ${fmtTime(store.slot_end)}.`,
           `Orders placed after ${fmtTime(store.cutoff_time)} are delivered the next day in the same slot.`,
           'On very busy days your order may go to the next day; the website shows the delivery day before you order.',
+          expressLine(store),
           'Heavy rain, floods or other problems can delay delivery. We will call or WhatsApp you if that happens, and we may pause new orders for the day.',
         ]} />
         <H>Charges</H>
         <P>
-          Minimum order {rupee(store.min_order)}. The delivery charge depends on how far you are from us (minimum{' '}
-          {rupee(store.min_delivery_fee)}), worked out from the pin you set on the map. A packaging charge of{' '}
+          Minimum order {rupee(store.min_order)}. Evening delivery charge: {eveningCharges(store)}. Express delivery
+          costs {rupee(deliveryRules(store).expressFee)} extra. A packaging charge of{' '}
           {rupee(store.pack_fee_low)} (orders below {rupee(store.pack_mid_from)}), {rupee(store.pack_fee_mid)} (below{' '}
           {rupee(store.pack_high_from)}) or {rupee(store.pack_fee_high)} (larger orders) is added. Both are shown before you place the order.
         </P>

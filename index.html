@@ -2,19 +2,50 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Montserrat:wght@500;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0B0B0B" />
+    <meta name="theme-color" content="#1F6B3A" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="description" content="Dergaon Hub: Dergaon ka sab kuch, ek jagah. Order from local shops in Dergaon." />
-    <title>Dergaon Hub</title>
+    <meta name="description" content="Jholzo: Dergaon ka sab kuch, ek jagah. Order from local shops in Dergaon." />
+    <title>Jholzo</title>
+    <!-- Opening logo animation. Plain HTML and CSS so it shows before the app loads; src/main.jsx fades it out. -->
+    <style>
+      #splash { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        background: radial-gradient(circle at 50% 42%, #2B7E48 0%, #17532D 58%, #0E3A1C 100%); color: #fff; font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+        transition: opacity .45s ease, visibility .45s ease; }
+      #splash.sp-hide { opacity: 0; visibility: hidden; }
+      /* Safety: even if the app's script never runs (old browser, blocked file), the logo screen goes away by itself. */
+      #splash { animation: sp-away .45s 3.2s ease forwards; pointer-events: none; }
+      @keyframes sp-away { to { opacity: 0; visibility: hidden; } }
+      #splash .sp-word { display: flex; align-items: baseline; font-weight: 900; font-size: 52px; line-height: 1; letter-spacing: -0.03em; }
+      #splash .sp-word > span { display: inline-block; animation: sp-up .45s ease-out both; }
+      #splash .sp-word > span:nth-child(1) { animation-delay: .10s; }
+      #splash .sp-word > span:nth-child(2) { animation-delay: .16s; }
+      #splash .sp-word > span:nth-child(3) { animation-delay: .22s; position: relative; }
+      #splash .sp-word > span:nth-child(4) { animation-delay: .28s; }
+      #splash .sp-word > span:nth-child(5) { animation-delay: .34s; }
+      #splash .sp-word > span:nth-child(6) { animation-delay: .40s; }
+      #splash .sp-leaf { position: absolute; top: -0.42em; left: 0.38em; width: 0.5em; height: 0.5em; animation: sp-leaf .9s .55s ease-out both; }
+      #splash .sp-tag { font-size: 13px; font-weight: 500; letter-spacing: .02em; color: rgba(255,255,255,.8); animation: sp-fade .5s .95s ease-out both; }
+      @keyframes sp-up { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+      @keyframes sp-leaf { 0% { transform: translate(-14px, -90px) rotate(-80deg); opacity: 0; } 25% { opacity: 1; } 55% { transform: translate(8px, -36px) rotate(20deg); } 80% { transform: translate(-3px, 3px) rotate(-14deg); } 100% { transform: rotate(-6deg); opacity: 1; } }
+      @keyframes sp-fade { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { #splash * { animation: none !important; } #splash { transition: none !important; } }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="sp-word">
+        <span>J</span><span>H</span><span>O<svg class="sp-leaf" viewBox="0 0 24 24"><path d="M3 21C3 10 10 3.5 22 2.5 21 14 14 21 3 21Z" fill="#7CC24F" /><path d="M4.5 19.5 15 9" stroke="#fff" stroke-opacity=".8" stroke-width="1.5" stroke-linecap="round" /></svg></span><span>L</span><span>Z</span><span>O</span>
+      </div>
+      <div class="sp-tag">Fresh groceries, right at your door</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

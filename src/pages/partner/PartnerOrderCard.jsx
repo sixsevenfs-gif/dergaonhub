@@ -7,17 +7,17 @@ import {
   confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
 } from '../../lib/store.js'
 import { compressImage } from '../../lib/image.js'
-import { rupee } from '../../lib/format.js'
+import { fmtClock, isExpress, rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { stageOf } from './stage.js'
 
 const STAGES = {
-  new: ['Waiting for confirm', 'bg-orange-500/15 text-orange-200'],
-  ready: ['To shop', 'bg-white/10 text-white'],
-  on_the_way: ['On the way', 'bg-sky-500/15 text-sky-200'],
-  arriving: ['Arriving', 'bg-accent/15 text-accent'],
-  done: ['Delivered', 'bg-emerald-500/15 text-emerald-300'],
+  new: ['Waiting for confirm', 'bg-orange-500/15 text-orange-700'],
+  ready: ['To shop', 'bg-black/10 text-ink'],
+  on_the_way: ['On the way', 'bg-sky-500/15 text-sky-700'],
+  arriving: ['Arriving', 'bg-brand/15 text-brand'],
+  done: ['Delivered', 'bg-emerald-500/15 text-emerald-700'],
 }
 
 // Required before "Delivered": a photo of all the items at the customer's door (opens the phone camera).
@@ -32,7 +32,7 @@ function PhotoStep({ orderId, photo, onPhoto, onError }) {
     setBusy(true)
     onError('')
     try {
-      const small = await compressImage(file, 1000, 0.7)
+      const small = await compressImage(file, 1000, 100) // proof photo: big enough to see the items, at most 100 KB
       setPreview(small)
       onPhoto(await uploadDeliveryPhoto(orderId, small))
     } catch (err) {
@@ -43,15 +43,15 @@ function PhotoStep({ orderId, photo, onPhoto, onError }) {
   }
 
   return (
-    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 ${photo ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-accent/60 bg-accent/[0.06]'}`}>
+    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 ${photo ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-brand/60 bg-brand/[0.06]'}`}>
       <input type="file" accept="image/*" capture="environment" onChange={take} className="sr-only" />
       {preview ? (
         <img src={preview} alt="Delivery photo" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
       ) : (
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent"><Camera size={24} /></span>
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand"><Camera size={24} /></span>
       )}
       <span className="flex-1 text-sm">
-        <span className="block font-bold">{busy ? 'Saving photo...' : photo ? 'Photo saved ✓' : 'Photo of the items (required)'}</span>
+        <span className="block font-semibold">{busy ? 'Saving photo...' : photo ? 'Photo saved ✓' : 'Photo of the items (required)'}</span>
         <span className="text-xs text-muted">{photo ? 'Tap to take it again' : 'At the door, with all the items clearly visible'}</span>
       </span>
     </label>
@@ -64,7 +64,7 @@ function NoAnswer({ orderId, onError }) {
   const [asking, setAsking] = useState(false)
   if (!asking) {
     return (
-      <button type="button" onClick={() => setAsking(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-orange-300">
+      <button type="button" onClick={() => setAsking(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-orange-700">
         <PhoneOff size={16} /> Customer not answering
       </button>
     )
@@ -81,7 +81,7 @@ function NoAnswer({ orderId, onError }) {
     <div className="rounded-xl border border-orange-400/40 bg-orange-500/10 p-3 text-sm">
       <p>Called 4–5 times and no answer? This cancels the order as a <b>no-show</b>.</p>
       <div className="mt-2 flex gap-2">
-        <button type="button" onClick={mark} className="h-10 flex-1 rounded-xl bg-orange-500 font-semibold text-white">Yes, no-show</button>
+        <button type="button" onClick={mark} className="h-10 flex-1 rounded-xl bg-orange-500 font-semibold text-ink">Yes, no-show</button>
         <button type="button" onClick={() => setAsking(false)} className="h-10 flex-1 rounded-xl border border-line font-semibold">Go back</button>
       </div>
     </div>
@@ -111,7 +111,7 @@ const loadPdf = () => import('../../lib/billPdf.js')
 
 // Short message that goes with the PDF.
 const billCaption = (o) =>
-  `Dergaon Hub bill #${o.order_number} · Total ${rupee(o.total)} · Paid by ${o.payment_method === 'cash' ? 'cash' : 'UPI'}. Thank you!`
+  `Jholzo bill #${o.order_number} · Total ${rupee(o.total)} · Paid by ${o.payment_method === 'cash' ? 'cash' : 'UPI'}. Thank you!`
 
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 
@@ -144,8 +144,8 @@ function MessageButton({ order, store, kind, auto, before, label, icon: Icon, pr
   const [fallback, setFallback] = useState(false)
   const [busy, setBusy] = useState(false)
   const text = customerMessage(kind, { order, store })
-  const cls = `flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-[15px] font-bold active:scale-[.99] disabled:opacity-50 ${
-    primary ? 'bg-accent text-ink' : 'border border-line bg-white/[0.03] text-white'
+  const cls = `flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-[15px] font-semibold active:scale-[.99] disabled:opacity-50 ${
+    primary ? 'bg-brand text-white' : 'border border-line bg-black/[0.03] text-ink'
   }`
 
   const step = async () => {
@@ -241,14 +241,15 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 p-4 text-left">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-lg font-bold leading-tight">{o.customer_name}</span>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${badgeCls}`}>{badge}</span>
+            <span className="text-lg font-semibold leading-tight">{o.customer_name}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeCls}`}>{badge}</span>
           </div>
           <p className="mt-0.5 truncate text-sm text-muted">#{o.order_number}{o.distance_km != null ? ` · ${o.distance_km} km away` : ''}</p>
+          {isExpress(o) && <p className="mt-1 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · deliver by {fmtClock(o.express_by)}</p>}
         </div>
         <div className="text-right">
-          <div className="text-lg font-black">{rupee(o.total)}</div>
-          <div className={`text-xs font-semibold ${done || paidOnline ? 'text-emerald-300' : payNow ? (o.payment_status === 'failed' ? 'text-red-300' : 'text-amber-300') : isCash ? 'text-orange-300' : 'text-sky-300'}`}>
+          <div className="text-lg font-semibold">{rupee(o.total)}</div>
+          <div className={`text-xs font-semibold ${done || paidOnline ? 'text-emerald-700' : payNow ? (o.payment_status === 'failed' ? 'text-red-700' : 'text-amber-700') : isCash ? 'text-orange-700' : 'text-sky-700'}`}>
             {paidOnline ? 'Paid online ✓' : done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : payNow ? (o.payment_status === 'failed' ? 'NOT PAID' : 'Payment checking') : isCash ? 'Collect cash' : 'UPI'}
           </div>
         </div>
@@ -257,20 +258,20 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
 
       {open && (
         <div className="space-y-4 border-t border-line px-4 pb-4 pt-3">
-          <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-accent" /> {o.address}</p>
+          <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-brand" /> {o.address}</p>
           {o.location ? (
             !done && <MapPreview point={o.location} home={store.location} />
           ) : (
-            <p className="rounded-lg bg-orange-500/10 px-3 py-2 text-sm text-orange-200">No map pin on this order. Call the customer for directions.</p>
+            <p className="rounded-lg bg-orange-500/10 px-3 py-2 text-sm text-orange-700">No map pin on this order. Call the customer for directions.</p>
           )}
           {o.ordered_by_phone && (
-            <p className="flex items-center gap-2 rounded-lg bg-accent/[0.07] px-3 py-2 text-sm">
-              <Gift size={16} className="shrink-0 text-accent" />
+            <p className="flex items-center gap-2 rounded-lg bg-brand/[0.07] px-3 py-2 text-sm">
+              <Gift size={16} className="shrink-0 text-brand" />
               <span className="flex-1">Ordered by <b>{o.ordered_by_name}</b> for {o.customer_name}</span>
-              <a href={`tel:${o.ordered_by_phone}`} className="font-semibold text-accent underline">{o.ordered_by_phone}</a>
+              <a href={`tel:${o.ordered_by_phone}`} className="font-semibold text-brand underline">{o.ordered_by_phone}</a>
             </p>
           )}
-          {o.note && <p className="rounded-lg bg-white/5 px-3 py-2 text-sm">Note: {o.note}</p>}
+          {o.note && <p className="rounded-lg bg-black/5 px-3 py-2 text-sm">Note: {o.note}</p>}
 
           <div className="grid grid-cols-3 gap-2">
             <a href={`tel:${o.customer_phone}`} className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-line text-sm font-semibold"><Phone size={16} /> Call</a>
@@ -282,8 +283,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
 
           <div>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold">Items {!done && <span className="font-normal text-muted">· tick as you pick</span>}</h3>
-              {!o.allow_substitute && <span className="flex items-center gap-1 text-xs font-semibold text-orange-300"><Repeat size={12} /> Only this brand</span>}
+              <h3 className="text-sm font-semibold">Items {!done && <span className="font-normal text-muted">· tick as you pick</span>}</h3>
+              {!o.allow_substitute && <span className="flex items-center gap-1 text-xs font-semibold text-orange-700"><Repeat size={12} /> Only this brand</span>}
             </div>
             <ul className="mt-2 divide-y divide-line/60 rounded-xl border border-line">
               {o.items.map((i) => {
@@ -292,30 +293,30 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                   <li key={i.id}>
                     <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
                       <input type="checkbox" checked={on} disabled={done} onChange={() => toggle(i.id)} className="peer sr-only" />
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${on ? 'border-accent bg-accent text-ink' : 'border-line'}`}>
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${on ? 'border-brand bg-brand text-white' : 'border-line'}`}>
                         {on && <Check size={15} strokeWidth={3} />}
                       </span>
                       <span className={`flex-1 text-sm ${on ? 'text-muted line-through' : ''}`}>
                         {i.name_snapshot}
-                        {i.note && <span className="block text-xs text-orange-200 no-underline">“{i.note}”</span>}
+                        {i.note && <span className="block text-xs text-orange-700 no-underline">“{i.note}”</span>}
                       </span>
-                      <span className="text-base font-black">×{i.quantity}</span>
+                      <span className="text-base font-semibold">×{i.quantity}</span>
                     </label>
                   </li>
                 )
               })}
             </ul>
-            {allPicked && !done && <p className="mt-1.5 text-xs font-semibold text-emerald-300">All items picked. Ready to go!</p>}
+            {allPicked && !done && <p className="mt-1.5 text-xs font-semibold text-emerald-700">All items picked. Ready to go!</p>}
           </div>
 
-          {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+          {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-700">{error}</p>}
 
           {stage === 'new' && (
             <div className="space-y-2">
-              <p className="text-sm text-orange-200">The admin must confirm this order (call the customer) before it goes out.</p>
+              <p className="text-sm text-orange-700">The admin must confirm this order (call the customer) before it goes out.</p>
               {isAdmin && (
                 <div className="flex gap-2">
-                  <button type="button" onClick={run(() => confirmOrder(o.id))} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-3 font-bold text-ink"><Check size={18} /> Confirm order</button>
+                  <button type="button" onClick={run(() => confirmOrder(o.id))} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-3 font-semibold text-white"><Check size={18} /> Confirm order</button>
                   {!sent('placed') && <MessageButton order={o} store={store} kind="placed" auto={auto} label="Order placed msg" icon={Check} onError={setError} />}
                 </div>
               )}
@@ -334,17 +335,17 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
               {stage !== 'ready' && <NoAnswer orderId={o.id} onError={setError} />}
               {/* The amount is fixed: the rider collects exactly the order total (or nothing if paid online). */}
               {paidOnline ? (
-                <p className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-base font-bold text-emerald-200">
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-base font-semibold text-emerald-700">
                   <Check size={19} /> Paid online · don't collect money
                 </p>
               ) : payNow ? (
-                <p className={`rounded-xl border px-3 py-2.5 text-center text-sm font-semibold ${o.payment_status === 'failed' ? 'border-red-400/40 bg-red-500/10 text-red-200' : 'border-amber-400/40 bg-amber-500/10 text-amber-100'}`}>
+                <p className={`rounded-xl border px-3 py-2.5 text-center text-sm font-semibold ${o.payment_status === 'failed' ? 'border-red-400/40 bg-red-500/10 text-red-700' : 'border-amber-400/40 bg-amber-500/10 text-amber-700'}`}>
                   {o.payment_status === 'failed'
                     ? `NOT PAID: collect ${rupee(o.total)} before handing over, or call the admin.`
                     : `Payment of ${rupee(o.total)} is being checked by the admin. Call the admin before handing over.`}
                 </p>
               ) : (
-                <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-bold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-200' : 'border-sky-400/40 bg-sky-500/10 text-sky-200'}`}>
+                <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-semibold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-700' : 'border-sky-400/40 bg-sky-500/10 text-sky-700'}`}>
                   {isCash ? <Banknote size={19} /> : <Smartphone size={19} />}
                   {isCash ? `Collect ${rupee(o.total)} cash` : `Collect ${rupee(o.total)} by UPI`}
                 </p>
@@ -354,7 +355,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 <button
                   type="button"
                   onClick={deliver}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-bold text-white active:scale-[.99]"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-semibold text-ink active:scale-[.99]"
                 >
                   <WhatsAppIcon size={18} /> Delivered + send bill (PDF)
                 </button>
@@ -387,7 +388,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
             <ul className="space-y-1 border-t border-line/60 pt-3 text-xs text-muted">
               {o.messages.map((m, n) => (
                 <li key={n} className="flex items-center gap-1.5">
-                  {m.ok ? <Check size={13} className="text-emerald-400" /> : <span className="text-red-300">✕</span>}
+                  {m.ok ? <Check size={13} className="text-emerald-700" /> : <span className="text-red-700">✕</span>}
                   {MESSAGE_NAMES[m.kind]} {m.channel === 'auto' ? 'sent automatically' : 'sent on WhatsApp'} · {clock(m.at)}
                 </li>
               ))}

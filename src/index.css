@@ -1,42 +1,30 @@
 @import "tailwindcss";
 
-/* Design colours from the plan (section 14) */
+/* Jholzo theme: white pages, dark green buttons, light mint panels, Poppins everywhere. */
 @theme {
-  --color-ink: #0B0B0B;
-  --color-card: #1C1C1A;
-  --color-line: #444441;
-  --color-muted: #B4B2A9;
+  --color-ink: #1A1F1B;
+  --color-card: #FFFFFF;
+  --color-line: #E7ECE5;
+  --color-muted: #6E756F;
+  --color-brand: #1F6B3A;
+  --color-brand-dark: #17532D;
+  --color-leaf: #5FA63F;
+  --color-mint: #EAF4E4;
+  --color-mint-soft: #F4F9F0;
+  /* Admin keeps its yellow buttons */
   --color-accent: #E8FF3A;
 
-  /* Logo fonts: same look as public/brand/ logos */
-  --font-logo: 'Arial Black', 'Helvetica Neue', system-ui, sans-serif;
-  --font-tagline: 'Montserrat', 'Avenir Next', 'Helvetica Neue', sans-serif;
-
-  /* Home page font: a tall, elegant serif (Google Fonts). Every other page uses the plain font-ui. */
-  --font-serif: 'Instrument Serif', 'Times New Roman', serif;
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-logo: 'Poppins', 'Helvetica Neue', system-ui, sans-serif;
+  --font-tagline: 'Poppins', 'Helvetica Neue', system-ui, sans-serif;
+  --font-ui: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 html,
 body {
-  background: var(--color-ink);
-  color: #fff;
+  background: #fff;
+  color: var(--color-ink);
   font-family: var(--font-ui);
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Home page only: the tall elegant serif. It has one weight, so hierarchy comes from size,
-   never from fake bold; its letters are small for their size, so they are scaled up. */
-.font-home {
-  font-family: var(--font-serif);
-  font-synthesis: none;
-  font-size-adjust: 0.5;
-}
-
-/* Plain-font parts inside the home page (search, location line, delivery card). */
-.font-ui {
-  font-synthesis: initial;
-  font-size-adjust: none;
 }
 
 /* Map pin used by LocationPicker */
@@ -44,16 +32,16 @@ body {
   width: 30px;
   height: 30px;
   margin: 2px 0 0 1px;
-  background: #e8ff3a;
-  border: 3px solid #0b0b0b;
+  background: #1f6b3a;
+  border: 3px solid #fff;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  box-shadow: 0 3px 8px rgb(0 0 0 / 0.45);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.35);
 }
 .dh-pin::after {
   content: '';
   position: absolute;
   inset: 8px;
   border-radius: 50%;
-  background: #0b0b0b;
+  background: #fff;
 }

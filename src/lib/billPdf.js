@@ -21,25 +21,23 @@ export function billPdf({ order, items, store }) {
   const R = W - 8
 
   // Header band
-  doc.setFillColor(11, 11, 11)
+  doc.setFillColor(31, 107, 58)
   doc.rect(0, 0, W, 26, 'F')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(17)
+  doc.setFontSize(18)
   doc.setTextColor(255, 255, 255)
-  doc.text('dergaon', L, 13)
-  doc.setTextColor(232, 255, 58)
-  doc.text('hub', L + doc.getTextWidth('dergaon '), 13)
+  doc.text('JHOLZO', L, 13)
   doc.setFont('helvetica', 'normal')
   // "Powered by" follows the switch in Admin → Settings.
   if (store?.show_powered_by !== false) {
     doc.setFontSize(6.5)
-    doc.setTextColor(170, 168, 160)
+    doc.setTextColor(200, 225, 205)
     doc.text(`POWERED BY ${LEGAL.COMPANY.toUpperCase()}`, L, 18.5)
   }
   doc.setFontSize(8)
   doc.setTextColor(255, 255, 255)
   doc.text('BILL / RECEIPT', R, 13, { align: 'right' })
-  doc.setTextColor(232, 255, 58)
+  doc.setTextColor(234, 244, 228)
   doc.text(`#${order.order_number}`, R, 18.5, { align: 'right' })
 
   // Customer and date
@@ -93,13 +91,15 @@ export function billPdf({ order, items, store }) {
   }
   line('Items total', rs(order.subtotal))
   line('Delivery charge', order.delivery_fee ? rs(order.delivery_fee) : 'FREE')
+  if (Number(order.express_fee) > 0) line('Express delivery', rs(order.express_fee))
   if (order.packaging_fee) line('Packaging charge', rs(order.packaging_fee))
+  if (Number(order.wallet_used) > 0) line('Jholzo Money', `- ${rs(order.wallet_used)}`)
   y += 3
-  doc.setFillColor(244, 244, 240)
+  doc.setFillColor(234, 244, 228)
   doc.roundedRect(L - 2, y - 5, R - L + 4, 10, 2, 2, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(11, 11, 11)
+  doc.setTextColor(26, 31, 27)
   doc.text('Total', L, y + 1.5)
   doc.text(rs(order.total), R, y + 1.5, { align: 'right' })
   y += 11
@@ -108,14 +108,14 @@ export function billPdf({ order, items, store }) {
   const paid = order.status === 'completed'
     ? `Paid by ${order.payment_method === 'cash' ? `cash${order.cash_collected ? ` (${rs(order.cash_collected)})` : ''}` : 'UPI'}`
     : `To pay on delivery: ${order.payment_method === 'cash' ? 'cash' : 'UPI'}`
-  doc.setTextColor(16, 128, 70)
+  doc.setTextColor(31, 107, 58)
   doc.text(paid, L, y)
 
   // Footer
   y += 9
   doc.setTextColor(120, 120, 120)
   doc.setFontSize(7)
-  doc.text('Thank you for shopping with Dergaon Hub!', W / 2, y, { align: 'center' })
+  doc.text('Thank you for shopping with Jholzo!', W / 2, y, { align: 'center' })
   y += 4
   doc.text(`Problem with an item? Report within ${LEGAL.COMPLAINT_HOURS} hours: ${window.location.host}/report/${order.order_number}`, W / 2, y, { align: 'center', maxWidth: R - L })
   y += 4
@@ -123,7 +123,7 @@ export function billPdf({ order, items, store }) {
   return doc
 }
 
-export const billFileName = (order) => `DergaonHub-Bill-${order.order_number}.pdf`
+export const billFileName = (order) => `Jholzo-Bill-${order.order_number}.pdf`
 
 export function downloadBill(data) {
   billPdf(data).save(billFileName(data.order))

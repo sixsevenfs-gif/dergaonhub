@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { CONFIG } from '../config.js'
 
 const pinIcon = L.divIcon({ className: '', html: '<div class="dh-pin"></div>', iconSize: [32, 42], iconAnchor: [16, 40] })
 
@@ -13,11 +14,14 @@ const same = (a, b) => Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng)
 // fixedPin: the pin stays in the middle and the customer moves the map under it (like Swiggy).
 // here: the phone's own position { lat, lng, accuracy }, drawn as a blue dot.
 // focus: changes when the map must fly to value again, even if value did not change.
-export default function LocationPicker({ value, onChange, start, home, here, focus, fixedPin = false, className = 'h-56' }) {
+// radiusKm: draws the delivery area around the pin as a radar circle (road km, so the circle is radiusKm / ROAD_FACTOR).
+export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, className = 'h-56' }) {
   const box = useRef(null)
   const map = useRef(null)
   const pin = useRef(null)
   const hereLayer = useRef(null)
+  const radiusLayer = useRef(null)
+  const radiusEdge = useRef(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const valueRef = useRef(value)
@@ -32,9 +36,9 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       attribution: '© OpenStreetMap',
     }).addTo(m)
     if (home) {
-      L.circleMarker([home.lat, home.lng], { radius: 7, color: '#0B0B0B', weight: 2, fillColor: '#E8FF3A', fillOpacity: 1 })
+      L.circleMarker([home.lat, home.lng], { radius: 7, color: '#FFFFFF', weight: 2, fillColor: '#1F6B3A', fillOpacity: 1 })
         .addTo(m)
-        .bindTooltip('Dergaon Hub')
+        .bindTooltip('Jholzo')
     }
     const report = (ll) => onChangeRef.current({ lat: ll.lat, lng: ll.lng })
     if (fixedPin) {
@@ -104,6 +108,28 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
     ]).addTo(map.current)
   }, [here])
 
+  // Delivery area: a filled circle with rings, like a radar, centred on the pin.
+  const centre = value ?? start
+  useEffect(() => {
+    radiusLayer.current?.remove()
+    radiusLayer.current = null
+    radiusEdge.current = null
+    if (!(Number(radiusKm) > 0) || !map.current || !centre) return
+    const r = (Number(radiusKm) / CONFIG.ROAD_FACTOR) * 1000
+    const at = [centre.lat, centre.lng]
+    const edge = L.circle(at, { radius: r, color: '#1F6B3A', weight: 2, dashArray: '8 6', fillColor: '#5FA63F', fillOpacity: 0.14, interactive: false })
+    const rings = [1 / 3, 2 / 3].map((f) => L.circle(at, { radius: r * f, color: '#1F6B3A', weight: 1, opacity: 0.35, fill: false, interactive: false }))
+    radiusLayer.current = L.layerGroup([edge, ...rings]).addTo(map.current)
+    radiusEdge.current = edge
+    // Redrawn only when the distance or the centre point really moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radiusKm, centre?.lat, centre?.lng])
+
+  // Show the whole circle when the distance changes (and when the map opens).
+  useEffect(() => {
+    if (radiusEdge.current && map.current) map.current.fitBounds(radiusEdge.current.getBounds(), { padding: [12, 12] })
+  }, [radiusKm])
+
   if (!fixedPin) return <div ref={box} className={`isolate z-0 w-full overflow-hidden rounded-xl ${className}`} />
 
   return (
@@ -113,9 +139,9 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-10">
         <span className={`absolute -left-[7px] -top-[3px] h-1.5 w-3.5 rounded-full bg-black/35 transition-transform duration-150 ${moving ? 'scale-50' : ''}`} />
         <svg width="38" height="50" viewBox="0 0 38 50" className={`absolute -left-[19px] -top-[50px] drop-shadow-md transition-transform duration-150 ${moving ? '-translate-y-2.5' : ''}`}>
-          <path d="M19 49C19 49 2 30 2 18.5 2 8.8 9.6 1.5 19 1.5S36 8.8 36 18.5C36 30 19 49 19 49Z" fill="#0B0B0B" />
-          <circle cx="19" cy="18.5" r="11" fill="#E8FF3A" />
-          <circle cx="19" cy="18.5" r="4.5" fill="#0B0B0B" />
+          <path d="M19 49C19 49 2 30 2 18.5 2 8.8 9.6 1.5 19 1.5S36 8.8 36 18.5C36 30 19 49 19 49Z" fill="#1F6B3A" />
+          <circle cx="19" cy="18.5" r="11" fill="#FFFFFF" />
+          <circle cx="19" cy="18.5" r="4.5" fill="#1F6B3A" />
         </svg>
       </div>
     </div>

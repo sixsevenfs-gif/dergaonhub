@@ -5,7 +5,7 @@ import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
 import { adminAddRider, adminListRiders, getPrivateSettings, getStore, resetDemo, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
-import { currentPosition, packagingFee } from '../../lib/delivery.js'
+import { currentPosition, deliveryRules, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
@@ -113,9 +113,9 @@ function SettingsForm({ store }) {
       setLocMsg(err.message)
     }
   }
-  // Example fees with the rates typed so far (before saving).
-  const rates = { ...v, per_km_fee: Number(v.per_km_fee) || 0, min_delivery_fee: Number(v.min_delivery_fee) || 0, max_delivery_km: Number(v.max_delivery_km) || 0 }
-  const example = (km) => Math.max(rates.min_delivery_fee, Math.ceil(km) * rates.per_km_fee)
+  // Example charges with the numbers typed so far (before saving).
+  const dr = deliveryRules(v)
+  const slabsReady = v.mid_order_fee !== undefined || DEMO_MODE // after update 018
   // Place name of the delivery center pin.
   const [centerName, setCenterName] = useState('')
   useEffect(() => {
@@ -151,7 +151,7 @@ function SettingsForm({ store }) {
         <div className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 p-3">
           <span className="text-sm">
             <b>Show "Powered by {LEGAL.COMPANY}"</b>
-            <span className="block text-neutral-500">Under the logo, in the footer and on the PDF bill.</span>
+            <span className="block text-neutral-500">Under the logo and on the PDF bill. The footer always shows "{LEGAL.GROUP_LINE}".</span>
             {v.show_powered_by === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/010_powered_by.sql first.</span>}
           </span>
           {(v.show_powered_by !== undefined || DEMO_MODE) && (
@@ -173,8 +173,8 @@ function SettingsForm({ store }) {
       </section>
 
       <section className={`${lcard} space-y-3 p-4`}>
-        <h2 className="font-bold">Delivery center and delivery charge</h2>
-        <p className="text-sm text-neutral-500">The delivery center is where distance is counted from (your home in Shantipur, Dergaon). Drag the pin or tap the map to move it, then Save.</p>
+        <h2 className="font-bold">Delivery area and delivery charge</h2>
+        <p className="text-sm text-neutral-500">The delivery center is where distance is counted from (your home in Shantipur, Dergaon). Drag the pin or tap the map to move it, then Save. Distance only decides whether we deliver; the charge comes from the order value.</p>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm">
             <b>Delivery center:</b> {centerName || 'Pinned on map'}
@@ -183,32 +183,53 @@ function SettingsForm({ store }) {
           <button type="button" onClick={fetchMyLocation} className={`${lbtnDark} min-h-9 text-sm`}><LocateFixed size={16} /> Use my current location</button>
         </div>
         {locMsg && <p className="text-xs text-neutral-600">{locMsg}</p>}
-        <LocationPicker value={v.location} onChange={(location) => setV({ ...v, location })} start={v.location} className="h-64" />
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="₹ per km"><input type="number" min="0" value={v.per_km_fee} onChange={set('per_km_fee')} className={lfield} /></Field>
-          <Field label="Minimum ₹"><input type="number" min="0" value={v.min_delivery_fee} onChange={set('min_delivery_fee')} className={lfield} /></Field>
-          <Field label="Max km" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
+        <LocationPicker value={v.location} onChange={(location) => setV({ ...v, location })} start={v.location} radiusKm={v.max_delivery_km} className="h-72" />
+        <p className="flex items-center gap-2 text-xs text-neutral-600">
+          <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-dashed border-[#1F6B3A] bg-[#5FA63F]/20" />
+          Green circle = where we deliver: up to {v.max_delivery_km || 0} km by road (about {Math.round(((Number(v.max_delivery_km) || 0) / CONFIG.ROAD_FACTOR) * 10) / 10} km straight on the map, since roads bend).
+        </p>
+        <Field label="Deliver up to (km)" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12 · the circle changes as you type"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
+
+        <h3 className="pt-2 font-bold">Evening delivery ({v.slot_start}–{v.slot_end}) by order value</h3>
+        {!slabsReady && <p className="text-xs text-orange-700">Run supabase/migrations/018_delivery_express.sql first.</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Small order: items below ₹"><input type="number" min="0" value={v.small_order_below ?? 99} onChange={set('small_order_below')} className={lfield} /></Field>
+          <Field label="…pays delivery ₹"><input type="number" min="0" value={v.small_order_fee ?? 40} onChange={set('small_order_fee')} className={lfield} /></Field>
+          <Field label="FREE delivery from ₹"><input type="number" min="0" disabled={!slabsReady} value={v.free_delivery_above ?? 299} onChange={set('free_delivery_above')} className={lfield} /></Field>
+          <Field label="In between pays ₹"><input type="number" min="0" disabled={!slabsReady} value={v.mid_order_fee ?? 11} onChange={set('mid_order_fee')} className={lfield} /></Field>
         </div>
-        {v.small_order_below !== undefined && (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Small order: items below ₹" hint="Customers see 'Add ₹X more to save on delivery'"><input type="number" min="0" value={v.small_order_below} onChange={set('small_order_below')} className={lfield} /></Field>
-            <Field label="Small order delivery ₹" hint="Or the distance charge, if higher. Not free."><input type="number" min="0" value={v.small_order_fee} onChange={set('small_order_fee')} className={lfield} /></Field>
+        <p className="rounded-xl bg-neutral-100 p-3 text-sm">
+          Below {rupee(dr.smallBelow)} → {rupee(dr.smallFee)} · {rupee(dr.smallBelow)}–{rupee(dr.freeAbove - 1)} → {v.free_delivery ? 'FREE (launch offer)' : rupee(dr.midFee)} · {rupee(dr.freeAbove)}+ → FREE
+          <span className="block text-xs text-neutral-500">Evening orders go in one round, so each costs you about ₹4–5 in petrol. Customers see "Add ₹X more for FREE delivery".</span>
+        </p>
+
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-sm">
+              <b>⚡ Express delivery</b>
+              <span className="block text-neutral-600">Customers can pay extra to get the order within the time below, from opening time until that long before closing. Switch it on only when a rider is free.</span>
+            </span>
+            {slabsReady && <Toggle checked={!!v.express_on} onChange={(on) => setV({ ...v, express_on: on })} label="Express delivery" />}
           </div>
-        )}
+          {slabsReady && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Express charge ₹ (extra)"><input type="number" min="0" value={v.express_fee ?? 40} onChange={set('express_fee')} className={lfield} /></Field>
+              <Field label="Delivered within (minutes)"><input type="number" min="15" max="240" value={v.express_minutes ?? 60} onChange={set('express_minutes')} className={lfield} /></Field>
+            </div>
+          )}
+          <p className="text-xs text-neutral-600">A one-off trip costs about ₹40–50 (petrol + your time), so keep the charge near that.</p>
+        </div>
+
         <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
           <span className="text-sm">
             <b>Free delivery (launch offer)</b>
-            <span className="block text-neutral-600">No delivery charge on any order inside the area. Customers see the usual charge struck out and "FREE". Turn it off later and Save.</span>
+            <span className="block text-neutral-600">Makes the in-between slab FREE too (small orders still pay). Customers see the usual charge struck out and "FREE". Turn it off later and Save.</span>
             {v.free_delivery === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/005_free_delivery.sql first.</span>}
           </span>
           {(v.free_delivery !== undefined || DEMO_MODE) && (
             <Toggle checked={!!v.free_delivery} onChange={(on) => setV({ ...v, free_delivery: on })} label="Free delivery" />
           )}
         </div>
-        <p className="rounded-xl bg-neutral-100 p-3 text-sm">
-          Example: 0.1 km → {rupee(example(0.1))} · 1 km → {rupee(example(1))} · 3 km → {rupee(example(3))} · no delivery beyond {rates.max_delivery_km} km.
-          <span className="block text-xs text-neutral-500">Road distance ≈ straight line × 1.3. Petrol ₹110/L, scooter ~40 km/L: a round trip costs about ₹5.5 per km.</span>
-        </p>
       </section>
 
       <section className={`${lcard} space-y-3 p-4`}>
@@ -224,6 +245,36 @@ function SettingsForm({ store }) {
         <p className="rounded-xl bg-neutral-100 p-3 text-sm">
           Example: ₹300 order → {rupee(packagingFee(packs, 300))} · ₹650 → {rupee(packagingFee(packs, 650))} · ₹1200 → {rupee(packagingFee(packs, 1200))}
         </p>
+      </section>
+
+      <section className={`${lcard} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-sm">
+            <b className="text-base">Refer & earn · Jholzo Money</b>
+            <span className="block text-neutral-500">
+              Every customer gets an invite code after their first order. When a new friend's first order is delivered, both get money in
+              their Jholzo Money wallet. It is used at checkout, up to the limit per order. Cancelled orders give the used money back.
+            </span>
+            {v.referral_on === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/017_wallet_referral.sql first.</span>}
+          </span>
+          {(v.referral_on !== undefined || DEMO_MODE) && (
+            <Toggle checked={v.referral_on !== false} onChange={(on) => setV({ ...v, referral_on: on })} label="Refer and earn" />
+          )}
+        </div>
+        {(v.referral_on !== undefined || DEMO_MODE) && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Inviter gets ₹"><input type="number" min="0" value={v.referrer_reward ?? 30} onChange={set('referrer_reward')} className={lfield} /></Field>
+              <Field label="New friend gets ₹"><input type="number" min="0" value={v.friend_reward ?? 20} onChange={set('friend_reward')} className={lfield} /></Field>
+              <Field label="Friend's first order at least ₹" hint="Items total, before delivery and packaging"><input type="number" min="0" value={v.referral_min_order ?? 200} onChange={set('referral_min_order')} className={lfield} /></Field>
+              <Field label="Wallet use per order up to ₹"><input type="number" min="0" value={v.wallet_max_per_order ?? 50} onChange={set('wallet_max_per_order')} className={lfield} /></Field>
+            </div>
+            <p className="rounded-xl bg-neutral-100 p-3 text-sm">
+              Cost per new customer: ₹{(Number(v.referrer_reward ?? 30) || 0) + (Number(v.friend_reward ?? 20) || 0)}, paid only after their first order is delivered.
+              <span className="block text-xs text-neutral-500">Codes can't be used on your own number, from the inviter's phone, or after the first order. Add or take back money by hand in Customers.</span>
+            </p>
+          </>
+        )}
       </section>
 
       <section className={`${lcard} flex items-start justify-between gap-3 p-4`}>
@@ -252,8 +303,13 @@ function SettingsForm({ store }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Your UPI ID" hint="e.g. yourname@okaxis"><input value={v.upi_id ?? ''} onChange={set('upi_id')} placeholder="name@bank" className={lfield} /></Field>
-            <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Dergaon Hub" className={lfield} /></Field>
+            <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Jholzo" className={lfield} /></Field>
             <Field label="Cash / pay on delivery up to ₹" hint="Bigger orders must pay now by UPI"><input type="number" min="0" value={v.cod_limit ?? 350} onChange={set('cod_limit')} className={lfield} /></Field>
+            {v.upi_pay_minutes !== undefined ? (
+              <Field label="Time to pay (minutes)" hint="Not paid by then: the order is cancelled. 5 to 120."><input type="number" min="5" max="120" value={v.upi_pay_minutes} onChange={set('upi_pay_minutes')} className={lfield} /></Field>
+            ) : (
+              <p className="self-end text-xs text-orange-700">Pay timer: run supabase/migrations/023_upi_pay_timer.sql first.</p>
+            )}
           </div>
         </section>
       )}

@@ -8,7 +8,7 @@ import { dateStr, addDays } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 
 const SENT_KEY = 'dergaonhub-offer-sent'
-const DEFAULT_TEXT = `Hello! 🎉 Special offer from Dergaon Hub:
+const DEFAULT_TEXT = `Hello! 🎉 Special offer from Jholzo:
 
 [write your offer here]
 

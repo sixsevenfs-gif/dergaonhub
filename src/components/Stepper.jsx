@@ -1,17 +1,16 @@
 import { Minus, Plus } from 'lucide-react'
 
-// compact: smaller version for the 3-per-row product grid.
-export default function Stepper({ value, onChange, className = '', compact = false }) {
-  const btn = `flex h-full items-center justify-center ${compact ? 'w-8' : 'w-11'}`
-  const icon = compact ? 15 : 18
+// − 1 + with round outlined buttons (cart).
+export default function Stepper({ value, onChange, className = '' }) {
+  const btn = 'flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white text-ink active:bg-mint'
   return (
-    <div className={`flex items-center justify-between rounded-xl border border-line ${compact ? 'h-9 rounded-lg' : 'h-11'} ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       <button type="button" aria-label="Decrease" onClick={() => onChange(value - 1)} className={btn}>
-        <Minus size={icon} />
+        <Minus size={15} strokeWidth={2.4} />
       </button>
-      <span className={`text-center font-semibold ${compact ? 'min-w-4 text-sm' : 'min-w-6'}`}>{value}</span>
+      <span className="min-w-4 text-center text-sm font-semibold">{value}</span>
       <button type="button" aria-label="Increase" onClick={() => onChange(value + 1)} className={btn}>
-        <Plus size={icon} />
+        <Plus size={15} strokeWidth={2.4} />
       </button>
     </div>
   )

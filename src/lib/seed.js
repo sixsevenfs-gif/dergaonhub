@@ -1,7 +1,7 @@
 import { addDays, dateStr } from './format.js'
 import { deliveryQuote, packagingFee } from './delivery.js'
 
-// Demo data for Dergaon Hub Store. Phone/WhatsApp numbers are fake placeholders.
+// Demo data for Jholzo Dergaon. Phone/WhatsApp numbers are fake placeholders.
 
 export const CATEGORIES = [
   { id: 'atta', name: 'Atta & Flour', short: 'Atta & Flour' },
@@ -15,6 +15,9 @@ export const CATEGORIES = [
   { id: 'colddrinks', name: 'Cold Drinks & Water', short: 'Cold drinks' },
   { id: 'personal', name: 'Personal Care', short: 'Personal care' },
   { id: 'cleaning', name: 'Cleaning', short: 'Cleaning' },
+  { id: 'vegetables', name: 'Fruits & Vegetables', short: 'Fruits & Veg' },
+  { id: 'dryfruits', name: 'Dry Fruits & Seeds', short: 'Dry fruits' },
+  { id: 'pooja', name: 'Pooja Needs', short: 'Pooja' },
 ]
 
 // [name, size, category, keywords, demo price]
@@ -114,13 +117,16 @@ export function makeSeed() {
   const pid = (name, size) => products.find((p) => p.name === name && p.size === size)
 
   const store = {
-    name: 'Dergaon Hub Store', phone: '9000000001', whatsapp: '919000000001',
+    name: 'Jholzo Dergaon', phone: '9181061864', whatsapp: '919181061864',
     open_time: '08:00', close_time: '21:00', cutoff_time: '18:00', slot_start: '17:00', slot_end: '20:00',
     min_order: 0, delivery_area: ['Dergaon Bazaar', 'Dergaon Town'], paused: false,
-    // Items below ₹149: delivery is a flat ₹40, or the distance fee if that is higher.
-    small_order_below: 149, small_order_fee: 40,
+    // Evening delivery: ₹40 below ₹99, ₹11 up to ₹298, FREE from ₹299 (see eveningFee).
+    small_order_below: 99, small_order_fee: 40, mid_order_fee: 11, free_delivery_above: 299,
+    // Express: within express_minutes for express_fee extra (switch on in Admin → Settings when a rider is free).
+    express_on: false, express_fee: 40, express_minutes: 60,
     // Pay now by UPI: the store's UPI ID (set in Admin → Settings). Above cod_limit, UPI first.
-    upi_id: '', upi_name: 'Dergaon Hub', cod_limit: 350,
+    upi_id: '', upi_name: 'Jholzo', cod_limit: 350,
+    upi_pay_minutes: 15, // a "Pay now by UPI" order not paid in this time is cancelled
     // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
     // Approximate until the exact pin is set in Admin → Settings.
     location: { lat: 26.7, lng: 93.97 },
@@ -145,7 +151,7 @@ export function makeSeed() {
       return { id: `${id}-${i}`, order_id: id, product_id: p.id, name_snapshot: `${name} ${size}`, price_snapshot: p.price, quantity: qty, note: '', line_total: p.price * qty }
     })
     const subtotal = items.reduce((s, i) => s + i.line_total, 0)
-    const quote = deliveryQuote(store, o.location)
+    const quote = deliveryQuote(store, o.location, subtotal)
     orders.push({
       id, order_number: `DG-${n++}`, type: 'delivery', note: '', cancel_reason: '', allow_substitute: true,
       cash_collected: 0, confirmed_at: null, completed_at: null,

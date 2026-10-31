@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Share2 } from 'lucide-react'
-import Wordmark from '../../components/Wordmark.jsx'
+import Wordmark, { JholzoText } from '../../components/Wordmark.jsx'
 import { btnAccent, btnOutline } from '../../components/ui.js'
 import { getOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
@@ -39,15 +39,15 @@ export default function Bill() {
         <Link to={`/track/${order.order_number}`} className="flex items-center gap-2 text-muted"><ArrowLeft size={20} /> Order</Link>
       </header>
 
-      <section className="mt-5 overflow-hidden rounded-2xl bg-white text-neutral-900">
-        <div className="flex items-start justify-between bg-ink px-5 py-4 text-white">
+      <section className="mt-5 overflow-hidden rounded-2xl border border-line bg-white text-neutral-900">
+        <div className="flex items-start justify-between bg-gradient-to-br from-[#2E7D46] to-brand-dark px-5 py-4 text-white">
           <div>
-            <div className="font-logo text-xl font-black leading-none">dergaon <span className="text-accent">hub</span></div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/50">Bill / Receipt</div>
+            <JholzoText onBrand className="text-[22px]" />
+            <div className="mt-1.5 text-[10px] uppercase tracking-[0.16em] text-white/70">Bill / Receipt</div>
           </div>
           <div className="text-right">
-            <div className="font-bold text-accent">#{order.order_number}</div>
-            <div className="text-xs text-white/60">{fmtDateTime(order.completed_at ?? order.created_at)}</div>
+            <div className="font-semibold">#{order.order_number}</div>
+            <div className="text-xs text-white/75">{fmtDateTime(order.completed_at ?? order.created_at)}</div>
           </div>
         </div>
         <div className="px-5 py-4">
@@ -67,9 +67,11 @@ export default function Bill() {
           <div className="mt-2 space-y-1 border-t border-neutral-200 pt-3 text-sm text-neutral-600">
             <div className="flex justify-between"><span>Items total</span><span>{rupee(order.subtotal)}</span></div>
             <div className="flex justify-between"><span>Delivery charge</span><span>{order.delivery_fee ? rupee(order.delivery_fee) : 'FREE'}</span></div>
+            {Number(order.express_fee) > 0 && <div className="flex justify-between"><span>Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
             {order.packaging_fee > 0 && <div className="flex justify-between"><span>Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
+            {Number(order.wallet_used) > 0 && <div className="flex justify-between"><span>Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>}
           </div>
-          <div className="mt-3 flex justify-between rounded-xl bg-neutral-100 px-3 py-2.5 text-lg font-black">
+          <div className="mt-3 flex justify-between rounded-xl bg-neutral-100 px-3 py-2.5 text-lg font-semibold">
             <span>Total</span><span>{rupee(order.total)}</span>
           </div>
           <p className="mt-2 text-sm font-semibold text-emerald-700">
@@ -86,7 +88,7 @@ export default function Bill() {
       </div>
       {note && <p className="mt-2 text-center text-xs text-muted">{note}</p>}
       <p className="mt-4 text-center text-xs text-muted">
-        Something wrong with an item? <Link to={`/report/${order.order_number}`} className="text-accent underline">Report a problem</Link>
+        Something wrong with an item? <Link to={`/report/${order.order_number}`} className="text-brand underline">Report a problem</Link>
       </p>
     </main>
   )

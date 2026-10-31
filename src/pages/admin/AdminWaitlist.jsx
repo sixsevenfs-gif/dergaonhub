@@ -20,7 +20,7 @@ export default function AdminWaitlist() {
   ).sort((a, b) => b[1] - a[1])
 
   const message = (w) =>
-    `Hello${w.name ? ` ${w.name}` : ''}! Dergaon Hub now delivers to your area${w.label ? ` (${w.label})` : ''}. Order here: ${window.location.origin}`
+    `Hello${w.name ? ` ${w.name}` : ''}! Jholzo now delivers to your area${w.label ? ` (${w.label})` : ''}. Order here: ${window.location.origin}`
 
   return (
     <div className="space-y-4">

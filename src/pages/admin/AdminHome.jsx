@@ -6,6 +6,7 @@ import Toggle from '../../components/Toggle.jsx'
 import { lcard } from '../../components/ui.js'
 import { adminListComplaints, adminListOrders, adminStats, getStore, setPaused } from '../../lib/store.js'
 import PaymentCheck from './PaymentCheck.jsx'
+import DayReport from './DayReport.jsx'
 import { useData } from '../../lib/useData.js'
 import { fmtClock, itemsText, rupee, timeAgo } from '../../lib/format.js'
 
@@ -87,6 +88,8 @@ export default function AdminHome() {
           {!newOrders.length && <p className={`${lcard} p-4 text-neutral-500`}>No new orders.</p>}
         </div>
       </section>
+
+      <DayReport />
 
       {complaints.length > 0 && (
         <section>
