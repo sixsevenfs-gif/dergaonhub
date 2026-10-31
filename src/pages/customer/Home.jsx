@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, LayoutGrid, Search, ShoppingCart, Truck } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import { DeliverTo, HeaderIcons } from '../../components/TopBar.jsx'
@@ -125,6 +125,16 @@ export default function Home() {
     if (allParam) toProducts()
   }, [allParam])
 
+  // Tapping the JHOLZO logo always brings back the normal home page, at the top.
+  const fromLogo = useLocation().state?.fromLogo
+  useEffect(() => {
+    if (!fromLogo) return
+    setShowAll(false)
+    setCat('')
+    setQ('')
+    window.scrollTo({ top: 0 })
+  }, [fromLogo])
+
   const browseAll = () => {
     setShowAll(true)
     toProducts()
@@ -146,6 +156,8 @@ export default function Home() {
 
   return (
     <main className={`mx-auto min-h-screen max-w-md px-4 ${count > 0 ? 'pb-40' : 'pb-24'}`}>
+      {/* Page title for Google and screen readers; the logo is the visible heading. */}
+      <h1 className="sr-only">Jholzo: online grocery delivery in Dergaon</h1>
       <header className="-mx-4 rounded-b-[28px] bg-gradient-to-br from-[#2E7D46] to-brand-dark px-4 pb-5 pt-3">
         <div className="flex h-14 items-center justify-between">
           <Wordmark onBrand />

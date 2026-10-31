@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, BadgePercent, Banknote, BookUser, Clock, Gift, LocateFixed, MapPin, Phone, Repeat, Route, Smartphone, Ticket, User, UserRound, WalletMinimal, Zap } from 'lucide-react'
+import { ArrowLeft, BadgePercent, Banknote, BookUser, Building2, Clock, Gift, Hash, House, Keyboard, Landmark, LocateFixed, MapPin, Phone, PhoneCall, Repeat, Route, Smartphone, Ticket, User, UserRound, WalletMinimal, Zap } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -44,6 +44,22 @@ async function pickContact() {
   return { name: c.name?.[0] ?? '', phone: cleanPhone(c.tel?.[0] ?? '').slice(-10) }
 }
 
+// Address typed by hand (map not working), in parts so the rider can find the door. Saved for next time.
+const EMPTY_PARTS = { house: '', floor: '', building: '', road: '', landmark: '', town: 'Dergaon', pin: '' }
+
+// "12, Floor 1, Chetry Bhawan, NH37 Ward 3, Near Dergaon Bazaar, Dergaon 785614"
+function joinAddress(p) {
+  const landmark = p.landmark.trim().replace(/^near\s+/i, '')
+  return [
+    p.house.trim(),
+    p.floor.trim() && `Floor ${p.floor.trim()}`,
+    p.building.trim(),
+    p.road.trim(),
+    landmark && `Near ${landmark}`,
+    [p.town.trim(), p.pin.trim()].filter(Boolean).join(' '),
+  ].filter(Boolean).join(', ')
+}
+
 const FOR_OPTIONS = [
   { value: 'me', label: 'For me', icon: User },
   { value: 'other', label: 'For someone else', icon: Gift },
@@ -58,12 +74,12 @@ export default function Checkout() {
   const [form, setForm] = useState(() => {
     const saved = getSavedDetails()
     const me = currentCustomer()
-    return { name: me?.name || saved.name || '', phone: me?.phone || saved.phone || '', address: saved.address ?? '', area: saved.area ?? '' }
+    return { name: me?.name || saved.name || '', phone: me?.phone || saved.phone || '', address: saved.address ?? '', parts: { ...EMPTY_PARTS, ...saved.parts } }
   })
   // The receiver, when ordering for someone else (last one is remembered).
   const [receiver, setReceiver] = useState(() => {
     const r = getSavedReceiver()
-    return { name: r.name ?? '', phone: r.phone ?? '', address: r.address ?? '', area: r.area ?? '' }
+    return { name: r.name ?? '', phone: r.phone ?? '', address: r.address ?? '', parts: { ...EMPTY_PARTS, ...r.parts } }
   })
   const [myLocation, setMyLocationState] = useState(() => getSavedLocation() ?? (validPoint(getSavedDetails().location) ? getSavedDetails().location : null))
   const [theirLocation, setTheirLocation] = useState(() => (validPoint(getSavedReceiver().location) ? getSavedReceiver().location : null))
@@ -79,6 +95,8 @@ export default function Checkout() {
   const setLocation = (p) => (other ? setTheirLocation(p) : setMyLocation(p))
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
+  // Map or phone location not working: type the address and pick an area instead (we call to confirm).
+  const [manual, setManual] = useState(false)
   const [payment, setPayment] = useState('cash')
   const [substitute, setSubstitute] = useState(true)
   const [error, setError] = useState('')
@@ -142,11 +160,16 @@ export default function Checkout() {
   // Address fields belong to whoever receives the order.
   const addr = other ? receiver : form
   const setAddr = other ? setR : set
+  const setPart = (k) => (e) => {
+    const update = (x) => ({ ...x, parts: { ...x.parts, [k]: e.target.value } })
+    if (other) setReceiver(update)
+    else setForm(update)
+  }
   // Express (within the hour) only while it is switched on and open; otherwise the evening slot.
   const ex = expressStatus(store)
   const express = wantExpress && ex.ok
   const dRules = deliveryRules(store)
-  const quote = deliveryQuote(store, location, subtotal, express)
+  const quote = deliveryQuote(store, manual ? null : location, subtotal, express, { manual })
   const fee = quote && !quote.tooFar ? quote.fee : null
   const packaging = packagingFee(store, subtotal)
   const fullTotal = Math.round((subtotal + (fee ?? 0) + packaging) * 100) / 100
@@ -178,6 +201,18 @@ export default function Checkout() {
       setError("The receiver's number is the same as yours. Choose \"For me\", or enter their number.")
       return
     }
+    if (manual) {
+      const p = addr.parts
+      if (!p.road.trim() || !p.landmark.trim() || !p.town.trim()) {
+        setError('Fill in the road / locality, a landmark and the town, so our rider can find the door.')
+        return
+      }
+      if (p.pin.trim() && !/^\d{6}$/.test(p.pin.trim())) {
+        setError('PIN code has 6 digits. Leave it empty if you are not sure.')
+        return
+      }
+    }
+    const address = manual ? joinAddress(addr.parts) : addr.address
     // OTP once per new phone: the number of the person ordering, before placing the order.
     if (store.otp_required && cleanPhone(form.phone).length === 10 && !(await phoneVerified(form.phone))) {
       setOtpFor(cleanPhone(form.phone))
@@ -188,9 +223,10 @@ export default function Checkout() {
       const order = await placeOrder({
         lines: lines.map((l) => ({ productId: l.id, qty: l.qty, note: l.note })),
         ...(other ? { ...receiver, orderer: { name: form.name, phone: form.phone } } : form),
-        // No area to choose any more: the map pin says where. The database still wants one of the store's areas.
+        address,
+        // No area to choose: the pin (or the typed address) says where. The database still wants one of the store's areas.
         area: store.delivery_area[0] ?? '',
-        location,
+        location: manual ? null : location,
         note: cart.note,
         payment_method: method,
         allow_substitute: substitute,
@@ -201,9 +237,9 @@ export default function Checkout() {
       if (showInvite && refCode) clearRefCode()
       if (other) {
         saveDetails({ name: form.name, phone: form.phone })
-        saveReceiver({ ...receiver, location })
+        saveReceiver({ ...receiver, address, location })
       } else {
-        saveDetails(form)
+        saveDetails({ ...form, address })
       }
       // "Order placed" on WhatsApp, if the admin has switched on automatic messages. It never blocks the order.
       if (store.whatsapp_auto) sendAutoMessage({ orderNumber: order.order_number, kind: 'placed' })
@@ -279,10 +315,50 @@ export default function Checkout() {
 
         <section className={`${card} space-y-3 p-3`}>
           <h2 className="px-1 pt-1 font-semibold">{other ? 'Their address' : 'Delivery address'}</h2>
-          <InputRow icon={MapPin} label="Address / Landmark">
-            <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
-          </InputRow>
+          {!manual && (
+            <InputRow icon={MapPin} label="Address / Landmark">
+              <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
+            </InputRow>
+          )}
 
+          {manual ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <InputRow icon={House} label="House / Flat no.">
+                  <input value={addr.parts.house} onChange={setPart('house')} placeholder="Optional" autoComplete="off" className={inputCls} />
+                </InputRow>
+                <InputRow icon={Building2} label="Floor">
+                  <input value={addr.parts.floor} onChange={setPart('floor')} placeholder="Optional" autoComplete="off" className={inputCls} />
+                </InputRow>
+              </div>
+              <InputRow icon={Building2} label="Building / House name">
+                <input value={addr.parts.building} onChange={setPart('building')} placeholder="Optional, e.g. Chetry Bhawan" autoComplete="off" className={inputCls} />
+              </InputRow>
+              <InputRow icon={Route} label="Road / Locality / Ward *">
+                <input required value={addr.parts.road} onChange={setPart('road')} placeholder="e.g. NH37, Ward 3, Shantipur" autoComplete={other ? 'off' : 'address-line1'} className={inputCls} />
+              </InputRow>
+              <InputRow icon={Landmark} label="Landmark *">
+                <input required value={addr.parts.landmark} onChange={setPart('landmark')} placeholder="e.g. near Dergaon Bazaar, opp. school" autoComplete="off" className={inputCls} />
+              </InputRow>
+              <div className="grid grid-cols-2 gap-3">
+                <InputRow icon={MapPin} label="Town / Village *">
+                  <input required value={addr.parts.town} onChange={setPart('town')} placeholder="Dergaon" autoComplete={other ? 'off' : 'address-level2'} className={inputCls} />
+                </InputRow>
+                <InputRow icon={Hash} label="PIN code">
+                  <input value={addr.parts.pin} onChange={setPart('pin')} placeholder="Optional" inputMode="numeric" maxLength={6} autoComplete={other ? 'off' : 'postal-code'} className={inputCls} />
+                </InputRow>
+              </div>
+              <p className="px-1 text-xs text-muted">* needed. No house number? Leave it empty and give a clear landmark.</p>
+              <p className="flex gap-3 rounded-xl border border-brand/30 bg-brand/[0.06] p-3 text-sm leading-snug">
+                <PhoneCall size={18} className="mt-0.5 shrink-0 text-brand" />
+                <span>No map needed. We will call {other ? 'them' : 'you'} to confirm the address before delivery.</span>
+              </p>
+              <button type="button" onClick={() => setManual(false)} className="w-full text-center text-sm font-semibold text-brand underline underline-offset-4">
+                Use the map instead
+              </button>
+            </>
+          ) : (
+          <>
           <div className="relative overflow-hidden rounded-2xl border border-line">
             {/* A new map when switching between me and them, so each starts at its own pin. */}
             <LocationPicker key={forWho} value={location} onChange={setLocation} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-60 [&_.leaflet-bottom]:mb-0" />
@@ -301,8 +377,17 @@ export default function Checkout() {
             </button>
           </div>
           {locError && <p className="px-1 text-xs text-orange-700">{locError}</p>}
+          <button
+            type="button"
+            onClick={() => setManual(true)}
+            className={cx('flex w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold', locError || !location ? 'h-11 border border-brand/60 text-brand' : 'h-8 text-muted underline underline-offset-4')}
+          >
+            <Keyboard size={16} /> Map not working? Enter address manually
+          </button>
+          </>
+          )}
 
-          {!location ? (
+          {manual ? null : !location ? (
             <p className="rounded-xl bg-black/5 p-3 text-sm text-muted">Set the pin on the map to see the delivery charge.</p>
           ) : quote.tooFar ? (
             <OutOfArea location={location} label={other ? '' : getSavedLocation()?.label} km={quote.km} compact={other} />

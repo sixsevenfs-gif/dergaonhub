@@ -12,6 +12,7 @@ const NAV = [
   ['/admin/delivery', 'Delivery sheet'],
   ['/admin/summary', 'Daily summary'],
   ['/admin/products', 'Products', 'outOfStock'],
+  ['/admin/top-items', 'Top items'],
   ['/admin/complaints', 'Complaints', 'openComplaints'],
   ['/admin/customers', 'Customers'],
   ['/admin/waitlist', 'Waitlist', 'waitlist'],

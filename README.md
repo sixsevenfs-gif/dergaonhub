@@ -1,6 +1,6 @@
 # Jholzo · Dergaon
 
-Jholzo (A Malchetra (MLC) company): one grocery store website for Dergaon. Customers order online; the founder confirms
+Jholzo (powered by Malchetra Group): one grocery store website for Dergaon. Customers order online; the founder confirms
 by phone, buys everything from local shops in one trip, and delivers in the evening.
 
 ## Run on your computer

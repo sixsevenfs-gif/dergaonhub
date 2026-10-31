@@ -11,14 +11,14 @@ const realPhoto = (url) => !!url && !url.includes('/demo/')
 // not on chocolates, snacks, drinks or soaps where it reads oddly.
 const UNIT_PRICE_CATEGORIES = new Set(['atta', 'rice', 'daal', 'oil', 'masala', 'vegetables', 'dryfruits'])
 
-// "5 kg" at ₹285 → "₹57/kg"; grams per kg, ml per litre. Nothing for pieces or packs.
+// "5 kg" at ₹285 → "₹57/kg"; grams per kg. Nothing for litres (oil, ghee), pieces or packs.
 function unitPrice(price, size = '', categoryId = '') {
   if (!UNIT_PRICE_CATEGORIES.has(categoryId)) return ''
-  const m = size.trim().toLowerCase().match(/^([\d.]+)\s*(kg|g|l|ltr|litre|ml)$/)
+  const m = size.trim().toLowerCase().match(/^([\d.]+)\s*(kg|g)$/)
   if (!m) return ''
   const n = Number(m[1])
   if (!(n > 0)) return ''
-  const [qty, unit] = { kg: [n, 'kg'], g: [n / 1000, 'kg'], l: [n, 'L'], ltr: [n, 'L'], litre: [n, 'L'], ml: [n / 1000, 'L'] }[m[2]]
+  const [qty, unit] = { kg: [n, 'kg'], g: [n / 1000, 'kg'] }[m[2]]
   if (qty === 1) return ''
   return `${rupee(price / qty)}/${unit}`
 }

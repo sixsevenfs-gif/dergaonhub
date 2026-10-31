@@ -36,10 +36,11 @@ export function eveningFee(store, subtotal) {
 // Delivery to the customer's pin. Distance only decides whether we deliver (max_delivery_km);
 // the charge comes from the items total (subtotal), plus the Express charge when chosen.
 // next: { addMore, save } tells the customer how much more to add to pay less for delivery.
-export function deliveryQuote(store, point, subtotal = null, express = false) {
-  if (!point) return null
-  const km = roadKm(store.location, point)
-  if (km > store.max_delivery_km) return { km, fee: null, tooFar: true }
+// manual: the address was typed by hand (map not working), so there is no distance (km is null).
+export function deliveryQuote(store, point, subtotal = null, express = false, { manual = false } = {}) {
+  if (!point && !manual) return null
+  const km = point ? roadKm(store.location, point) : null
+  if (km != null && km > store.max_delivery_km) return { km, fee: null, tooFar: true }
   if (subtotal == null) return { km, fee: null, tooFar: false }
   const r = deliveryRules(store)
   const evening = eveningFee(store, subtotal)

@@ -140,6 +140,7 @@ export async function saveStore(data) {
       express_minutes: Math.min(240, Math.max(15, wholeRupees(data.express_minutes) || 60)),
     }), // after 018
     ...(data.upi_id === undefined ? {} : { upi_id: upiId(data.upi_id), upi_name: (data.upi_name ?? '').trim(), cod_limit: Math.max(0, Number(data.cod_limit) || 0) }), // after 015
+    ...(data.upi_pay_minutes === undefined ? {} : { upi_pay_minutes: Math.min(120, Math.max(5, wholeRupees(data.upi_pay_minutes) || 15)) }), // after 023
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
   }).eq('id', 1).select().single())
@@ -209,6 +210,12 @@ export async function updateProduct(id, patch) {
   if ('featured' in patch) change.featured = !!patch.featured
   if ('status' in patch) change.status = patch.status
   check(await sb.from('products').update(change).eq('id', id))
+  notify()
+}
+
+// Removes the product for good. Old orders keep the item name and price (order_items.product_id becomes null).
+export async function deleteProduct(id) {
+  check(await sb.from('products').delete().eq('id', id))
   notify()
 }
 
@@ -325,8 +332,16 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   return { order_number: orderNumber, customer_phone: cleanPhone(phone), customer_name: name.trim() }
 }
 
+// UPI orders not paid within upi_pay_minutes become "Not paid in time" (update 023; before it this does nothing).
+export async function expireUnpaid() {
+  await session()
+  await sb.rpc('expire_unpaid_orders')
+  notify()
+}
+
 export async function getOrder(orderNumber) {
   await session()
+  await sb.rpc('expire_unpaid_orders') // an error before update 023 is ignored
   const res = check(await sb.rpc('get_order', { p_order_number: String(orderNumber) }))
   if (!res) return null
   return { order: toOrder(res.order), items: res.items, complaints: res.complaints, mine: res.mine, store: await getStore() }
@@ -546,6 +561,16 @@ export async function dailySummary(date) {
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
   }
+}
+
+// Every order (with its items) and shop spend for delivery days from..to, for the sales report and sheet.
+export async function salesReport(from, to) {
+  await expireOld()
+  const [rows, expenses] = await Promise.all([
+    sb.from('orders').select('*, order_items(*)').gte('delivery_date', from).lte('delivery_date', to).order('created_at').then(check),
+    sb.from('daily_expenses').select('*').gte('date', from).lte('date', to).then(check),
+  ])
+  return { orders: rows.map(({ order_items, ...o }) => ({ ...toOrder(o), items: order_items })), expenses }
 }
 
 export async function setDailyExpense(date, amount, note = '') {

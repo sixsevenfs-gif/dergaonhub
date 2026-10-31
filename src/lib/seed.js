@@ -126,6 +126,7 @@ export function makeSeed() {
     express_on: false, express_fee: 40, express_minutes: 60,
     // Pay now by UPI: the store's UPI ID (set in Admin → Settings). Above cod_limit, UPI first.
     upi_id: '', upi_name: 'Jholzo', cod_limit: 350,
+    upi_pay_minutes: 15, // a "Pay now by UPI" order not paid in this time is cancelled
     // Founder's home in Shantipur, Dergaon: delivery distance is measured from here.
     // Approximate until the exact pin is set in Admin → Settings.
     location: { lat: 26.7, lng: 93.97 },

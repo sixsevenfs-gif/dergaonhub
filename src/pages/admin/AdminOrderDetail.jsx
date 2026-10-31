@@ -84,10 +84,14 @@ export default function AdminOrderDetail() {
           </a>
         </div>
         <p className="mt-3 flex gap-2 text-sm"><MapPin size={16} className="mt-0.5 shrink-0" /> {order.address} · {deliveryWhen(order, store)}</p>
-        {order.location && (
+        {order.location ? (
           <a href={mapsLink(order.location)} target="_blank" rel="noreferrer" className={`${lbtnOutline} mt-2 w-full`}>
             <Navigation size={17} /> Directions in Google Maps · {order.distance_km} km
           </a>
+        ) : (
+          <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">
+            No map pin: the address was typed by hand. Call to confirm the place before delivery.
+          </p>
         )}
         <p className={`mt-2 flex gap-2 text-sm font-semibold ${order.allow_substitute ? 'text-green-700' : 'text-orange-600'}`}>
           <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand is OK' : 'Only this brand'}

@@ -79,7 +79,7 @@ export async function getStore() {
   return clone(db.store)
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'upi_pay_minutes']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -97,7 +97,7 @@ export async function saveStore(data) {
   db.store.per_km_fee = Number(db.store.per_km_fee) || 0
   db.store.min_delivery_fee = Number(db.store.min_delivery_fee) || 0
   db.store.max_delivery_km = Number(db.store.max_delivery_km) || 1
-  for (const k of ['mid_order_fee', 'free_delivery_above', 'express_fee', 'express_minutes', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'cod_limit', 'small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) {
+  for (const k of ['mid_order_fee', 'free_delivery_above', 'express_fee', 'express_minutes', 'upi_pay_minutes', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'cod_limit', 'small_order_below', 'small_order_fee', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from']) {
     if (db.store[k] !== undefined) db.store[k] = Number(db.store[k]) || 0 // fields an older demo store doesn't have stay unset
   }
   commit()
@@ -156,6 +156,14 @@ export async function updateProduct(id, patch) {
   if ('featured' in patch) p.featured = !!patch.featured
   if ('status' in patch) p.status = patch.status
   p.updated_at = now()
+  commit()
+}
+
+// Removes the product for good. Old orders keep the item name and price.
+export async function deleteProduct(id) {
+  productOrFail(id)
+  db.products = db.products.filter((p) => p.id !== id)
+  for (const i of db.order_items) if (i.product_id === id) i.product_id = null
   commit()
 }
 
@@ -355,11 +363,12 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   if (!address.trim()) fail('Enter your address or a landmark.')
   if (!store.delivery_area.includes(area)) fail('Choose your area.')
-  if (!validPoint(location)) fail('Set your home location on the map.')
+  // No location: the address was typed by hand (map not working); the store calls to confirm it.
+  if (location && !validPoint(location)) fail('Set your home location on the map again.')
   const ob = orderer && cleanPhone(orderer.phone) !== ph ? { name: orderer.name.trim(), phone: cleanPhone(orderer.phone) } : null
   if (ob && ob.phone.length !== 10) fail('Enter a valid 10-digit phone number for yourself.')
   if (ob && !ob.name) fail('Enter your name.')
-  const quote = deliveryQuote(store, location)
+  const quote = deliveryQuote(store, location, null, false, { manual: !location })
   if (quote.tooFar) fail(`We are currently not available at your location (${quote.km} km away). We will be available soon!`)
 
   // OTP (when switched on): the ordering number must be verified on this phone.
@@ -392,7 +401,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     if (ex.off) fail('Express delivery is not available right now. Please choose evening delivery.')
     if (!ex.ok) fail('Express delivery is not available at this time. Please choose evening delivery.')
   }
-  const dq = deliveryQuote(store, location, subtotal, !!express)
+  const dq = deliveryQuote(store, location, subtotal, !!express, { manual: !location })
   const fee = dq.eveningFee
   const packaging = packagingFee(store, subtotal)
   let total = Math.round((subtotal + fee + dq.expressFee + packaging) * 100) / 100
@@ -436,7 +445,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const order = {
     id: newId(), order_number: `DG-${db.next_order_number++}`, type: 'delivery',
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
-    address: address.trim(), area, location: { lat: location.lat, lng: location.lng }, distance_km: quote.km,
+    address: address.trim(), area, location: location ? { lat: location.lat, lng: location.lng } : null, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
     orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, total, payment_method, cash_collected: 0,
     payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
@@ -457,6 +466,16 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
 function expireOld() {
   const today = dateStr()
   let changed = false
+  // "Pay now by UPI" still not paid after upi_pay_minutes (same as expire_unpaid_orders() in the database).
+  const payBy = Date.now() - (db.store.upi_pay_minutes ?? 15) * 60000
+  for (const o of db.orders) {
+    if (o.payment_method === 'upi_now' && o.payment_status === 'awaiting' && o.status === 'placed' && new Date(o.created_at).getTime() < payBy) {
+      o.status = 'cancelled'
+      o.cancel_reason = 'Not paid in time'
+      walletOnStatus(o, 'placed')
+      changed = true
+    }
+  }
   for (const o of db.orders) {
     if ((o.status === 'placed' || o.status === 'confirmed') && o.delivery_date < today) {
       const from = o.status
@@ -718,6 +737,16 @@ export async function dailySummary(date) {
   }
 }
 
+// Every order (with its items) and shop spend for delivery days from..to, for the sales report and sheet.
+export async function salesReport(from, to) {
+  expireOld()
+  const orders = db.orders
+    .filter((o) => o.delivery_date >= from && o.delivery_date <= to)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((o) => ({ ...o, items: itemsOf(o.id) }))
+  return clone({ orders, expenses: db.daily_expenses.filter((e) => e.date >= from && e.date <= to) })
+}
+
 export async function setDailyExpense(date, amount, note = '') {
   const value = Number(amount)
   if (!(value >= 0)) fail('Enter a valid amount.')
@@ -923,9 +952,20 @@ export async function submitUpiRef(orderNumber, ref) {
   const r = String(ref ?? '').replace(/\s/g, '')
   if (!/^[0-9A-Za-z]{6,30}$/.test(r)) fail('Enter the UPI Ref No. / UTR shown in your UPI app (usually 12 digits).')
   if (o.payment_status === 'paid') return
+  if (o.status === 'cancelled') {
+    if (o.cancel_reason !== 'Not paid in time') fail('This order is cancelled. Please call us.')
+    // Paid after the timer: the order comes back, and the Jholzo Money given back is used on it again.
+    db.wallet = entries().filter((e) => !(e.order_id === o.id && e.kind === 'refund'))
+    Object.assign(o, { status: 'placed', cancel_reason: '' })
+  }
   o.upi_ref = r
   o.payment_status = 'verifying'
   commit()
+}
+
+// The order page's timer ended: late UPI orders become "Not paid in time".
+export async function expireUnpaid() {
+  expireOld()
 }
 
 export async function setPaymentStatus(orderId, status) {

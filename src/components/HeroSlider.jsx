@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Banknote, Gift, ShoppingCart, Store, Truck, UserPlus, Users } from 'lucide-react'
+import { ArrowRight, Banknote, Store, Truck } from 'lucide-react'
 import { Leaf } from './BrandMark.jsx'
 import { getStore } from '../lib/store.js'
 import { useData } from '../lib/useData.js'
 import { walletRules } from '../lib/wallet.js'
+import { LUCKY_DRAW } from '../config.js'
 
 const AUTO_MS = 4500
 
@@ -45,23 +46,22 @@ function PhotoBanner({ onShop }) {
   )
 }
 
-// Slide 2: Refer & Earn (the gift, coins and phone art comes from the design); a tap opens the wallet page.
+// Slide 2: Refer & Earn, one finished picture (words included); a tap opens the wallet page.
 function ReferBanner() {
   const navigate = useNavigate()
   return (
-    <button type="button" onClick={() => navigate('/wallet')} className="relative block h-full w-full overflow-hidden bg-gradient-to-br from-[#25773E] to-[#145023] text-left" aria-label="Refer and earn Jholzo Money">
-      <img
-        src="/photos/refer-art.webp"
-        alt=""
-        className="absolute right-0 top-0 h-[calc(100%-28px)] w-[46%] object-contain object-right [mask-image:radial-gradient(ellipse_70%_75%_at_58%_52%,black_60%,transparent_100%)]"
-      />
-      <span className="absolute left-0 top-0 flex h-[calc(100%-28px)] w-[58%] flex-col justify-center pl-3.5">
-        <span className={pill}><UserPlus size={13} strokeWidth={2.2} /> Refer & Earn</span>
-        <span className="mt-1 text-[15px] font-bold leading-[1.15] text-white">Share JHOLZO,</span>
-        <span className="text-[17px] font-bold leading-[1.15] text-[#F6C343]">Earn Rewards!</span>
-        <span className={cta}>Invite Now <ArrowRight size={14} /></span>
-      </span>
-      <Strip items={[[Users, 'Invite', 'Friends'], [ShoppingCart, 'They', 'Order'], [Gift, 'You', 'Earn']]} />
+    <button type="button" onClick={() => navigate('/wallet')} className="block h-full w-full overflow-hidden bg-[#1E6B37]" aria-label="Refer and earn Jholzo Money">
+      <img src="/photos/refer-banner.webp" alt="Share JHOLZO, earn rewards. Invite friends, they order, you earn." className="h-full w-full object-cover" />
+    </button>
+  )
+}
+
+// Launch offer slide (first customers can win cash); a tap opens the /lucky-draw page.
+function LuckyDrawBanner() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate('/lucky-draw')} className="block h-full w-full overflow-hidden bg-[#EEF4E6]" aria-label={`First ${LUCKY_DRAW.FIRST} customers: ${LUCKY_DRAW.WINNERS} lucky winners get ₹${LUCKY_DRAW.PRIZE} cash`}>
+      <img src="/photos/lucky-draw-banner.webp" alt="" className="h-full w-full object-cover" />
     </button>
   )
 }
@@ -69,7 +69,7 @@ function ReferBanner() {
 // Home banner: slides change by themselves every few seconds, and can be swiped.
 export default function HeroSlider({ onShop }) {
   const { data: store } = useData(getStore)
-  const slides = [PhotoBanner, ...(walletRules(store).on ? [ReferBanner] : [])]
+  const slides = [...(LUCKY_DRAW.ON ? [LuckyDrawBanner] : []), PhotoBanner, ...(walletRules(store).on ? [ReferBanner] : [])]
   const [index, setIndex] = useState(0)
   const touchX = useRef(null)
   const current = index % slides.length

@@ -24,7 +24,8 @@ export default function Wordmark({ onBrand = false }) {
   const { data: store } = useData(getStore)
   const poweredBy = store?.show_powered_by !== false
   return (
-    <Link to="/" aria-label={`${LEGAL.BRAND} home`} className="flex flex-col pt-1.5">
+    // fromLogo: the home page goes back to its start (no category, search or "All products") even when already on it.
+    <Link to="/" state={{ fromLogo: Date.now() }} onClick={() => window.scrollTo({ top: 0 })} aria-label={`${LEGAL.BRAND} home`} className="flex flex-col pt-1.5">
       <JholzoText onBrand={onBrand} className="text-[26px]" />
       {poweredBy && (
         <span className={`mt-1 whitespace-nowrap text-[7.5px] font-semibold uppercase leading-none tracking-[0.16em] ${onBrand ? 'text-white/65' : 'text-muted'}`}>

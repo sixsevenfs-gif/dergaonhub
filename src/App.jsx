@@ -13,6 +13,7 @@ import Account from './pages/customer/Account.jsx'
 import Wallet from './pages/customer/Wallet.jsx'
 import Report from './pages/customer/Report.jsx'
 import Policy from './pages/customer/Policy.jsx'
+import LuckyDraw from './pages/customer/LuckyDraw.jsx'
 
 import AdminArea from './pages/admin/AdminArea.jsx'
 import AdminHome from './pages/admin/AdminHome.jsx'
@@ -21,6 +22,7 @@ import AdminOrderDetail from './pages/admin/AdminOrderDetail.jsx'
 import DeliverySheet from './pages/admin/DeliverySheet.jsx'
 import DailySummary from './pages/admin/DailySummary.jsx'
 import AdminProducts from './pages/admin/AdminProducts.jsx'
+import TopItems from './pages/admin/TopItems.jsx'
 import AdminComplaints from './pages/admin/AdminComplaints.jsx'
 import AdminCustomers from './pages/admin/AdminCustomers.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
@@ -46,6 +48,7 @@ export default function App() {
         <Route path="/wallet" element={<RequireLogin><Wallet /></RequireLogin>} />
         <Route path="/report/:orderNumber" element={<RequireLogin><Report /></RequireLogin>} />
         <Route path="/policy/:slug" element={<Policy />} />
+        <Route path="/lucky-draw" element={<LuckyDraw />} />
 
         <Route path="/partner" element={<Partner />} />
 
@@ -56,6 +59,7 @@ export default function App() {
           <Route path="delivery" element={<DeliverySheet />} />
           <Route path="summary" element={<DailySummary />} />
           <Route path="products" element={<AdminProducts />} />
+          <Route path="top-items" element={<TopItems />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="waitlist" element={<AdminWaitlist />} />

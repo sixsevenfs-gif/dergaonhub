@@ -96,7 +96,7 @@ export const POLICIES = {
         </P>
         <H>Grievance officer</H>
         <P>
-          {LEGAL.GRIEVANCE_OFFICER}, {LEGAL.COMPANY}, {LEGAL.ADDRESS}. Contact: {contactLine(store)}. We acknowledge
+          {LEGAL.GRIEVANCE_OFFICER || `Customer Support, ${LEGAL.BRAND}`}, {LEGAL.COMPANY}, {LEGAL.ADDRESS}. Contact: {contactLine(store)}. We acknowledge
           complaints within 48 hours and aim to resolve them within one month.
         </P>
       </>

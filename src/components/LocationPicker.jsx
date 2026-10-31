@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { CONFIG } from '../config.js'
 
 const pinIcon = L.divIcon({ className: '', html: '<div class="dh-pin"></div>', iconSize: [32, 42], iconAnchor: [16, 40] })
 
@@ -13,11 +14,14 @@ const same = (a, b) => Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng)
 // fixedPin: the pin stays in the middle and the customer moves the map under it (like Swiggy).
 // here: the phone's own position { lat, lng, accuracy }, drawn as a blue dot.
 // focus: changes when the map must fly to value again, even if value did not change.
-export default function LocationPicker({ value, onChange, start, home, here, focus, fixedPin = false, className = 'h-56' }) {
+// radiusKm: draws the delivery area around the pin as a radar circle (road km, so the circle is radiusKm / ROAD_FACTOR).
+export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, className = 'h-56' }) {
   const box = useRef(null)
   const map = useRef(null)
   const pin = useRef(null)
   const hereLayer = useRef(null)
+  const radiusLayer = useRef(null)
+  const radiusEdge = useRef(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const valueRef = useRef(value)
@@ -103,6 +107,28 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       L.circleMarker([here.lat, here.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#2F80ED', fillOpacity: 1, interactive: false }),
     ]).addTo(map.current)
   }, [here])
+
+  // Delivery area: a filled circle with rings, like a radar, centred on the pin.
+  const centre = value ?? start
+  useEffect(() => {
+    radiusLayer.current?.remove()
+    radiusLayer.current = null
+    radiusEdge.current = null
+    if (!(Number(radiusKm) > 0) || !map.current || !centre) return
+    const r = (Number(radiusKm) / CONFIG.ROAD_FACTOR) * 1000
+    const at = [centre.lat, centre.lng]
+    const edge = L.circle(at, { radius: r, color: '#1F6B3A', weight: 2, dashArray: '8 6', fillColor: '#5FA63F', fillOpacity: 0.14, interactive: false })
+    const rings = [1 / 3, 2 / 3].map((f) => L.circle(at, { radius: r * f, color: '#1F6B3A', weight: 1, opacity: 0.35, fill: false, interactive: false }))
+    radiusLayer.current = L.layerGroup([edge, ...rings]).addTo(map.current)
+    radiusEdge.current = edge
+    // Redrawn only when the distance or the centre point really moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radiusKm, centre?.lat, centre?.lng])
+
+  // Show the whole circle when the distance changes (and when the map opens).
+  useEffect(() => {
+    if (radiusEdge.current && map.current) map.current.fitBounds(radiusEdge.current.getBounds(), { padding: [12, 12] })
+  }, [radiusKm])
 
   if (!fixedPin) return <div ref={box} className={`isolate z-0 w-full overflow-hidden rounded-xl ${className}`} />
 

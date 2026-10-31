@@ -183,8 +183,12 @@ function SettingsForm({ store }) {
           <button type="button" onClick={fetchMyLocation} className={`${lbtnDark} min-h-9 text-sm`}><LocateFixed size={16} /> Use my current location</button>
         </div>
         {locMsg && <p className="text-xs text-neutral-600">{locMsg}</p>}
-        <LocationPicker value={v.location} onChange={(location) => setV({ ...v, location })} start={v.location} className="h-64" />
-        <Field label="Deliver up to (km)" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
+        <LocationPicker value={v.location} onChange={(location) => setV({ ...v, location })} start={v.location} radiusKm={v.max_delivery_km} className="h-72" />
+        <p className="flex items-center gap-2 text-xs text-neutral-600">
+          <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-dashed border-[#1F6B3A] bg-[#5FA63F]/20" />
+          Green circle = where we deliver: up to {v.max_delivery_km || 0} km by road (about {Math.round(((Number(v.max_delivery_km) || 0) / CONFIG.ROAD_FACTOR) * 10) / 10} km straight on the map, since roads bend).
+        </p>
+        <Field label="Deliver up to (km)" hint="Zone 1 = 4 · Zone 2 = 8 · Zone 3 = 12 · the circle changes as you type"><input type="number" min="1" value={v.max_delivery_km} onChange={set('max_delivery_km')} className={lfield} /></Field>
 
         <h3 className="pt-2 font-bold">Evening delivery ({v.slot_start}–{v.slot_end}) by order value</h3>
         {!slabsReady && <p className="text-xs text-orange-700">Run supabase/migrations/018_delivery_express.sql first.</p>}
@@ -301,6 +305,11 @@ function SettingsForm({ store }) {
             <Field label="Your UPI ID" hint="e.g. yourname@okaxis"><input value={v.upi_id ?? ''} onChange={set('upi_id')} placeholder="name@bank" className={lfield} /></Field>
             <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Jholzo" className={lfield} /></Field>
             <Field label="Cash / pay on delivery up to ₹" hint="Bigger orders must pay now by UPI"><input type="number" min="0" value={v.cod_limit ?? 350} onChange={set('cod_limit')} className={lfield} /></Field>
+            {v.upi_pay_minutes !== undefined ? (
+              <Field label="Time to pay (minutes)" hint="Not paid by then: the order is cancelled. 5 to 120."><input type="number" min="5" max="120" value={v.upi_pay_minutes} onChange={set('upi_pay_minutes')} className={lfield} /></Field>
+            ) : (
+              <p className="self-end text-xs text-orange-700">Pay timer: run supabase/migrations/023_upi_pay_timer.sql first.</p>
+            )}
           </div>
         </section>
       )}

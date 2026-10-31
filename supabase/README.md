@@ -94,6 +94,8 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 18. `migrations/019_telegram_notify.sql`: Telegram message to the admin for every new order (Express marked URGENT and pinned) and when a customer submits a UPI UTR. Deploy the function first, see **Telegram order alerts** below.
 19. `migrations/020_security_hardening.sql`: each Telegram alert goes out only once (repeat calls do nothing), and admin, rider and customer functions need a login. Deploy telegram-notify again after running it.
 20. `migrations/021_featured_rank.sql`: the order of "Popular essentials" on the home page (`featured_rank`, 1 shows first).
+21. `migrations/022_manual_address.sql`: customers can order without a map pin (map or location not working): they type the address and pick an area, and you call to confirm.
+22. `migrations/023_upi_pay_timer.sql`: "Pay now by UPI" orders not paid within 15 minutes (Admin → Settings) are cancelled; paying late and entering the UTR brings the order back.
 
 A new database made from the latest `schema.sql` already has all of them.
 
