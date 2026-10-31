@@ -130,14 +130,16 @@ export function downloadBill(data) {
 }
 
 // Opens the phone's share sheet with the PDF (pick WhatsApp and the contact).
-// Returns false where sharing files is not supported (most computers): download it instead.
-export async function shareBill(data, text = '') {
+// Only the file is shared: with a title or text added, WhatsApp on Android drops the PDF and says
+// "Can't send empty message". Returns false where sharing files does not work (most computers,
+// or the share failed): the caller then downloads it or opens WhatsApp with the text bill.
+export async function shareBill(data) {
   const file = new File([billPdf(data).output('blob')], billFileName(data.order), { type: 'application/pdf' })
   if (!navigator.canShare?.({ files: [file] })) return false
   try {
-    await navigator.share({ files: [file], title: `Bill #${data.order.order_number}`, ...(text ? { text } : {}) })
-  } catch {
-    // closed the share sheet
+    await navigator.share({ files: [file] })
+  } catch (err) {
+    if (err?.name !== 'AbortError') return false // AbortError = the share sheet was closed
   }
   return true
 }

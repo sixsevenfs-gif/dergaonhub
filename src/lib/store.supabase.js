@@ -645,8 +645,9 @@ const partnerCall = async (fn, args) => {
 
 export const setDispatch = (id, dispatch) => partnerCall('partner_set_dispatch', { p_order_id: id, p_dispatch: dispatch })
 // photo: storage path from uploadDeliveryPhoto (required by the database).
+// p_cash is a whole-rupee number in the database (₹119.80 would fail); the database stores the order's exact total itself.
 export const partnerComplete = (id, cash, photo) =>
-  partnerCall('partner_complete', { p_order_id: id, p_cash: cash == null ? null : Number(cash) || 0, p_photo: photo ?? '' })
+  partnerCall('partner_complete', { p_order_id: id, p_cash: cash == null ? null : Math.round(Number(cash) || 0), p_photo: photo ?? '' })
 
 // Photo of the items at the door (data URL from the camera), saved in the private "deliveries" bucket.
 export async function uploadDeliveryPhoto(orderId, photoUrl) {

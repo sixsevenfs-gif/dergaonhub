@@ -110,9 +110,6 @@ function SavedPhoto({ path }) {
 const loadPdf = () => import('../../lib/billPdf.js')
 
 // Short message that goes with the PDF.
-const billCaption = (o) =>
-  `Jholzo bill #${o.order_number} · Total ${rupee(o.total)} · Paid by ${o.payment_method === 'cash' ? 'cash' : 'UPI'}. Thank you!`
-
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 
 // Items ticked while shopping, remembered on this phone.
@@ -225,7 +222,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const deliver = async () => {
     setError('')
     const pdf = await loadPdf()
-    const shared = await pdf.shareBill({ order: doneOrder, items: o.items, store }, billCaption(doneOrder))
+    const shared = await pdf.shareBill({ order: doneOrder, items: o.items, store })
     try {
       await partnerComplete(o.id, isCash ? o.total : 0, photo)
       logMessage(o.id, 'delivered').catch(() => {})
