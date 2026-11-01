@@ -20,6 +20,7 @@ export function deliveryRules(store) {
     smallBelow: n(store?.small_order_below, 99), smallFee: n(store?.small_order_fee, 40),
     midFee: n(store?.mid_order_fee, 11), freeAbove: n(store?.free_delivery_above, 299),
     expressOn: !!store?.express_on, expressFee: n(store?.express_fee, 40), expressMinutes: n(store?.express_minutes, 60),
+    expressFrom: store?.express_from || '10:00', expressUntil: store?.express_until || '16:00',
   }
 }
 
@@ -56,16 +57,15 @@ export function deliveryQuote(store, point, subtotal = null, express = false, { 
 export const expressTimeText = (minutes) =>
   minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? '' : 's'}` : `${minutes} min`
 
-// Express can be chosen while it is switched on, from opening time until express_minutes before closing,
-// for an items total of at least the small-order limit (₹99). Same rule as the database (update 026).
+// Express can be chosen while it is switched on, only between express_from and express_until
+// (Admin → Settings, 10 AM – 4 PM by default), for an items total of at least the small-order limit (₹99).
+// At other times orders go to the evening slot. Same rule as the database (update 027).
 export function expressStatus(store, now = new Date(), subtotal = null) {
   const r = deliveryRules(store)
   if (!r.expressOn || store.paused) return { ok: false, off: true }
   if (subtotal != null && subtotal < r.smallBelow) return { ok: false, off: false, minOrder: r.smallBelow }
   const mins = now.getHours() * 60 + now.getMinutes()
-  const last = toMinutes(store.close_time) - r.expressMinutes
-  const lastTime = `${String(Math.floor(last / 60)).padStart(2, '0')}:${String(last % 60).padStart(2, '0')}`
-  if (mins < toMinutes(store.open_time) || mins > last) return { ok: false, off: false, from: store.open_time, until: lastTime }
+  if (mins < toMinutes(r.expressFrom) || mins >= toMinutes(r.expressUntil)) return { ok: false, off: false, from: r.expressFrom, until: r.expressUntil }
   return { ok: true, minutes: r.expressMinutes }
 }
 

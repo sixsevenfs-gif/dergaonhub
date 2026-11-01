@@ -12,7 +12,7 @@ const eveningCharges = (store) => {
 }
 const expressLine = (store) => {
   const r = deliveryRules(store)
-  return `Express delivery (when available): within ${expressTimeText(r.expressMinutes)} for ${rupee(r.expressFee)} extra.`
+  return `Express delivery (when available, ${fmtTime(r.expressFrom)} – ${fmtTime(r.expressUntil)}): within ${expressTimeText(r.expressMinutes)} for ${rupee(r.expressFee)} extra. Orders at other times come in the evening slot.`
 }
 import { H, P, UL } from '../components/Prose.jsx'
 

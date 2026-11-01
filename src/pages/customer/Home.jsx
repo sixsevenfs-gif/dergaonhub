@@ -8,7 +8,7 @@ import BottomNav from '../../components/BottomNav.jsx'
 import HeroSlider from '../../components/HeroSlider.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
-import { deliveryQuote, deliveryRules, expressTimeText } from '../../lib/delivery.js'
+import { deliveryQuote, deliveryRules, expressStatus, expressTimeText } from '../../lib/delivery.js'
 import ProductCard, { ProductTile } from '../../components/ProductCard.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { CATEGORY_ART, categoryTint } from '../../lib/categoryLook.js'
@@ -194,7 +194,7 @@ export default function Home() {
               <Truck size={16} className="shrink-0 text-brand" />
               <span>
                 <b className="font-semibold text-brand">FREE delivery</b> on {rupee(deliveryRules(store).freeAbove)}+ · {fmtTime(store.slot_start)}–{fmtTime(store.slot_end)}
-                {deliveryRules(store).expressOn && <> · <b className="font-semibold text-[#B7791F]">⚡ Express in {expressTimeText(deliveryRules(store).expressMinutes)}</b></>}
+                {deliveryRules(store).expressOn && <> · <b className="font-semibold text-[#B7791F]">⚡ Express {expressStatus(store).ok ? `in ${expressTimeText(deliveryRules(store).expressMinutes)}` : `${fmtTime(deliveryRules(store).expressFrom)} – ${fmtTime(deliveryRules(store).expressUntil)}`}</b></>}
               </span>
             </p>
           )}

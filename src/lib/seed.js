@@ -123,7 +123,7 @@ export function makeSeed() {
     // Evening delivery: ₹40 below ₹99, ₹11 up to ₹298, FREE from ₹299 (see eveningFee).
     small_order_below: 99, small_order_fee: 40, mid_order_fee: 11, free_delivery_above: 299,
     // Express: within express_minutes for express_fee extra (switch on in Admin → Settings when a rider is free).
-    express_on: false, express_fee: 40, express_minutes: 60,
+    express_on: false, express_fee: 40, express_minutes: 60, express_from: '10:00', express_until: '16:00',
     // Pay now by UPI: the store's UPI ID (set in Admin → Settings). Above cod_limit, UPI first.
     upi_id: '', upi_name: 'Jholzo', cod_limit: 350,
     upi_pay_minutes: 15, // a "Pay now by UPI" order not paid in this time is cancelled

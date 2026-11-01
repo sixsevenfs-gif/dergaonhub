@@ -82,6 +82,7 @@ const toStore = (r) => ({
   ...r,
   open_time: hm(r.open_time), close_time: hm(r.close_time), cutoff_time: hm(r.cutoff_time),
   slot_start: hm(r.slot_start), slot_end: hm(r.slot_end),
+  ...(r.express_from === undefined ? {} : { express_from: hm(r.express_from), express_until: hm(r.express_until) }), // after 027
   max_delivery_km: Number(r.max_delivery_km),
   pack_mid_from: Number(r.pack_mid_from ?? 500), pack_high_from: Number(r.pack_high_from ?? 1000),
   pack_fee_low: Number(r.pack_fee_low ?? 0), pack_fee_mid: Number(r.pack_fee_mid ?? 0), pack_fee_high: Number(r.pack_fee_high ?? 0),
@@ -145,6 +146,7 @@ export async function saveStore(data) {
       express_minutes: Math.min(240, Math.max(15, wholeRupees(data.express_minutes) || 60)),
     }), // after 018
     ...(data.upi_id === undefined ? {} : { upi_id: upiId(data.upi_id), upi_name: (data.upi_name ?? '').trim(), cod_limit: Math.max(0, Number(data.cod_limit) || 0) }), // after 015
+    ...(data.express_from === undefined ? {} : { express_from: data.express_from || '10:00', express_until: data.express_until || '16:00' }), // after 027
     ...(data.upi_pay_minutes === undefined ? {} : { upi_pay_minutes: Math.min(120, Math.max(5, wholeRupees(data.upi_pay_minutes) || 15)) }), // after 023
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     updated_at: now(),
