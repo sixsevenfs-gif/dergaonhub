@@ -287,7 +287,39 @@ export async function customerSignIn(phone, name = '', verified = false) {
   if (ph.length !== 10) fail('Enter a valid 10-digit phone number.')
   await session()
   const me = currentCustomer()
-  return saveProfile({ phone: ph, name: name.trim() || me?.name || '', verified: verified || (me?.phone === ph && !!me?.verified) })
+  const profile = saveProfile({ phone: ph, name: name.trim() || me?.name || '', verified: verified || (me?.phone === ph && !!me?.verified) })
+  await recordLogin(profile)
+  return profile
+}
+
+// Admin → Logins (update 025): each number once. Never blocks the login; before 025 it does nothing.
+async function recordLogin(profile) {
+  const { error } = await sb.rpc('record_login', { p_phone: profile.phone, p_name: profile.name })
+  if (error) return
+  try {
+    localStorage.setItem(CUSTOMER_KEY, JSON.stringify({ ...profile, recorded: true }))
+  } catch {
+    // saved again on the next visit
+  }
+}
+
+// Customers who logged in before update 025 (or whose save failed) are saved on their next visit.
+export async function recordVisit() {
+  const me = currentCustomer()
+  if (!me?.phone || me.recorded) return
+  await session()
+  await recordLogin(me)
+}
+
+// Everyone who logged in, newest first, with how many orders (not cancelled) each number has placed.
+export async function adminSignups() {
+  const [rows, orders] = await Promise.all([
+    sb.from('signups').select('*').order('first_at', { ascending: false }).then(check),
+    sb.from('orders').select('customer_phone, ordered_by_phone').neq('status', 'cancelled').then(check),
+  ])
+  const count = {}
+  for (const o of orders) for (const ph of new Set([o.customer_phone, o.ordered_by_phone].filter(Boolean))) count[ph] = (count[ph] ?? 0) + 1
+  return rows.map((r) => ({ ...r, orders: count[r.phone] ?? 0 }))
 }
 
 export async function updateMyName(name) {

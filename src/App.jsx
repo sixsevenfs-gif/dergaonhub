@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { recordVisit } from './lib/store.js'
 import CartProvider from './lib/CartProvider.jsx'
 
 import Home from './pages/customer/Home.jsx'
@@ -28,12 +30,17 @@ import AdminComplaints from './pages/admin/AdminComplaints.jsx'
 import AdminCustomers from './pages/admin/AdminCustomers.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
 import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
+import AdminLogins from './pages/admin/AdminLogins.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
 
 // One grocery store: the customer site, /admin for the founder and /partner for the delivery riders.
 export default function App() {
+  // A customer already logged in on this phone is added to Admin → Logins once.
+  useEffect(() => {
+    recordVisit().catch(() => {})
+  }, [])
   return (
     <CartProvider>
       {/* Opening day: covers the customer site until LAUNCH_AT (config.js). */}
@@ -65,6 +72,7 @@ export default function App() {
           <Route path="top-items" element={<TopItems />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="logins" element={<AdminLogins />} />
           <Route path="waitlist" element={<AdminWaitlist />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

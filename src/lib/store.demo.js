@@ -223,8 +223,24 @@ export async function customerSignIn(phone, name = '', verified = false) {
   } catch {
     fail('Could not save your login in this browser.')
   }
+  const at = new Date().toISOString()
+  const old = (db.signups ?? []).find((s) => s.phone === ph)
+  db.signups = [
+    old ? { ...old, name: session.name || old.name, verified: old.verified || session.verified, last_at: at, logins: old.logins + 1 }
+      : { phone: ph, name: session.name, verified: session.verified, first_at: at, last_at: at, logins: 1 },
+    ...(db.signups ?? []).filter((s) => s.phone !== ph),
+  ]
+  commit()
   notify()
   return session
+}
+
+export async function recordVisit() {}
+
+export async function adminSignups() {
+  const count = {}
+  for (const o of db.orders.filter((x) => x.status !== 'cancelled')) count[o.customer_phone] = (count[o.customer_phone] ?? 0) + 1
+  return [...(db.signups ?? [])].sort((a, b) => b.first_at.localeCompare(a.first_at)).map((s) => ({ ...s, orders: count[s.phone] ?? 0 }))
 }
 
 // Customer changes their name on My account; past orders keep the name they were placed with.

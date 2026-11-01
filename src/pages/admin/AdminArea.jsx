@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogOut, MessageSquareWarning, Package, Settings, TrendingUp, Truck, Users, X } from 'lucide-react'
+import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, Settings, TrendingUp, Truck, Users, X } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
 import { adminSession, adminSignOut, adminStats } from '../../lib/store.js'
@@ -16,6 +16,7 @@ const NAV = [
   ['/admin/top-items', 'Top items', null, TrendingUp],
   ['/admin/complaints', 'Complaints', 'openComplaints', MessageSquareWarning],
   ['/admin/customers', 'Customers', null, Users],
+  ['/admin/logins', 'Logins', null, LogIn],
   ['/admin/waitlist', 'Waitlist', 'waitlist', ListChecks],
   ['/admin/settings', 'Settings', null, Settings],
 ]
