@@ -179,3 +179,32 @@ registration needed on your side). It stays off until you switch it on in Admin 
 5. **Admin → Settings → Phone OTP for new phones → on → Save changes.**
 
 At most 5 OTPs per hour go to one number or one phone, so nobody can run up the bill.
+
+### MSG91 instead of Message Central
+
+The same `phone-otp` function sends through MSG91's OTP widget when the secret `MSG91_WIDGET_TOKEN` is set
+(MSG91 → OTP → Widgets → your widget → Client Side Integration → `tokenAuth`), and checks the code with
+`MSG91_AUTHKEY` (MSG91 → Authkey, IP security off). In the widget settings keep **Captcha off** (the server
+calls MSG91, not the browser) and give the token a throttle that fits the whole site (all calls come from
+Supabase's IP). Remove `MSG91_WIDGET_TOKEN` to go back to Message Central. Until MSG91 KYC is done, MSG91
+sends its own demo text instead of the real message.
+
+## App notifications (Android app)
+
+The Jholzo Android app (folder `jholzo-android` next to this project) shows a notification when an order
+is confirmed, on the way, arriving, delivered, cancelled, or its UPI payment is accepted. The database
+calls the `push-notify` function, which sends through Firebase Cloud Messaging to every phone that logged
+in with that number.
+
+1. https://console.firebase.google.com → **Add project** (name: Jholzo; Google Analytics not needed).
+2. In the project: **Add app → Android**, package name `com.jholzo.app` → **Register** → download
+   `google-services.json` and put it in `jholzo-android/app/`. Rebuild the app.
+3. **Project settings → Service accounts → Generate new private key** → a JSON file downloads. Keep it
+   private (never commit or share it). In a terminal in this project:
+   ```
+   npx supabase secrets set FCM_SERVICE_ACCOUNT="$(cat ~/Downloads/<the-file>.json)" --project-ref <project ref>
+   npx supabase functions deploy push-notify --no-verify-jwt --project-ref <project ref> --use-api
+   ```
+   Then delete the downloaded JSON file.
+4. Supabase → **SQL Editor** → paste `migrations/028_push_notifications.sql` → **Run**.
+5. Test: log in on the app, place an order, confirm it in Admin: the phone should get "Order confirmed ✅".
