@@ -167,7 +167,7 @@ export default function Checkout() {
     else setForm(update)
   }
   // Express (within the hour) only while it is switched on and open; otherwise the evening slot.
-  const ex = expressStatus(store)
+  const ex = expressStatus(store, new Date(), subtotal)
   const express = wantExpress && ex.ok
   const dRules = deliveryRules(store)
   const quote = deliveryQuote(store, manual ? null : location, subtotal, express, { manual })
@@ -433,7 +433,7 @@ export default function Checkout() {
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">Express · within {expressTimeText(dRules.expressMinutes)}</span>
                 <span className="block text-xs text-muted">
-                  {ex.ok ? 'A rider brings it straight to you' : ex.off ? 'Not available right now' : `Available ${fmtTime(ex.from)} – ${fmtTime(ex.until)}`}
+                  {ex.ok ? 'A rider brings it straight to you' : ex.off ? 'Not available right now' : ex.minOrder ? `For orders of ${rupee(ex.minOrder)} or more` : `Available ${fmtTime(ex.from)} – ${fmtTime(ex.until)}`}
                 </span>
               </span>
               <span className="shrink-0 text-sm font-semibold">+{rupee(dRules.expressFee)}</span>

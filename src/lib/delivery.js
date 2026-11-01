@@ -56,10 +56,12 @@ export function deliveryQuote(store, point, subtotal = null, express = false, { 
 export const expressTimeText = (minutes) =>
   minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? '' : 's'}` : `${minutes} min`
 
-// Express can be chosen while it is switched on, from opening time until express_minutes before closing.
-export function expressStatus(store, now = new Date()) {
+// Express can be chosen while it is switched on, from opening time until express_minutes before closing,
+// for an items total of at least the small-order limit (₹99). Same rule as the database (update 026).
+export function expressStatus(store, now = new Date(), subtotal = null) {
   const r = deliveryRules(store)
   if (!r.expressOn || store.paused) return { ok: false, off: true }
+  if (subtotal != null && subtotal < r.smallBelow) return { ok: false, off: false, minOrder: r.smallBelow }
   const mins = now.getHours() * 60 + now.getMinutes()
   const last = toMinutes(store.close_time) - r.expressMinutes
   const lastTime = `${String(Math.floor(last / 60)).padStart(2, '0')}:${String(last % 60).padStart(2, '0')}`

@@ -413,8 +413,9 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (subtotal < store.min_order) fail(`Minimum order is ${rupee(store.min_order)}.`)
   // Evening charge by items total; Express (within an hour) adds its charge (see deliveryQuote).
   if (express) {
-    const ex = expressStatus(store)
+    const ex = expressStatus(store, new Date(), subtotal)
     if (ex.off) fail('Express delivery is not available right now. Please choose evening delivery.')
+    if (ex.minOrder) fail(`Express delivery is for orders of ${rupee(ex.minOrder)} or more. Please choose evening delivery.`)
     if (!ex.ok) fail('Express delivery is not available at this time. Please choose evening delivery.')
   }
   const dq = deliveryQuote(store, location, subtotal, !!express, { manual: !location })
