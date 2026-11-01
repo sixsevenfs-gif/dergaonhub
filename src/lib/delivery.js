@@ -86,27 +86,54 @@ export const mapsLink = (p) => `https://www.google.com/maps/dir/?api=1&destinati
 export const validPoint = (p) =>
   !!p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180
 
-// Browser location. Resolves to { lat, lng } or rejects with a message for the customer.
-export function currentPosition() {
+// GPS reading accuracy (metres) we trust as "on the door", and the worst we accept at all.
+// Phones first answer from Wi-Fi / mobile towers / internet, which can be 100 m to 300 km off;
+// those readings are thrown away and we keep listening for the real GPS fix.
+export const GPS_GOOD_M = 25
+export const GPS_WORST_M = 150
+const GPS_WAIT_MS = 20000
+
+// Browser location: listens to the phone's GPS for up to 20 seconds and keeps the most accurate
+// reading. Resolves to { lat, lng, accuracy } as soon as a reading is within GPS_GOOD_M, or with the
+// best reading within GPS_WORST_M when time is up. Never uses a remembered (old) position.
+// onProgress(accuracy) is called with each better reading, to show "±40 m" while it improves.
+export function currentPosition({ onProgress } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Location is not available on this phone/browser. Please place the pin on the map.'))
       return
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      (err) =>
-        reject(
-          Object.assign(
-            new Error(
-              err.code === 1
-                ? 'Location permission was not given. Drag the pin to your home on the map.'
-                : 'Could not get your location. Drag the pin to your home on the map.',
-            ),
-            { denied: err.code === 1 },
-          ),
-        ),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    let best = null
+    let done = false
+    const finish = (fn) => {
+      if (done) return
+      done = true
+      navigator.geolocation.clearWatch(watch)
+      clearTimeout(timer)
+      fn()
+    }
+    const fail = (message, extra = {}) => finish(() => reject(Object.assign(new Error(message), extra)))
+    const watch = navigator.geolocation.watchPosition(
+      (pos) => {
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 99999) }
+        if (!validPoint(p) || (best && p.accuracy >= best.accuracy)) return
+        best = p
+        onProgress?.(p.accuracy)
+        if (p.accuracy <= GPS_GOOD_M) finish(() => resolve(p))
+      },
+      (err) => {
+        if (err.code === 1) fail('Location permission was not given. Drag the pin to your home on the map.', { denied: true })
+        // Other errors (no signal yet) can recover: keep listening until the time is up.
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: GPS_WAIT_MS },
     )
+    const timer = setTimeout(() => {
+      if (best && best.accuracy <= GPS_WORST_M) finish(() => resolve(best))
+      else fail('Could not get an exact GPS location. Turn on Location (GPS) in your phone, step outside or near a window and try again, or move the map to put the pin on your door.', { weak: true })
+    }, GPS_WAIT_MS)
   })
 }
+
+// Text for the customer about how exact the phone's location was.
+export const accuracyText = (m) =>
+  m <= GPS_GOOD_M ? `Exact location found (±${m} m). Check the pin is on your door.` : `Approximate location (±${m} m). Move the map so the pin is exactly on your door.`

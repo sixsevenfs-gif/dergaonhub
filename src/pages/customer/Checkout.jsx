@@ -13,7 +13,7 @@ import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
 import { cleanPhone, fmtTime, nameProblem, phoneProblem, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
-import { currentPosition, deliveryQuote, deliveryRules, expressStatus, expressTimeText, packagingFee, validPoint } from '../../lib/delivery.js'
+import { GPS_GOOD_M, accuracyText, currentPosition, deliveryQuote, deliveryRules, expressStatus, expressTimeText, packagingFee, validPoint } from '../../lib/delivery.js'
 import { getSavedDetails, getSavedLocation, getSavedReceiver, placeName, saveDetails, saveLocation, saveReceiver } from '../../lib/customerLocation.js'
 
 function InputRow({ icon: Icon, label, children, action }) {
@@ -95,6 +95,7 @@ export default function Checkout() {
   const setLocation = (p) => (other ? setTheirLocation(p) : setMyLocation(p))
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
+  const [accuracy, setAccuracy] = useState(null) // ±metres of the last phone location (while finding: best so far)
   // Map or phone location not working: type the address and pick an area instead (we call to confirm).
   const [manual, setManual] = useState(false)
   const [payment, setPayment] = useState('cash')
@@ -112,15 +113,23 @@ export default function Checkout() {
   const locate = async () => {
     setLocating(true)
     setLocError('')
+    setAccuracy(null)
     try {
-      const p = await currentPosition()
+      const p = await currentPosition({ onProgress: setAccuracy })
       setHere(p)
+      setAccuracy(p.accuracy)
       setLocation({ lat: p.lat, lng: p.lng })
       setFocus((n) => n + 1)
     } catch (err) {
-      setLocError(err.denied ? 'Location is off for this site. Move the map to put the pin on the home.' : 'Could not find your location. Move the map to put the pin on the home.')
+      setAccuracy(null)
+      setLocError(err.denied ? 'Location is off for this site. Move the map to put the pin on the home.' : err.message)
     }
     setLocating(false)
+  }
+  // Moving the map by hand: the pin is now where the customer put it, not the phone's reading.
+  const setLocationByHand = (p) => {
+    setAccuracy(null)
+    setLocation(p)
   }
 
   // Ask for the phone's location as soon as checkout opens (unless one was saved last time).
@@ -369,7 +378,7 @@ export default function Checkout() {
           <>
           <div className="relative overflow-hidden rounded-2xl border border-line">
             {/* A new map when switching between me and them, so each starts at its own pin. */}
-            <LocationPicker key={forWho} value={location} onChange={setLocation} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-60 [&_.leaflet-bottom]:mb-0" />
+            <LocationPicker key={forWho} value={location} onChange={setLocationByHand} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-60 [&_.leaflet-bottom]:mb-0" />
             <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
               <p className="rounded-lg bg-ink/90 px-3 py-1 text-center text-[11px] text-white shadow-lg">
                 Move the map to place the pin on {other ? 'their' : 'your'} door
@@ -381,10 +390,13 @@ export default function Checkout() {
               disabled={locating}
               className="absolute bottom-7 left-1/2 z-10 flex h-10 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-xs font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] disabled:opacity-80"
             >
-              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} /> {locating ? 'Finding you...' : other ? 'I am at their home' : 'Use current location'}
+              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} /> {locating ? (accuracy ? `Getting exact location... ±${accuracy} m` : 'Finding you...') : other ? 'I am at their home' : 'Use current location'}
             </button>
           </div>
           {locError && <p className="px-1 text-xs text-orange-700">{locError}</p>}
+          {!locating && !locError && accuracy != null && (
+            <p className={cx('px-1 text-xs', accuracy <= GPS_GOOD_M ? 'text-emerald-700' : 'font-semibold text-orange-700')}>{accuracyText(accuracy)}</p>
+          )}
           <button
             type="button"
             onClick={() => setManual(true)}

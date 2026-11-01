@@ -72,6 +72,8 @@ export const cleanPhone = (p) => String(p ?? '').replace(/\D/g, '').slice(-10)
 // Same rules as the database (update 024): a real name and an Indian mobile number. '' when fine.
 export function nameProblem(name) {
   const n = String(name ?? '').trim()
+  // Plain code-point ranges (Bengali, Devanagari) on purpose, same as the database check.
+  // eslint-disable-next-line no-misleading-character-class
   if (/\d/.test(n) || (n.match(/[A-Za-z\u0980-\u09FF\u0900-\u097F]/g) ?? []).length < 2) return 'Enter your full name (letters only).'
   return ''
 }

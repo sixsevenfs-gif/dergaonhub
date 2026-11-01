@@ -3,7 +3,7 @@ import { ArrowLeft, CircleCheck, LocateFixed, MapPin } from 'lucide-react'
 import LocationPicker from './LocationPicker.jsx'
 import OutOfArea from './OutOfArea.jsx'
 import { btnAccent } from './ui.js'
-import { currentPosition, deliveryQuote } from '../lib/delivery.js'
+import { GPS_GOOD_M, accuracyText, currentPosition, deliveryQuote } from '../lib/delivery.js'
 import { getSavedLocation, placeName, saveLocation } from '../lib/customerLocation.js'
 
 // Full-screen location page: the pin stays in the middle and the customer moves the map under it.
@@ -16,19 +16,28 @@ export default function LocationSheet({ store, onClose }) {
   const [label, setLabel] = useState(saved?.label ?? null)
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
+  const [accuracy, setAccuracy] = useState(null) // ±metres of the phone's location (while finding: best so far)
 
   const locate = async () => {
     setBusy(true)
     setStatus('')
+    setAccuracy(null)
     try {
-      const p = await currentPosition()
+      const p = await currentPosition({ onProgress: setAccuracy })
       setHere(p)
+      setAccuracy(p.accuracy)
       setPoint({ lat: p.lat, lng: p.lng })
       setFocus((n) => n + 1)
     } catch (err) {
-      setStatus(err.denied ? 'Location is turned off for this site. Allow it in your browser, or move the map to your home.' : 'Could not find your location. Move the map to put the pin on your home.')
+      setAccuracy(null)
+      setStatus(err.denied ? 'Location is turned off for this site. Allow it in your browser, or move the map to your home.' : err.message)
     }
     setBusy(false)
+  }
+  // Moving the map by hand: the pin is where the customer put it, not the phone's reading.
+  const movePin = (p) => {
+    setAccuracy(null)
+    setPoint(p)
   }
 
   // First time (nothing saved yet): go to the phone's location straight away.
@@ -64,7 +73,7 @@ export default function LocationSheet({ store, onClose }) {
         </header>
 
         <div className="relative min-h-0 flex-1">
-          <LocationPicker value={point} onChange={setPoint} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-full [&_.leaflet-bottom]:mb-4" />
+          <LocationPicker value={point} onChange={movePin} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-full [&_.leaflet-bottom]:mb-4" />
 
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
             <p className="rounded-lg bg-ink/90 px-3 py-1.5 text-center text-xs leading-snug text-white shadow-lg">
@@ -78,12 +87,15 @@ export default function LocationSheet({ store, onClose }) {
             disabled={busy}
             className="absolute bottom-8 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-sm font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] active:scale-[.98] disabled:opacity-80"
           >
-            <LocateFixed size={17} className={busy ? 'animate-pulse' : ''} /> {busy ? 'Finding you...' : 'Use current location'}
+            <LocateFixed size={17} className={busy ? 'animate-pulse' : ''} /> {busy ? (accuracy ? `Getting exact location... ±${accuracy} m` : 'Finding you...') : 'Use current location'}
           </button>
         </div>
 
         <div className="relative z-10 -mt-4 shrink-0 rounded-t-3xl border-t border-line bg-card px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5">
           {status && <p className="mb-3 rounded-xl bg-orange-500/10 px-3 py-2 text-sm text-orange-700">{status}</p>}
+          {!busy && !status && accuracy != null && (
+            <p className={`mb-3 rounded-xl px-3 py-2 text-sm ${accuracy <= GPS_GOOD_M ? 'bg-emerald-500/10 text-emerald-700' : 'bg-orange-500/10 font-semibold text-orange-700'}`}>{accuracyText(accuracy)}</p>
+          )}
 
           {point && quote.tooFar ? (
             <OutOfArea location={point} label={label ?? ''} km={quote.km} compact />
