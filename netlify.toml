@@ -8,7 +8,8 @@
   remote_images = ["https://nyzwehemganasxwcxeai\\.supabase\\.co/storage/v1/object/public/.*"]
 
 # Every address opens the app (it shows the right page); real files such as /policy/about.html come first.
-# Here and not in public/_redirects, because Cloudflare Pages does this on its own and rejects that rule.
+# public/_redirects says the same for Netlify (Cloudflare Pages does this on its own and skips that rule).
+# Netlify still answers for jholzo.com wherever old DNS is cached, until the old nameservers expire.
 [[redirects]]
   from = "/*"
   to = "/index.html"

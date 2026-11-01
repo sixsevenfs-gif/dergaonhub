@@ -161,6 +161,7 @@ Deno.serve(async (req) => {
         body = { message: err instanceof Error ? err.message : String(err) }
       }
       if (!verificationId) {
+        console.error(`OTP send failed (${provider()}):`, JSON.stringify(body).slice(0, 500)) // shows in Supabase → Functions → phone-otp → Logs
         if (await sendFailed(db, String(body?.message ?? body?.responseCode ?? 'no reply'))) return json({ skip: true })
         return json({ error: 'Could not send the OTP. Please try again.' }, 502)
       }
@@ -183,6 +184,7 @@ Deno.serve(async (req) => {
           return json({ verified: true })
         }
         const why = String(body?.message ?? '')
+        console.error('OTP verify failed (MSG91):', JSON.stringify(body).slice(0, 300))
         const error = /expire/i.test(why) ? 'The OTP has expired. Please send a new one.'
           : /match|invalid|incorrect|wrong/i.test(why) ? 'Wrong OTP. Please check and try again.'
           : 'Could not verify the OTP. Please try again.'
