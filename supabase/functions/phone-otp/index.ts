@@ -1,16 +1,25 @@
-// Phone OTP with Message Central VerifyNow (no DLT needed). The site calls it with the customer's own
-// login: { action: 'send', phone } sends a 4-digit SMS code, { action: 'verify', phone, code } checks it
-// and marks the number verified for that phone browser (verified_phones).
+// Phone OTP. The site calls it with the customer's own login: { action: 'send', phone } sends a 4-digit
+// SMS code, { action: 'verify', phone, code } checks it and marks the number verified for that phone
+// browser (verified_phones). The SMS goes through MSG91's OTP widget (its own approved template, no DLT
+// of ours) when MSG91_WIDGET_TOKEN is set, otherwise through Message Central VerifyNow.
 //
 // Credits (update 024): each SMS takes one off store_settings.otp_credits_left, and Telegram warns at
 // otp_alert_at, 10 and 0. If sending fails 3 times within 15 minutes (balance over, service down), OTP
 // switches itself off so customers can still order, and Telegram says so.
 //
 // Deploy:  npx supabase functions deploy phone-otp --project-ref <your project ref>
-// Secrets: npx supabase secrets set MC_CUSTOMER_ID=C-XXXXXXXX MC_PASSWORD=<your Message Central password> --project-ref <ref>
+// Secrets (MSG91):  MSG91_WIDGET_TOKEN (widget token, "tokenAuth"), MSG91_AUTHKEY (server auth key),
+//                   MSG91_WIDGET_ID (optional, defaults to the Jholzo widget below).
+//   In MSG91 the widget's Captcha must be OFF (calls come from this server, not the browser), and the
+//   token's throttle limit must allow the whole site (all calls come from Supabase's IP).
+// Secrets (Message Central, used when MSG91_WIDGET_TOKEN is not set): MC_CUSTOMER_ID, MC_PASSWORD.
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
 
 const API = 'https://cpaas.messagecentral.com'
+const MSG91 = 'https://control.msg91.com/api/v5'
+const MSG91_WIDGET_ID = Deno.env.get('MSG91_WIDGET_ID') || '366b61704230383430383031'
+const useMsg91 = () => !!Deno.env.get('MSG91_WIDGET_TOKEN')
+const provider = () => (useMsg91() ? 'MSG91' : 'Message Central')
 const MAX_PER_HOUR = 5 // OTPs per phone browser and per number, so nobody can run up the bill
 
 const cors = {
@@ -39,6 +48,30 @@ async function authToken(): Promise<string> {
   return token
 }
 
+// MSG91 OTP widget API (same calls the widget makes in a browser). Replies { type: 'success' | 'error', message, ... }.
+async function msg91(path: string, body: Record<string, unknown>) {
+  const tokenAuth = Deno.env.get('MSG91_WIDGET_TOKEN') ?? ''
+  const res = await fetch(`${MSG91}/${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', tokenAuth },
+    body: JSON.stringify({ widgetId: MSG91_WIDGET_ID, tokenAuth, ...body }),
+  })
+  return (await res.json().catch(() => ({}))) as Record<string, any>
+}
+
+// The JWT from widget/verifyOtp, checked again with our server auth key (so a forged reply can't pass).
+async function msg91TokenOk(accessToken: string) {
+  const authkey = Deno.env.get('MSG91_AUTHKEY')
+  if (!authkey) return true
+  const res = await fetch(`${MSG91}/widget/verifyAccessToken`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ authkey, 'access-token': accessToken }),
+  })
+  const body = await res.json().catch(() => ({}))
+  return body?.type === 'success'
+}
+
 // A message to the founder's Telegram (same bot and chat as the order alerts). Never throws.
 async function telegram(text: string) {
   const bot = Deno.env.get('TELEGRAM_BOT_TOKEN')
@@ -62,8 +95,8 @@ async function creditUsed(db: Db) {
   await db.from('store_settings').update({ otp_credits_left: left, otp_failures: 0 }).eq('id', 1)
   if (left === s.otp_alert_at || left === 10 || left === 0) {
     await telegram(left === 0
-      ? '🔴 Jholzo OTP: credits khatam (0 left). Message Central me abhi recharge karo, phir Admin → Settings me "OTP credits left" update karo.'
-      : `⚠️ Jholzo OTP: sirf ${left} OTP bache hain. Message Central me recharge kar lo, phir Admin → Settings me naya number daalo.`)
+      ? `🔴 Jholzo OTP: credits khatam (0 left). ${provider()} me abhi recharge karo, phir Admin → Settings me "OTP credits left" update karo.`
+      : `⚠️ Jholzo OTP: sirf ${left} OTP bache hain. ${provider()} me recharge kar lo, phir Admin → Settings me naya number daalo.`)
   }
 }
 
@@ -80,7 +113,7 @@ async function sendFailed(db: Db, reason: string) {
     ...(off ? { otp_required: false, otp_auto_off: true } : {}),
   }).eq('id', 1)
   if (off) {
-    await telegram(`🔴 Jholzo OTP band ho gaya (SMS nahi ja raha: ${reason}). Customers ab bina OTP order kar sakte hain.\nMessage Central balance check / recharge karo, phir Admin → Settings me "Phone OTP" wapas ON karo.`)
+    await telegram(`🔴 Jholzo OTP band ho gaya (SMS nahi ja raha: ${reason}). Customers ab bina OTP order kar sakte hain.\n${provider()} balance check / recharge karo, phir Admin → Settings me "Phone OTP" wapas ON karo.`)
   }
   return off
 }
@@ -112,22 +145,28 @@ Deno.serve(async (req) => {
       // OTP switched itself off earlier (service down): let the customer through without an SMS.
       const { data: store } = await db.from('store_settings').select('otp_required').eq('id', 1).maybeSingle()
       if (store && !store.otp_required) return json({ skip: true })
-      const q = new URLSearchParams({ countryCode: '91', flowType: 'SMS', mobileNumber: phone, otpLength: '4' })
       let body: Record<string, any> = {}
+      let verificationId: unknown
       try {
-        const res = await fetch(`${API}/verification/v3/send?${q}`, { method: 'POST', headers: { authToken: await authToken() } })
-        body = await res.json().catch(() => ({}))
+        if (useMsg91()) {
+          body = await msg91('widget/sendOtp', { identifier: `91${phone}` })
+          if (body?.type === 'success') verificationId = body.reqId ?? body.message
+        } else {
+          const q = new URLSearchParams({ countryCode: '91', flowType: 'SMS', mobileNumber: phone, otpLength: '4' })
+          const res = await fetch(`${API}/verification/v3/send?${q}`, { method: 'POST', headers: { authToken: await authToken() } })
+          body = await res.json().catch(() => ({}))
+          verificationId = body?.data?.verificationId
+        }
       } catch (err) {
         body = { message: err instanceof Error ? err.message : String(err) }
       }
-      const verificationId = body?.data?.verificationId
       if (!verificationId) {
         if (await sendFailed(db, String(body?.message ?? body?.responseCode ?? 'no reply'))) return json({ skip: true })
         return json({ error: 'Could not send the OTP. Please try again.' }, 502)
       }
       await db.from('otp_requests').insert({ user_id: userId, phone, verification_id: String(verificationId) })
       await creditUsed(db)
-      return json({ sent: true, timeout: Number(body?.data?.timeout) || 60 })
+      return json({ sent: true, timeout: Number(body?.data?.timeout) || (useMsg91() ? 30 : 60) })
     }
 
     if (action === 'verify') {
@@ -136,6 +175,19 @@ Deno.serve(async (req) => {
         .eq('user_id', userId).eq('phone', phone).gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
         .order('created_at', { ascending: false }).limit(1).maybeSingle()
       if (!last) return json({ error: 'The OTP has expired. Please send a new one.' }, 400)
+      if (useMsg91()) {
+        const body = await msg91('widget/verifyOtp', { reqId: last.verification_id, otp: String(code) })
+        const accessToken = body?.['access-token'] ?? body?.message
+        if (body?.type === 'success' && accessToken && await msg91TokenOk(String(accessToken))) {
+          await db.from('verified_phones').upsert({ user_id: userId, phone })
+          return json({ verified: true })
+        }
+        const why = String(body?.message ?? '')
+        const error = /expire/i.test(why) ? 'The OTP has expired. Please send a new one.'
+          : /match|invalid|incorrect|wrong/i.test(why) ? 'Wrong OTP. Please check and try again.'
+          : 'Could not verify the OTP. Please try again.'
+        return json({ verified: false, error }, 400)
+      }
       const q = new URLSearchParams({ verificationId: last.verification_id, code: String(code) })
       const res = await fetch(`${API}/verification/v3/validateOtp?${q}`, { headers: { authToken: await authToken() } })
       const body = await res.json().catch(() => ({}))

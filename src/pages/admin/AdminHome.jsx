@@ -47,8 +47,8 @@ export default function AdminHome() {
         <Link to="/admin/settings" className={`${lcard} flex items-center justify-between gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-800`}>
           <span>
             {stats.otpOff
-              ? <><b>OTP is off</b>: SMS could not be sent, customers are ordering without OTP. Recharge Message Central, then turn OTP on.</>
-              : <><b>Only {stats.otpLeft} OTPs left.</b> Recharge Message Central, then update the count in Settings.</>}
+              ? <><b>OTP is off</b>: SMS could not be sent, customers are ordering without OTP. Recharge the SMS account (MSG91), then turn OTP on.</>
+              : <><b>Only {stats.otpLeft} OTPs left.</b> Recharge the SMS account (MSG91), then update the count in Settings.</>}
           </span>
           <ChevronRight size={18} className="shrink-0" />
         </Link>

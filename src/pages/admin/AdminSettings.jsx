@@ -291,7 +291,7 @@ function SettingsForm({ store }) {
           <b>Phone OTP for new phones</b>
           <span className="block text-neutral-500">
             The first time a number orders (or logs in to "My orders") on a phone, we send a 4-digit SMS code. After that
-            it is not asked again on that phone. Turn on only after the Message Central account and the phone-otp
+            it is not asked again on that phone. Turn on only after the SMS account (MSG91) and the phone-otp
             function are set up (supabase/README.md), or customers can't order.
           </span>
           {v.otp_required === undefined && !DEMO_MODE && <span className="mt-1 block text-xs text-orange-700">Run supabase/migrations/016_phone_otp.sql first.</span>}
@@ -303,7 +303,7 @@ function SettingsForm({ store }) {
         {v.otp_auto_off && !v.otp_required && (
           <p className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
             OTP switched itself off because SMS could not be sent (balance over or service down). Customers are ordering without OTP.
-            Recharge Message Central, then turn it on again and Save.
+            Recharge the SMS account (MSG91), then turn it on again and Save.
           </p>
         )}
         {v.otp_credits_left !== undefined && (
