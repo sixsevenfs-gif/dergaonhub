@@ -215,26 +215,16 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
     }
   }
 
-  const collected = isCash ? o.total : 0
-  const doneOrder = { ...o, status: 'completed', cash_collected: collected, completed_at: new Date().toISOString() }
-  // On a phone: the bill goes as a PDF file through the share sheet (pick WhatsApp and the customer).
-  // Where files can't be shared (most computers), WhatsApp opens with the text bill instead.
-  const deliver = async () => {
-    setError('')
-    const pdf = await loadPdf()
-    const shared = await pdf.shareBill({ order: doneOrder, items: o.items, store })
-    try {
-      await partnerComplete(o.id, isCash ? o.total : 0, photo)
-      logMessage(o.id, 'delivered').catch(() => {})
-    } catch (err) {
-      setError(err.message)
-      return
-    }
-    if (!shared) window.open(waLink(toWa(o.customer_phone), billMessage({ order: doneOrder, items: o.items })), '_blank')
-  }
+  // Delivered first, then the bill goes as a WhatsApp text message (with the PDF link) from a plain link.
+  // Sharing the PDF file to WhatsApp often fails on Android ("Can't send empty message"), so it is only the
+  // second option below.
+  const deliver = run(async () => {
+    await partnerComplete(o.id, isCash ? o.total : 0, photo)
+  })
+  const billSent = !!sent('delivered')
 
   return (
-    <article className={`${card} overflow-hidden ${done ? 'opacity-70' : ''}`}>
+    <article className={`${card} overflow-hidden ${done && billSent ? 'opacity-70' : ''}`}>
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 p-4 text-left">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -354,7 +344,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                   onClick={deliver}
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1FAF54] px-4 text-[15px] font-semibold text-ink active:scale-[.99]"
                 >
-                  <WhatsAppIcon size={18} /> Delivered + send bill (PDF)
+                  <Check size={18} /> Delivered
                 </button>
               ) : (
                 <p className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 text-sm text-muted">
@@ -366,12 +356,23 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
 
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
           {done && (
+            <a
+              href={waLink(toWa(o.customer_phone), billMessage({ order: o, items: o.items }))}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => logMessage(o.id, 'delivered').catch(() => {})}
+              className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold active:scale-[.99] ${billSent ? 'border border-[#1FAF54]/60 text-[#3ddc84]' : 'bg-[#1FAF54] text-ink'}`}
+            >
+              <WhatsAppIcon size={18} /> {billSent ? 'Send bill again on WhatsApp' : 'Send bill on WhatsApp'}
+            </a>
+          )}
+          {done && (
             <button type="button" onClick={run(async () => {
               const pdf = await loadPdf()
               const data = { order: o, items: o.items, store }
               if (!(await pdf.shareBill(data))) pdf.downloadBill(data)
-            })} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#1FAF54]/60 text-sm font-semibold text-[#3ddc84]">
-              <FileText size={17} /> Share bill PDF (WhatsApp)
+            })} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold text-muted">
+              <FileText size={16} /> Share bill as PDF file
             </button>
           )}
 
