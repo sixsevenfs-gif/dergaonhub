@@ -6,3 +6,10 @@
 # Product photos from Supabase may go through Netlify's image service: smaller WebP, cached (src/lib/img.js).
 [images]
   remote_images = ["https://nyzwehemganasxwcxeai\\.supabase\\.co/storage/v1/object/public/.*"]
+
+# Every address opens the app (it shows the right page); real files such as /policy/about.html come first.
+# Here and not in public/_redirects, because Cloudflare Pages does this on its own and rejects that rule.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
