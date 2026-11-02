@@ -120,9 +120,9 @@ Pay-now UPI orders get their confirmation from you after the payment check. One 
    phone number for the store. It must not be in use on the WhatsApp app (a new SIM is simplest).
 2. **Message templates → Create**, category **Utility**, language **English**, these three
    (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
-   - `order_confirmed`: Hello {{1}}, your Jholzo order #{{2}} is confirmed ✅ It will be delivered {{3}}. Total: {{4}}. Thank you for shopping with Jholzo!
-   - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
-   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Jholzo order #{{2}} 📍 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
+   - `order_confirmed`: Hello {{1}}, your Jholzo order #{{2}} is confirmed ✅ It will be delivered {{3}}. Total: {{4}}. We will call you once before packing your order. For help, call or WhatsApp us at 9181061864. Thank you for shopping with Jholzo!
+   - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready. For help, call us at 9181061864.
+   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Jholzo order #{{2}} 📍 Please keep {{3}} ready. For help, call us at 9181061864.
 3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
    access token (Business settings → System users → Generate token, permission
    `whatsapp_business_messaging`).
