@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, Repeat, Smartphone, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
 import ItemPhoto from '../../components/ItemPhoto.jsx'
 import {
-  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
+  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
 } from '../../lib/store.js'
 import { compressImage } from '../../lib/image.js'
 import { fmtClock, isExpress, rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { stageOf } from './stage.js'
+import UpiQr from './UpiQr.jsx'
 
 const STAGES = {
   new: ['Waiting for confirm', 'bg-orange-500/15 text-orange-700'],
@@ -135,6 +136,28 @@ function usePicked(orderId) {
   return [picked, toggle]
 }
 
+// "Customer paid by QR", remembered on this phone until Delivered (taking the photo can reload the page).
+function usePaidByQr(orderId) {
+  const key = `dergaonhub-qr-${orderId}`
+  const [paid, setPaid] = useState(() => {
+    try {
+      return localStorage.getItem(key) === '1'
+    } catch {
+      return false
+    }
+  })
+  const set = (on) => {
+    setPaid(on)
+    try {
+      if (on) localStorage.setItem(key, '1')
+      else localStorage.removeItem(key)
+    } catch {
+      // storage blocked: it lasts until the page reloads
+    }
+  }
+  return [paid, set]
+}
+
 // Sends one message to the customer. Automatic (WhatsApp API) when it is switched on,
 // otherwise WhatsApp opens with the text ready and the rider taps Send.
 // It is a link in that case (not a script) so phones never block WhatsApp from opening.
@@ -195,6 +218,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const done = stage === 'done'
   const [open, setOpen] = useState(!done)
   const [picked, toggle] = usePicked(o.id)
+  const [byQr, setByQr] = usePaidByQr(o.id)
+  const [showQr, setShowQr] = useState(false)
   const [error, setError] = useState('')
   const [photo, setPhoto] = useState('') // storage path of the delivery photo
   useEffect(() => {
@@ -220,7 +245,10 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   // Sharing the PDF file to WhatsApp often fails on Android ("Can't send empty message"), so it is only the
   // second option below.
   const deliver = run(async () => {
-    await partnerComplete(o.id, isCash ? o.total : 0, photo)
+    // Paid by QR: a cash order becomes "UPI on delivery" first (update 031), so it is not counted as cash the
+    // rider must hand over. Before update 031 that call fails and the order is saved as cash, as before.
+    if (byQr && isCash) await partnerPaidByQr(o.id).catch(() => {})
+    await partnerComplete(o.id, isCash && !byQr ? o.total : 0, photo)
   })
   const billSent = !!sent('delivered')
 
@@ -237,8 +265,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold">{rupee(o.total)}</div>
-          <div className={`text-xs font-semibold ${done || paidOnline ? 'text-emerald-700' : payNow ? (o.payment_status === 'failed' ? 'text-red-700' : 'text-amber-700') : isCash ? 'text-orange-700' : 'text-sky-700'}`}>
-            {paidOnline ? 'Paid online ✓' : done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : payNow ? (o.payment_status === 'failed' ? 'NOT PAID' : 'Payment checking') : isCash ? 'Collect cash' : 'UPI'}
+          <div className={`text-xs font-semibold ${done || paidOnline || byQr ? 'text-emerald-700' : payNow ? (o.payment_status === 'failed' ? 'text-red-700' : 'text-amber-700') : isCash ? 'text-orange-700' : 'text-sky-700'}`}>
+            {paidOnline ? 'Paid online ✓' : done ? (isCash ? 'Cash received ✓' : 'Paid by UPI ✓') : byQr ? 'Paid by QR ✓' : payNow ? (o.payment_status === 'failed' ? 'NOT PAID' : 'Payment checking') : isCash ? 'Collect cash' : 'UPI'}
           </div>
         </div>
         <ChevronDown size={20} className={`mt-1 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -333,11 +361,37 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                     ? `NOT PAID: collect ${rupee(o.total)} before handing over, or call the admin.`
                     : `Payment of ${rupee(o.total)} is being checked by the admin. Call the admin before handing over.`}
                 </p>
+              ) : byQr ? (
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-base font-semibold text-emerald-700">
+                  <Check size={19} /> Paid {rupee(o.total)} by QR
+                </p>
               ) : (
                 <p className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-base font-semibold ${isCash ? 'border-orange-400/40 bg-orange-500/10 text-orange-700' : 'border-sky-400/40 bg-sky-500/10 text-sky-700'}`}>
                   {isCash ? <Banknote size={19} /> : <Smartphone size={19} />}
                   {isCash ? `Collect ${rupee(o.total)} cash` : `Collect ${rupee(o.total)} by UPI`}
                 </p>
+              )}
+              {/* Exact-amount UPI QR for the customer to scan, instead of a personal GPay QR (no ₹82.80 → ₹82). */}
+              {!payNow && store.upi_id && (
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowQr(true)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-black/[0.03] px-3 text-[15px] font-semibold active:scale-[.99]">
+                    <QrCode size={18} /> {byQr ? 'Show QR again' : `Show QR · ${rupee(o.total)}`}
+                  </button>
+                  {byQr && (
+                    <button type="button" onClick={() => setByQr(false)} className="min-h-12 rounded-xl border border-line px-4 text-sm font-semibold text-muted">
+                      Undo
+                    </button>
+                  )}
+                </div>
+              )}
+              {showQr && (
+                <UpiQr
+                  order={o} store={store} onClose={() => setShowQr(false)}
+                  onPaid={() => {
+                    setByQr(true)
+                    setShowQr(false)
+                  }}
+                />
               )}
               <PhotoStep orderId={o.id} photo={photo} onPhoto={setPhoto} onError={setError} />
               {photo ? (

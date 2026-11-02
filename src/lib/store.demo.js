@@ -890,6 +890,13 @@ export async function partnerComplete(id, cash, photo) {
   await completeOrder(id, cash)
 }
 
+// Customer paid by the UPI QR at the door: the cash order becomes UPI on delivery (like update 031).
+export async function partnerPaidByQr(id) {
+  const o = orderOrFail(id)
+  if (o.status === 'confirmed' && o.payment_method === 'cash') o.payment_method = 'upi'
+  commit()
+}
+
 // Demo: the (small) photo itself is kept with the order.
 export const uploadDeliveryPhoto = async (orderId, photoUrl) => photoUrl
 export const deliveryPhotoUrl = async (path) => path || ''
