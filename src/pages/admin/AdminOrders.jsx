@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Phone, Truck } from 'lucide-react'
+import { CalendarDays, Phone, Truck } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { PaymentBadge } from './PaymentCheck.jsx'
@@ -8,7 +8,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
 import { adminListOrders, confirmOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
+import { addDays, dateStr, dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 
 const FILTERS = [
@@ -16,7 +16,26 @@ const FILTERS = [
   ['confirmed', 'Confirmed'],
   ['completed', 'Delivered'],
   ['cancelled', 'Cancelled'],
+  ['all', 'All'],
 ]
+
+// Which day's orders to show, by the day they were placed.
+const DAYS = [
+  ['all', 'All days'],
+  ['today', 'Today'],
+  ['yesterday', 'Yesterday'],
+]
+
+const placedDay = (o) => dateStr(new Date(o.created_at))
+
+// "Sun, 2 Nov"
+function longDay(day) {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+// Today / Yesterday / Tomorrow are said too; other days only as "Fri, 30 Oct".
+const near = (day) => ['Today', 'Yesterday', 'Tomorrow'].includes(dayLabel(day))
 
 function beep() {
   try {
@@ -36,6 +55,7 @@ function beep() {
 
 export default function AdminOrders() {
   const [filter, setFilter] = useState('placed')
+  const [day, setDay] = useState('all') // 'all', 'today', 'yesterday' or a date like 2026-11-02
   const { data: orders = [], reload } = useData(adminListOrders)
   const seen = useRef(null)
 
@@ -51,13 +71,50 @@ export default function AdminOrders() {
     seen.current = new Set(ids)
   }, [orders])
 
-  const shown = orders.filter((o) => o.status === filter)
-  const count = (s) => orders.filter((o) => o.status === s).length
+  const today = dateStr()
+  const dayKey = day === 'today' ? today : day === 'yesterday' ? addDays(today, -1) : day
+  const dayOrders = day === 'all' ? orders : orders.filter((o) => placedDay(o) === dayKey)
+  const shown = dayOrders.filter((o) => filter === 'all' || o.status === filter)
+  const count = (s) => dayOrders.filter((o) => s === 'all' || o.status === s).length
+  // New orders hidden by the chosen day must not be missed.
+  const newElsewhere = day === 'all' ? 0 : orders.filter((o) => o.status === 'placed' && placedDay(o) !== dayKey).length
+  // Newest first, so orders of one day sit together: one heading per day.
+  const groups = []
+  for (const o of shown) {
+    const d = placedDay(o)
+    if (groups.at(-1)?.day !== d) groups.push({ day: d, orders: [] })
+    groups.at(-1).orders.push(o)
+  }
+  const chip = (on) => `h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`
 
   return (
     <div>
       <h1 className="text-2xl font-black">Orders</h1>
       <p className="text-sm text-neutral-500">New order: call the customer, confirm, then pack it from the store.</p>
+      <div className="-mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+        {DAYS.map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setDay(key)} className={chip(day === key)}>{label}</button>
+        ))}
+        <label className={`${chip(/^\d{4}-/.test(day))} flex items-center gap-1.5`}>
+          <CalendarDays size={16} />
+          <input
+            type="date"
+            value={/^\d{4}-/.test(day) ? day : ''}
+            max={today}
+            onChange={(e) => setDay(e.target.value || 'all')}
+            aria-label="Pick a day"
+            className="bg-transparent text-sm font-semibold outline-none [color-scheme:light]"
+          />
+        </label>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-neutral-700">
+        {day === 'all' ? 'Showing all days' : `Showing orders placed ${near(dayKey) ? `${dayLabel(dayKey)}, ` : ''}${longDay(dayKey)}`}
+      </p>
+      {newElsewhere > 0 && (
+        <button type="button" onClick={() => setDay('all')} className="mt-2 w-full rounded-xl bg-accent px-3 py-2 text-left text-sm font-semibold text-ink">
+          {newElsewhere} new order{newElsewhere === 1 ? '' : 's'} on other days · show all days
+        </button>
+      )}
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
         {FILTERS.map(([key, label]) => (
           <button
@@ -72,12 +129,20 @@ export default function AdminOrders() {
       </div>
 
       <div className="mt-4 space-y-3">
-        {shown.map((o) => (
+        {groups.map((g) => {
+          const amount = g.orders.filter((o) => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total || 0), 0)
+          return (
+          <section key={g.day} className="space-y-3">
+            <h2 className="sticky top-14 z-[1] -mx-4 flex items-baseline justify-between bg-neutral-100/95 px-4 py-2 backdrop-blur sm:top-[6.25rem]">
+              <span className="font-black">{near(g.day) ? <>{dayLabel(g.day)} <span className="font-semibold text-neutral-500">· {longDay(g.day)}</span></> : longDay(g.day)}</span>
+              <span className="text-sm text-neutral-600">{g.orders.length} order{g.orders.length === 1 ? '' : 's'}{amount > 0 && <> · <b className="text-neutral-900">{rupee(amount)}</b></>}</span>
+            </h2>
+        {g.orders.map((o) => (
           <div key={o.id} className={`${lcard} p-4 ${o.status === 'placed' ? 'border-2 border-neutral-900 shadow-[0_0_0_4px_#E8FF3A]' : ''}`}>
             <Link to={`/admin/orders/${o.id}`} className="block">
               <div className="flex items-center justify-between">
                 <span className="flex flex-wrap items-center gap-2 font-bold">#{o.order_number} <StatusBadge status={o.status} /> <PaymentBadge order={o} /></span>
-                <span className="text-sm text-neutral-500">{fmtClock(o.created_at)}</span>
+                <span className="text-sm text-neutral-500">Placed {fmtClock(o.created_at)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <span>
@@ -90,7 +155,7 @@ export default function AdminOrders() {
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
-                <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express by {fmtClock(o.express_by)}</b> : dayLabel(o.delivery_date)}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
+                <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
               </p>
               {o.status === 'cancelled' && <p className="mt-1 text-sm text-neutral-500">Reason: {o.cancel_reason}</p>}
               <div className="mt-1"><CustomerHint hint={o.hint} /></div>
@@ -106,9 +171,12 @@ export default function AdminOrders() {
             )}
           </div>
         ))}
+          </section>
+          )
+        })}
         {!shown.length && (
           <p className="py-10 text-center text-neutral-500">
-            {filter === 'placed' ? 'No new orders. New orders show up here with a sound.' : 'No orders here.'}
+            {filter === 'placed' ? 'No new orders. New orders show up here with a sound.' : day === 'all' ? 'No orders here.' : 'No orders here on this day.'}
           </p>
         )}
       </div>
