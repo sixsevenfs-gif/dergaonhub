@@ -112,13 +112,15 @@ Without any setup, the rider page opens WhatsApp with the message ready and the 
 Send (free). The "order placed" message is sent the same way from the order page in Admin.
 
 To send them automatically (no tap), connect the **WhatsApp Cloud API** (Meta). Meta charges
-a small fee per message. One time:
+a small fee per message. Then "order confirmed" goes out by itself the moment an order is saved
+(the database sends it, update 036), and the rider's "On the way" / "Arriving" go out when tapped.
+Pay-now UPI orders get their confirmation from you after the payment check. One time:
 
 1. https://business.facebook.com → create a Business account → **WhatsApp Manager** → add a
-   phone number for the store (it must not be in use on the WhatsApp app).
+   phone number for the store. It must not be in use on the WhatsApp app (a new SIM is simplest).
 2. **Message templates → Create**, category **Utility**, language **English**, these three
    (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
-   - `order_placed`: Hello {{1}}, your Jholzo order #{{2}} is placed successfully ✅ It will be delivered {{3}}. Total: {{4}}. Thank you!
+   - `order_confirmed`: Hello {{1}}, your Jholzo order #{{2}} is confirmed ✅ It will be delivered {{3}}. Total: {{4}}. Thank you for shopping with Jholzo!
    - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
    - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Jholzo order #{{2}} 📍 You will get it in 10–15 minutes. Please keep {{3}} ready (cash or UPI).
 3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
@@ -128,10 +130,12 @@ a small fee per message. One time:
    ```
    npx supabase login
    npx supabase secrets set WA_TOKEN=<token> WA_PHONE_ID=<phone number id> --project-ref <project ref>
-   npx supabase functions deploy notify-whatsapp --project-ref <project ref>
+   npx supabase functions deploy notify-whatsapp --no-verify-jwt --use-api --project-ref <project ref>
    ```
    (The project ref is the part before `.supabase.co` in your Supabase URL.)
-5. **Admin → Settings → Automatic WhatsApp messages → on → Save changes.**
+5. Supabase → **SQL Editor** → paste `migrations/036_whatsapp_auto.sql` → **Run**.
+6. **Admin → Settings → Automatic WhatsApp messages → on → Save changes.**
+7. Place a test order with your own number: "order confirmed" should arrive within a few seconds.
 
 If an automatic message fails (for example a template is not approved yet), the rider page
 says so and offers the WhatsApp button instead. Every message is listed under the order.

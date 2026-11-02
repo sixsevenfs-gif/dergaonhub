@@ -1,14 +1,15 @@
 // Sends a WhatsApp message to the customer automatically (WhatsApp Cloud API by Meta).
-// The site calls it after an order is placed, and when the rider taps "On the way" / "Arriving".
+// "Order confirmed": the database calls it the moment an order is saved (update 036), with no login.
+// "On the way" / "Arriving": the rider page calls it when the rider taps, with the rider's login.
 // It does nothing until the admin turns on "Automatic WhatsApp" in Admin → Settings.
 //
-// Deploy:  npx supabase functions deploy notify-whatsapp --project-ref <your project ref>
+// Deploy:  npx supabase functions deploy notify-whatsapp --no-verify-jwt --use-api --project-ref <your project ref>
 // Secrets: npx supabase secrets set WA_TOKEN=... WA_PHONE_ID=...
 // Templates (approved in Meta → WhatsApp Manager): see supabase/README.md.
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
 
 const TEMPLATES: Record<string, string> = {
-  placed: 'order_placed',
+  placed: 'order_confirmed',
   on_the_way: 'rider_on_the_way',
   arriving: 'rider_arriving',
 }
@@ -50,7 +51,6 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     })
     const { data: auth } = await caller.auth.getUser()
-    if (!auth.user) return json({ error: 'Please log in again.' }, 401)
     const db = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     let query = db.from('orders').select('*')
@@ -58,14 +58,21 @@ Deno.serve(async (req) => {
     const { data: o } = await query.maybeSingle()
     if (!o) return json({ error: 'Order not found.' }, 404)
 
-    // A customer may only trigger "placed" for their own order; the rest needs a rider or the admin.
-    const { data: staff } = await caller.rpc('is_staff')
-    const allowed = kind === 'placed' ? o.placed_by === auth.user.id || staff : staff
-    if (!allowed) return json({ error: 'Not allowed.' }, 403)
+    // "Order confirmed" may come from the database (no login) or the order's own customer; it goes out once
+    // per order, so calling it again does nothing. The rider messages need a rider or the admin.
+    const staff = auth.user ? (await caller.rpc('is_staff')).data : false
+    const allowed = kind === 'placed' ? !auth.user || o.placed_by === auth.user.id || staff : staff
+    if (!allowed) return json({ error: auth.user ? 'Not allowed.' : 'Please log in again.' }, auth.user ? 403 : 401)
 
     const { data: store } = await db.from('store_settings').select('*').eq('id', 1).single()
     if (!store?.whatsapp_auto) return json({ sent: false, reason: 'off' })
 
+    if (kind === 'placed') {
+      // Claim the order's one "confirmed" message (update 036) before sending.
+      const { data: claimed, error: claimError } = await db.from('orders').update({ wa_placed_sent: true })
+        .eq('id', o.id).eq('wa_placed_sent', false).select('id')
+      if (!claimError && !claimed?.length) return json({ sent: true, already: true })
+    }
     // One automatic message of each kind per order, so a double tap never sends twice.
     const { count } = await db.from('order_messages').select('id', { count: 'exact', head: true })
       .eq('order_id', o.id).eq('kind', kind).eq('channel', 'auto').eq('ok', true)
@@ -94,7 +101,9 @@ Deno.serve(async (req) => {
     })
     const body = await res.json().catch(() => ({}))
     const error = res.ok ? '' : body?.error?.message ?? `WhatsApp error ${res.status}`
-    await db.from('order_messages').insert({ order_id: o.id, kind, channel: 'auto', ok: res.ok, error, sent_by: auth.user.id })
+    // Not sent (template not approved yet, wrong number...): free the claim so it can be tried again.
+    if (!res.ok && kind === 'placed') await db.from('orders').update({ wa_placed_sent: false }).eq('id', o.id)
+    await db.from('order_messages').insert({ order_id: o.id, kind, channel: 'auto', ok: res.ok, error, sent_by: auth.user?.id ?? null })
     return json(res.ok ? { sent: true } : { sent: false, error }, res.ok ? 200 : 502)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)

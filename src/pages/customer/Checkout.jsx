@@ -6,7 +6,7 @@ import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
-import { codAllowed, currentCustomer, customerSignIn, myWallet, nextDeliveryDate, phoneVerified, placeOrder, sendAutoMessage } from '../../lib/store.js'
+import { codAllowed, currentCustomer, customerSignIn, myWallet, nextDeliveryDate, phoneVerified, placeOrder } from '../../lib/store.js'
 import { clearRefCode, savedRefCode, walletRules, walletToUse } from '../../lib/wallet.js'
 import OtpSheet from '../../components/OtpSheet.jsx'
 import { useData } from '../../lib/useData.js'
@@ -280,7 +280,6 @@ export default function Checkout() {
         saveDetails({ ...form, address })
       }
       // "Order placed" on WhatsApp, if the admin has switched on automatic messages. It never blocks the order.
-      if (store.whatsapp_auto) sendAutoMessage({ orderNumber: order.order_number, kind: 'placed' })
       // The phone of the person ordering becomes the login, so "My orders" works right away.
       await customerSignIn(form.phone, form.name)
       setPlaced(order.order_number)

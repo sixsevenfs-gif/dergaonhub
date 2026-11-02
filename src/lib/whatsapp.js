@@ -47,7 +47,7 @@ export function customerMessage(kind, { order, store }) {
   if (kind === 'placed') {
     const orderer = order.ordered_by_phone ? order.ordered_by_name.split(' ')[0] || 'there' : name
     return [
-      `Hello ${orderer}, your Jholzo order #${order.order_number}${order.ordered_by_phone ? ` for ${order.customer_name}` : ''} is placed successfully ✅`,
+      `Hello ${orderer}, your Jholzo order #${order.order_number}${order.ordered_by_phone ? ` for ${order.customer_name}` : ''} is confirmed ✅`,
       `It will be delivered ${deliveryWords(order, store)}. Total: ${total}.`,
       '',
       `Track your order: ${trackUrl(order)}`,
