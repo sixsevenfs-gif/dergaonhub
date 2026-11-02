@@ -15,7 +15,7 @@ import { waLink } from '../../lib/whatsapp.js'
 
 const STEPS = [
   ['placed', 'Placed', 'We have received your order'],
-  ['confirmed', 'Confirmed', 'Confirmed, arriving this evening'],
+  ['confirmed', 'Confirmed', 'Confirmed. We call you once before packing'],
   ['on_the_way', 'On the way', 'Our rider is coming to you'],
   ['completed', 'Delivered', 'Delivered. Thank you!'],
 ]
@@ -44,6 +44,9 @@ function CancelOrder({ order, mine }) {
       {asking ? (
         <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3">
           <p className="text-sm">Cancel order #{order.order_number}?</p>
+          {order.payment_method !== 'upi_now' && (
+            <p className="mt-1 text-xs font-medium text-red-700">If Cash on Delivery orders from this number are cancelled 2 times, the number is permanently blocked from ordering.</p>
+          )}
           <div className="mt-2 flex gap-2">
             <button type="button" onClick={cancel} className="h-11 flex-1 rounded-xl bg-red-500 font-semibold text-ink">Yes, cancel</button>
             <button type="button" onClick={() => setAsking(false)} className={`${btnOutline} flex-1`}>Keep order</button>

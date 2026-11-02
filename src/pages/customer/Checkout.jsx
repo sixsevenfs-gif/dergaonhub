@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { ArrowLeft, BadgePercent, Banknote, BookUser, Building2, Clock, Gift, Hash, House, Keyboard, Landmark, LocateFixed, MapPin, Phone, PhoneCall, Repeat, Route, Smartphone, Ticket, User, UserRound, WalletMinimal, Zap } from 'lucide-react'
+import { ArrowLeft, BadgePercent, Banknote, BookUser, Building2, Clock, Gift, Hash, House, Keyboard, Landmark, LocateFixed, MapPin, Phone, PhoneCall, Repeat, Route, Smartphone, Ticket, TriangleAlert, User, UserRound, WalletMinimal, Zap } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import GlassTabs from '../../components/GlassTabs.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -161,7 +161,7 @@ export default function Checkout() {
   // Real delivery day: a full evening moves orders to the next free day.
   const { data: deliveryDay } = useData(nextDeliveryDate)
 
-  // Repeated no-shows on these numbers take away cash on delivery (the database checks this again).
+  // A number blocked (2 cancelled orders, update 037) can't order; the database checks this again.
   const [codOk, setCodOk] = useState(true)
   const phonesKey = forWho === 'other' ? `${receiver.phone}|${form.phone}` : form.phone
   useEffect(() => {
@@ -209,12 +209,11 @@ export default function Checkout() {
   const total = Math.round((fullTotal - walletUse) * 100) / 100
   // Invite code box: only for a number with no orders yet (the database checks this again).
   const showInvite = !!wallet && rules.on && (wallet.locked || (!wallet.has_orders && !wallet.referred))
-  // Pay now by UPI needs the store's UPI ID and UPI switched on (Settings, update 035); above cod_limit it is
-  // the only way to pay. With UPI off, Cash on Delivery works for any amount (the database agrees).
+  // Pay now by UPI needs the store's UPI ID and UPI switched on (Settings, update 035). Cash on Delivery
+  // works for any amount (update 037).
   const upiOn = store.upi_on !== false
   const canPayNow = !!store.upi_id && upiOn
-  const overLimit = upiOn && store.cod_limit != null && total > store.cod_limit
-  const method = overLimit ? 'upi_now' : payment === 'upi_now' && !canPayNow ? 'cash' : payment
+  const method = payment === 'upi_now' && !canPayNow ? 'cash' : payment
   const firstName = receiver.name.trim().split(' ')[0]
 
   const fromContacts = async () => {
@@ -501,20 +500,13 @@ export default function Checkout() {
 
         <section className={`${card} space-y-2 p-3`}>
           <h2 className="px-1 pt-1 font-semibold">Payment method</h2>
-          {overLimit && (
-            <p className="px-1 text-xs text-brand">
-              {canPayNow
-                ? `Orders above ${rupee(store.cod_limit)} are paid now by UPI.`
-                : `Orders above ${rupee(store.cod_limit)} need online payment, which is not available right now. Please remove a few items or call us.`}
-            </p>
-          )}
           {[
-            ...(store.upi_id ? [['upi_now', Zap, 'Pay now by UPI', other ? 'You pay now with GPay, PhonePe or Paytm' : 'GPay, PhonePe, Paytm or any UPI app']] : []),
+            ...(store.upi_id || !upiOn ? [['upi_now', Zap, 'Pay now by UPI', other ? 'You pay now with GPay, PhonePe or Paytm' : 'GPay, PhonePe, Paytm or any UPI app']] : []),
             ['cash', Banknote, 'Cash on delivery', !upiOn ? (other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash on delivery') : other ? `${firstName || 'They'} pay cash / UPI at the door` : 'Pay cash / UPI on delivery'],
           ].map(([value, Icon, title, note]) => {
             const noCod = value === 'cash' && !codOk
             const upiOff = value === 'upi_now' && !upiOn
-            const off = noCod || upiOff || (overLimit && value !== 'upi_now')
+            const off = noCod || upiOff
             return (
               <button key={value} type="button" disabled={off} onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', method === value ? 'border-brand' : 'border-line', off && 'opacity-50')}>
                 <Radio on={method === value} />
@@ -522,11 +514,9 @@ export default function Checkout() {
                 <span>
                   <span className="block font-semibold">{title}</span>
                   {noCod ? (
-                    <span className="text-xs text-red-700">Due to misuse of cash on delivery, we have temporarily restricted it for this number.</span>
+                    <span className="text-xs text-red-700">This number is blocked from ordering. Please call us.</span>
                   ) : upiOff ? (
-                    <span className="text-xs font-semibold text-orange-700">Currently unavailable. Please choose Cash on Delivery.</span>
-                  ) : off ? (
-                    <span className="text-xs text-muted">Only for orders up to {rupee(store.cod_limit)}</span>
+                    <span className="text-xs font-semibold text-orange-700">Temporarily unavailable. Please choose Cash on Delivery.</span>
                   ) : (
                     <span className="text-xs text-muted">{note}</span>
                   )}
@@ -534,6 +524,12 @@ export default function Checkout() {
               </button>
             )
           })}
+          {method === 'cash' && codOk && (
+            <p className="flex gap-2 rounded-xl border border-orange-300 bg-orange-50 p-3 text-xs font-medium text-orange-900">
+              <TriangleAlert size={16} className="shrink-0 text-orange-600" />
+              <span>Please order only if you will take it. If Cash on Delivery orders from this number are cancelled or not taken 2 times, the number is <b>permanently blocked</b> from ordering on Jholzo.</span>
+            </p>
+          )}
         </section>
 
         {(walletBalance > 0 || showInvite) && (
@@ -595,15 +591,15 @@ export default function Checkout() {
         {/* Cloudflare Turnstile (free CAPTCHA) goes here when the site is deployed. */}
 
         {error && <p className="rounded-xl bg-red-500/15 p-3 text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={busy || fee === null || (overLimit && !canPayNow)} className={`${btnAccent} h-14`}>
+        <button type="submit" disabled={busy || fee === null} className={`${btnAccent} h-14`}>
           {busy ? 'Placing...' : method === 'upi_now' ? `Place order & pay ${rupee(total)}` : other && firstName ? `Place order for ${firstName}` : 'Place order'}
         </button>
         <p className="text-center text-xs text-muted">
           {method === 'upi_now'
             ? 'Next you pay by UPI. We verify the payment (usually within 10 minutes) and send the confirmation on WhatsApp.'
             : other
-            ? 'We will call you or them to confirm the order. You can cancel it until our rider is on the way.'
-            : 'We will call you to confirm your order. You can cancel it until our rider is on the way.'}
+            ? 'Your order is confirmed right away. We will call you or them once before packing it.'
+            : 'Your order is confirmed right away. We will call you once before packing it.'}
         </p>
         <p className="text-center text-xs text-muted">
           By placing an order you agree to our <Link to="/policy/terms" className="underline">Terms</Link>,{' '}

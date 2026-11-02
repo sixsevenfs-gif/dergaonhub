@@ -22,11 +22,12 @@ function Stat({ label, value, to, hot }) {
 
 export default function AdminHome() {
   const { data: stats } = useData(adminStats)
-  const { data: newOrders = [] } = useData(() => adminListOrders({ status: 'placed' }))
   const { data: complaints = [] } = useData(() => adminListComplaints({ status: 'open' }))
   const { data: allOrders = [] } = useData(() => adminListOrders())
   const { data: store } = useData(getStore)
   const { isOwner } = useRole()
+  // New: not on the way yet (cash orders are confirmed by themselves, update 037).
+  const newOrders = allOrders.filter((o) => (o.status === 'placed' || o.status === 'confirmed') && !o.dispatch)
   // "Pay now by UPI" orders waiting for you to check the bank app.
   // Just marked paid stays here until you close it, so you can send the WhatsApp confirmation.
   const [justPaid, setJustPaid] = useState([])
@@ -89,7 +90,7 @@ export default function AdminHome() {
       )}
 
       <section>
-        <h2 className="text-lg font-bold">New orders: call and confirm</h2>
+        <h2 className="text-lg font-bold">New orders: call once before packing, then On the way</h2>
         <div className="mt-2 space-y-2">
           {newOrders.map((o) => (
             <Link key={o.id} to={`/admin/orders/${o.id}`} className={`${lcard} flex items-center gap-3 p-4`}>

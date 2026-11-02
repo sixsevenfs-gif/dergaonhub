@@ -40,7 +40,7 @@ export default function OrderPlaced() {
               <Check size={52} strokeWidth={3.5} className="text-white" />
             </div>
           </div>
-          <h1 className="mt-5 text-4xl font-semibold">Order placed!</h1>
+          <h1 className="mt-5 text-4xl font-semibold">{order.status === 'confirmed' ? 'Order confirmed!' : 'Order placed!'}</h1>
           <p className="mt-1 text-2xl font-semibold text-muted">#{order.order_number}</p>
           <p className="mt-1 text-muted">
             {order.ordered_by_phone ? `We will deliver it to ${order.customer_name} (${order.customer_phone}).` : 'We have received your order.'}
@@ -126,13 +126,13 @@ export default function OrderPlaced() {
       {stage !== 'cancelled' && <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <Phone size={24} className="shrink-0 text-brand" />
         <span className="border-l border-line pl-3">
-          <span className="block font-semibold">{order.payment_method === 'upi_now' ? 'We will confirm it on WhatsApp.' : 'We will call you to confirm.'}</span>
+          <span className="block font-semibold">{order.payment_method === 'upi_now' ? 'We will confirm it on WhatsApp.' : 'We will call you once before packing.'}</span>
           <span className="text-sm text-muted">
             {order.payment_method === 'upi_now'
               ? 'As soon as your payment is verified (usually within 10 minutes), we send the confirmation on WhatsApp and pack your order.'
               : isExpress(order)
               ? `Express: we call you right away, then a rider brings it by ${fmtClock(order.express_by)}.`
-              : 'Once confirmed, we pack your order at our store and deliver it in the evening.'}
+              : 'Then we pack your order at our store and our rider brings it in the evening. You will see "On the way" on the order status page.'}
           </span>
         </span>
       </div>}

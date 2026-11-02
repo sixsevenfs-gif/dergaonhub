@@ -6,19 +6,23 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { PaymentBadge } from './PaymentCheck.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
-import { adminListOrders, assignRider, confirmOrder, listTeam } from '../../lib/store.js'
+import { adminListOrders, assignRider, confirmOrder, getStore, listTeam, setDispatch } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { addDays, dateStr, dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 import { useRole } from '../../lib/role.js'
+import { MessageButton } from '../partner/PartnerOrderCard.jsx'
 
+// New: not on the way yet. Cash orders are confirmed by themselves (update 037), so New holds those too.
+const isNew = (o) => (o.status === 'placed' || o.status === 'confirmed') && !o.dispatch
 const FILTERS = [
-  ['placed', 'New'],
-  ['confirmed', 'Confirmed'],
-  ['completed', 'Delivered'],
-  ['cancelled', 'Cancelled'],
-  ['all', 'All'],
+  ['new', 'New', isNew],
+  ['on_the_way', 'On the way', (o) => o.status === 'confirmed' && !!o.dispatch],
+  ['completed', 'Delivered', (o) => o.status === 'completed'],
+  ['cancelled', 'Cancelled', (o) => o.status === 'cancelled'],
+  ['all', 'All', () => true],
 ]
+const matches = (key) => FILTERS.find(([k]) => k === key)[2]
 
 // Which day's orders to show, by the day they were placed.
 const DAYS = [
@@ -55,10 +59,11 @@ function beep() {
 }
 
 export default function AdminOrders() {
-  const [filter, setFilter] = useState('placed')
+  const [filter, setFilter] = useState('new')
   const [day, setDay] = useState('all') // 'all', 'today', 'yesterday' or a date like 2026-11-02
   const { data: orders = [], reload } = useData(adminListOrders)
   const { data: team = [] } = useData(listTeam)
+  const { data: store } = useData(getStore)
   const { isOwner } = useRole()
   const nameOf = (id) => team.find((t) => t.user_id === id)?.name || 'Owner'
   const riders = team.filter((t) => t.role === 'rider' && t.active)
@@ -73,7 +78,7 @@ export default function AdminOrders() {
   }, [reload])
 
   useEffect(() => {
-    const ids = orders.filter((o) => o.status === 'placed').map((o) => o.id)
+    const ids = orders.filter(isNew).map((o) => o.id)
     if (seen.current && ids.some((id) => !seen.current.has(id))) beep()
     seen.current = new Set(ids)
   }, [orders])
@@ -81,10 +86,10 @@ export default function AdminOrders() {
   const today = dateStr()
   const dayKey = day === 'today' ? today : day === 'yesterday' ? addDays(today, -1) : day
   const dayOrders = day === 'all' ? orders : orders.filter((o) => placedDay(o) === dayKey)
-  const shown = dayOrders.filter((o) => filter === 'all' || o.status === filter)
-  const count = (s) => dayOrders.filter((o) => s === 'all' || o.status === s).length
+  const shown = dayOrders.filter(matches(filter))
+  const count = (key) => dayOrders.filter(matches(key)).length
   // New orders hidden by the chosen day must not be missed.
-  const newElsewhere = day === 'all' ? 0 : orders.filter((o) => o.status === 'placed' && placedDay(o) !== dayKey).length
+  const newElsewhere = day === 'all' ? 0 : orders.filter((o) => isNew(o) && placedDay(o) !== dayKey).length
   // Newest first, so orders of one day sit together: one heading per day.
   const groups = []
   for (const o of shown) {
@@ -97,7 +102,7 @@ export default function AdminOrders() {
   return (
     <div>
       <h1 className="text-2xl font-black">Orders</h1>
-      <p className="text-sm text-neutral-500">New order: call the customer, confirm, then pack it from the store.</p>
+      <p className="text-sm text-neutral-500">Cash orders are confirmed by themselves. Call the customer once before packing, then tap On the way.</p>
       <div className="-mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
         {DAYS.map(([key, label]) => (
           <button key={key} type="button" onClick={() => setDay(key)} className={chip(day === key)}>{label}</button>
@@ -130,7 +135,7 @@ export default function AdminOrders() {
             onClick={() => setFilter(key)}
             className={`h-10 shrink-0 rounded-full border px-4 text-sm font-semibold ${filter === key ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}
           >
-            {label} {count(key) > 0 && <span className={key === 'placed' && filter !== key ? 'ml-1 rounded-full bg-accent px-1.5 text-ink' : 'ml-1'}>{count(key)}</span>}
+            {label} {count(key) > 0 && <span className={key === 'new' && filter !== key ? 'ml-1 rounded-full bg-accent px-1.5 text-ink' : 'ml-1'}>{count(key)}</span>}
           </button>
         ))}
       </div>
@@ -145,7 +150,7 @@ export default function AdminOrders() {
               <span className="text-sm text-neutral-600">{g.orders.length} order{g.orders.length === 1 ? '' : 's'}{amount > 0 && <> · <b className="text-neutral-900">{rupee(amount)}</b></>}</span>
             </h2>
         {g.orders.map((o) => (
-          <div key={o.id} className={`${lcard} p-4 ${o.status === 'placed' ? 'border-2 border-neutral-900 shadow-[0_0_0_4px_#E8FF3A]' : ''}`}>
+          <div key={o.id} className={`${lcard} p-4 ${isNew(o) ? 'border-2 border-neutral-900 shadow-[0_0_0_4px_#E8FF3A]' : ''}`}>
             <Link to={`/admin/orders/${o.id}`} className="block">
               <div className="flex items-center justify-between">
                 <span className="flex flex-wrap items-center gap-2 font-bold">#{o.order_number} <StatusBadge status={o.status} /> <PaymentBadge order={o} /></span>
@@ -181,6 +186,16 @@ export default function AdminOrders() {
                 )}
               </div>
             )}
+            {/* The owner sends it out from here (the rider page has the same button); executives can't. */}
+            {isOwner && store && o.status === 'confirmed' && !o.dispatch && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <a href={`tel:${o.customer_phone}`} className={lbtnOutline}><Phone size={17} /> Call</a>
+                <MessageButton
+                  order={o} store={store} kind="on_the_way" auto={!!store.whatsapp_auto} icon={Bike} primary label="On the way"
+                  before={async () => { await setDispatch(o.id, 'on_the_way'); reload() }} onError={(m) => window.alert(m)}
+                />
+              </div>
+            )}
             {(o.status === 'placed' || o.status === 'confirmed') && (
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <Bike size={16} className="shrink-0 text-neutral-500" />
@@ -202,7 +217,7 @@ export default function AdminOrders() {
         })}
         {!shown.length && (
           <p className="py-10 text-center text-neutral-500">
-            {filter === 'placed' ? 'No new orders. New orders show up here with a sound.' : day === 'all' ? 'No orders here.' : 'No orders here on this day.'}
+            {filter === 'new' ? 'No new orders. New orders show up here with a sound.' : day === 'all' ? 'No orders here.' : 'No orders here on this day.'}
           </p>
         )}
       </div>

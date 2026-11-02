@@ -392,14 +392,10 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
 
   // OTP (when switched on): the ordering number must be verified on this phone.
   if (store.otp_required && !(db.verified ?? []).includes(ob?.phone ?? ph)) fail('Please verify your phone number with the OTP first.')
-  // Blocked by the admin: no online orders. Repeated no-shows: no cash on delivery.
+  // Blocked by the admin, or by 2 cancelled / not-taken orders (autoBlock): no online orders.
   let customer = customerByPhone(ph)
   const obc = ob && customerByPhone(ob.phone)
   if (customer?.blocked || obc?.blocked) fail('Online ordering is blocked for this number. Please call us to order.')
-  const noShows = Math.max(customer?.no_show_count ?? 0, obc?.no_show_count ?? 0)
-  if (payment_method === 'cash' && noShows >= CONFIG.NO_SHOW_LIMIT) {
-    fail('Due to misuse of cash on delivery, we have temporarily restricted it for this number. Please choose UPI.')
-  }
 
   const items = []
   for (const line of lines) {
@@ -443,9 +439,6 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const walletUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
   total = Math.round((total - walletUsed) * 100) / 100
 
-  if (payment_method !== 'upi_now' && total > (store.cod_limit ?? 350) && store.upi_on !== false) {
-    fail(`Orders above ${rupee(store.cod_limit ?? 350)} are paid by UPI before delivery. Please choose "Pay now by UPI".`)
-  }
   if (payment_method === 'upi_now' && !store.upi_id) fail('Online payment is not available right now. Please choose another payment method.')
   if ((payment_method === 'upi' || payment_method === 'upi_now') && store.upi_on === false) fail('UPI payment is unavailable right now. Please choose Cash on Delivery.')
 
@@ -470,10 +463,11 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
     orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, total, payment_method, cash_collected: 0,
     payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
-    delivery_date: express ? dateStr() : pickDate(), status: 'placed', cancel_reason: '',
+    // Cash orders are confirmed at once (update 037); pay-now UPI orders wait for the payment check.
+    delivery_date: express ? dateStr() : pickDate(), status: payment_method === 'upi_now' ? 'placed' : 'confirmed', cancel_reason: '',
     delivery_type: express ? 'express' : 'evening', express_fee: dq.expressFee,
     express_by: express ? new Date(Date.now() + expressStatus(store).minutes * 60000).toISOString() : null,
-    created_at: now(), confirmed_at: null, completed_at: null,
+    created_at: now(), confirmed_at: payment_method === 'upi_now' ? null : now(), completed_at: null,
     ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
   }
   db.orders.push(order)
@@ -700,7 +694,10 @@ export async function cancelOrder(id, reason) {
   walletOnStatus(o, from)
   if (reason === 'No-show') {
     const c = db.customers.find((x) => x.id === o.customer_id)
-    if (c) c.no_show_count += 1
+    if (c) {
+      c.no_show_count += 1
+      autoBlock(c)
+    }
   }
   commit()
 }
@@ -761,7 +758,7 @@ export async function adminStats() {
   const today = dateStr()
   const todays = db.orders.filter((o) => o.delivery_date === today && o.status !== 'cancelled')
   return {
-    newOrders: db.orders.filter((o) => o.status === 'placed').length,
+    newOrders: db.orders.filter((o) => (o.status === 'placed' || o.status === 'confirmed') && !o.dispatch).length,
     todayOrders: todays.length,
     todayValue: sum(todays, (o) => o.total),
     openComplaints: db.complaints.filter((k) => k.status === 'open').length,
@@ -868,6 +865,8 @@ export async function adminListCustomers() {
 export async function setCustomerBlocked(id, blocked) {
   const c = db.customers.find((x) => x.id === id) ?? fail('Customer not found.')
   c.blocked = blocked
+  // Unblocked: a fresh start (update 037).
+  if (!blocked) Object.assign(c, { cancel_count: 0, no_show_count: 0 })
   commit()
 }
 
@@ -1075,6 +1074,12 @@ export async function cancelMyOrder(orderNumber) {
   o.status = 'cancelled'
   o.cancel_reason = 'Cancelled by customer'
   walletOnStatus(o, from)
+  // A cash order counts towards the block (update 037).
+  const c = o.payment_method !== 'upi_now' && db.customers.find((x) => x.id === ordererId(o))
+  if (c) {
+    c.cancel_count = (c.cancel_count ?? 0) + 1
+    autoBlock(c)
+  }
   commit()
 }
 
@@ -1087,8 +1092,14 @@ export async function partnerNoShow(id) {
   await cancelOrder(id, 'No-show')
 }
 
+// Cancellations and no-shows together: 2 block the number (update 037, customers_auto_block).
+function autoBlock(c) {
+  if ((c.cancel_count ?? 0) + (c.no_show_count ?? 0) >= CONFIG.NO_SHOW_LIMIT) c.blocked = true
+}
+
 export async function codAllowed(phone) {
-  return (customerByPhone(phone)?.no_show_count ?? 0) < CONFIG.NO_SHOW_LIMIT
+  const c = customerByPhone(phone)
+  return !c || (!c.blocked && (c.cancel_count ?? 0) + (c.no_show_count ?? 0) < CONFIG.NO_SHOW_LIMIT)
 }
 
 /* ---------- extra product photos (demo: kept in the browser) ---------- */

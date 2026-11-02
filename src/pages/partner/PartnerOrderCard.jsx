@@ -161,7 +161,7 @@ function usePaidByQr(orderId) {
 // Sends one message to the customer. Automatic (WhatsApp API) when it is switched on,
 // otherwise WhatsApp opens with the text ready and the rider taps Send.
 // It is a link in that case (not a script) so phones never block WhatsApp from opening.
-function MessageButton({ order, store, kind, auto, before, label, icon: Icon, primary, onError }) {
+export function MessageButton({ order, store, kind, auto, before, label, icon: Icon, primary, onError }) {
   const [fallback, setFallback] = useState(false)
   const [busy, setBusy] = useState(false)
   const text = customerMessage(kind, { order, store })

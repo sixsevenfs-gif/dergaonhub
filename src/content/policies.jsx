@@ -177,9 +177,10 @@ export const POLICIES = {
         <P>You pay on delivery by cash or UPI. Please check the amount before paying. We do not give credit (udhaar).</P>
         <H>No-shows</H>
         <P>
-          If you are not available or refuse a confirmed order without a valid reason, it counts as a no-show. After{' '}
-          {CONFIG.NO_SHOW_LIMIT} no-shows, cash on delivery is restricted for that number. If our rider calls 4–5 times
-          at your door and you don't answer, the order is cancelled as a no-show.
+          If you are not available or refuse a confirmed order without a valid reason, it counts as a no-show. If our
+          rider calls 4–5 times at your door and you don't answer, the order is cancelled as a no-show. A number whose
+          Cash on Delivery orders are cancelled or not taken {CONFIG.NO_SHOW_LIMIT} times in all is permanently blocked
+          from ordering on Jholzo.
         </P>
         <H>Use of the website</H>
         <P>
@@ -207,6 +208,7 @@ export const POLICIES = {
         <H>Cancelling an order</H>
         <UL items={[
           'You can cancel your order for free until our rider is on the way: open the order ("Track order" or "My orders") and tap "Cancel order".',
+          `If Cash on Delivery orders from a number are cancelled or not taken ${CONFIG.NO_SHOW_LIMIT} times in all, that number is permanently blocked from ordering.`,
           'Once the rider is on the way or arriving, the order can no longer be cancelled. Please be available at delivery time.',
           'We may cancel an order if items are not available. You pay nothing for cancelled orders.',
         ]} />

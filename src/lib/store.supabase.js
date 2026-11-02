@@ -622,7 +622,7 @@ export async function adminStats() {
   await expireOld()
   const today = dateStr()
   const [newOrders, todays, openComplaints, outOfStock, waitlist, store] = await Promise.all([
-    count(sb.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'placed')),
+    count(sb.from('orders').select('id', { count: 'exact', head: true }).in('status', ['placed', 'confirmed']).eq('dispatch', '')),
     sb.from('orders').select('total').eq('delivery_date', today).neq('status', 'cancelled').then(check),
     count(sb.from('complaints').select('id', { count: 'exact', head: true }).eq('status', 'open')),
     count(sb.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('available', false)),
