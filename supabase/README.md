@@ -123,7 +123,11 @@ Pay-now UPI orders get their confirmation from you after the payment check. One 
    variables **Number**, these three (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
    - `order_confirmed`: Hello {{1}}, your Jholzo order #{{2}} is confirmed ✅ It will be delivered {{3}}. Total: {{4}}. We will call you once before packing your order. For help, call or WhatsApp us at 9181061864. Thank you for shopping with Jholzo!
    - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready. For help, call us at 9181061864.
-   - `order_delivered`: Hello {{1}}, your Jholzo order #{{2}} has been delivered ✅ Total: {{3}}. Thank you for shopping with Jholzo! If anything is wrong with your order, call or WhatsApp us at 9181061864.
+   - `order_delivered` (the bill): Hello {{1}}, your Jholzo order #{{2}} has been delivered ✅ / 🧾 Bill: {{3}} /
+     Total: {{4}} / Paid: {{5}} / Thank you for shopping with Jholzo! Tap below to download your bill. If anything is
+     wrong with your order, tap Report a problem or call us at 9181061864. (`/` = new line; `{{3}}` is the items and
+     charges in one line, `{{5}}` like "Cash ₹250".) Two buttons, **Visit website**, **Dynamic**, in this order:
+     "Download your bill" → `https://jholzo.com/bill/{{1}}`, "Report a problem" → `https://jholzo.com/report/{{1}}`.
 3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
    access token (Business settings → System users → Generate token, permission
    `whatsapp_business_messaging`).

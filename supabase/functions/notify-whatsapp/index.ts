@@ -32,6 +32,25 @@ function fmtTime(t: string) {
   return `${h % 12 || 12}${m ? `:${String(m).padStart(2, '0')}` : ''} ${h < 12 ? 'AM' : 'PM'}`
 }
 
+// The bill in one line (WhatsApp doesn't allow line breaks inside a template value), same items and
+// charges as the "Send bill on WhatsApp" message (src/lib/whatsapp.js billMessage).
+type Item = { name_snapshot: string; quantity: number; line_total: number; note: string }
+function billLine(o: Record<string, any>, items: Item[]) {
+  const clean = (t: string) => String(t).replace(/\s+/g, ' ').trim()
+  const parts = items.map((i) => `${clean(i.name_snapshot)} x${i.quantity} = ${rupee(i.line_total)}${i.note ? ` (${clean(i.note)})` : ''}`)
+  // Long carts: as many items as fit, then "+N more" (the bill page has all of them).
+  let shown = parts
+  while (shown.join(' · ').length > 600 && shown.length > 1) shown = shown.slice(0, -1)
+  if (shown.length < parts.length) shown = [...shown, `+${parts.length - shown.length} more`]
+  return [
+    ...shown,
+    `Delivery ${Number(o.delivery_fee) ? rupee(o.delivery_fee) : 'FREE'}`,
+    ...(Number(o.express_fee) > 0 ? [`Express ${rupee(o.express_fee)}`] : []),
+    ...(Number(o.packaging_fee) ? [`Packaging ${rupee(o.packaging_fee)}`] : []),
+    ...(Number(o.wallet_used) > 0 ? [`Jholzo Money −${rupee(o.wallet_used)}`] : []),
+  ].join(' · ')
+}
+
 // "today between 5 PM and 8 PM" (India time)
 function slotWords(date: string, store: { slot_start: string; slot_end: string }) {
   const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
@@ -85,9 +104,19 @@ Deno.serve(async (req) => {
     // "Order placed" goes to whoever ordered (for someone else: the orderer); rider messages to the receiver.
     const toOrderer = kind === 'placed' && o.ordered_by_phone
     const name = String(toOrderer ? o.ordered_by_name : o.customer_name).split(' ')[0] || 'there'
-    const params =
-      kind === 'placed' ? [name, o.order_number, slotWords(o.delivery_date, store), rupee(o.total)]
-      : [name, o.order_number, rupee(o.total)]
+    let params = [name, o.order_number, rupee(o.total)]
+    const components: Record<string, unknown>[] = []
+    if (kind === 'placed') params = [name, o.order_number, slotWords(o.delivery_date, store), rupee(o.total)]
+    if (kind === 'delivered') {
+      // The bill: items and charges, total, how it was paid; buttons open the bill (PDF) and the report page.
+      const { data: items } = await db.from('order_items').select('name_snapshot, quantity, line_total, note')
+        .eq('order_id', o.id).order('name_snapshot')
+      const paid = o.payment_method === 'cash' ? `Cash ${rupee(o.cash_collected || o.total)}` : `UPI ${rupee(o.total)}`
+      params = [name, o.order_number, billLine(o, items ?? []), rupee(o.total), paid]
+      for (const index of ['0', '1']) {
+        components.push({ type: 'button', sub_type: 'url', index, parameters: [{ type: 'text', text: o.order_number }] })
+      }
+    }
 
     const res = await fetch(`https://graph.facebook.com/v21.0/${Deno.env.get('WA_PHONE_ID')}/messages`, {
       method: 'POST',
@@ -99,7 +128,7 @@ Deno.serve(async (req) => {
         template: {
           name: TEMPLATES[kind],
           language: { code: 'en' },
-          components: [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text: String(text) })) }],
+          components: [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text: String(text) })) }, ...components],
         },
       }),
     })
