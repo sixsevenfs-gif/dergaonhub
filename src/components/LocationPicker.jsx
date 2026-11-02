@@ -42,21 +42,23 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
     }
     const report = (ll) => onChangeRef.current({ lat: ll.lat, lng: ll.lng })
     if (fixedPin) {
-      // Only a move by the customer (or after a place is chosen) picks a new place:
-      // resizing the map also "moves" it, and must not choose the store's spot by itself.
-      let touched = false
-      m.on('dragstart', () => (touched = true))
+      // Only the customer's own drag, tap, pinch or scroll picks a new place. The map also "moves" when it
+      // flies to a GPS reading or the sheet changes size; those must not count as moving the pin by hand
+      // (that would stop the GPS from placing the pin, or choose the store's spot by itself).
+      let byHand = false
+      const hand = () => (byHand = true)
+      box.current.addEventListener('pointerdown', hand)
+      box.current.addEventListener('wheel', hand, { passive: true })
       m.on('movestart', () => setMoving(true))
       m.on('moveend', () => {
         setMoving(false)
+        if (!byHand) return
+        byHand = false
         const c = m.getCenter()
         const cur = valueRef.current
-        if ((touched || cur) && !(cur && same(cur, c))) report(c)
+        if (!(cur && same(cur, c))) report(c)
       })
-      m.on('click', (e) => {
-        touched = true
-        m.panTo(e.latlng)
-      })
+      m.on('click', (e) => m.panTo(e.latlng))
     } else {
       const p = L.marker([first.lat, first.lng], { draggable: true, icon: pinIcon }).addTo(m)
       p.on('dragend', () => report(p.getLatLng()))

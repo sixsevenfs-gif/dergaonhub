@@ -91,12 +91,16 @@ export const validPoint = (p) =>
 // those readings are thrown away and we keep listening for the real GPS fix.
 export const GPS_GOOD_M = 25
 export const GPS_WORST_M = 150
+const GPS_OK_M = 50 // after GPS_SETTLE_MS a reading this close is enough: stop listening
+const GPS_SETTLE_MS = 8000
 const GPS_WAIT_MS = 20000
 
 // Browser location: listens to the phone's GPS for up to 20 seconds and keeps the most accurate
-// reading. Resolves to { lat, lng, accuracy } as soon as a reading is within GPS_GOOD_M, or with the
-// best reading within GPS_WORST_M when time is up. Never uses a remembered (old) position.
-// onProgress(accuracy) is called with each better reading, to show "±40 m" while it improves.
+// reading. Resolves to { lat, lng, accuracy } as soon as a reading is within GPS_GOOD_M, after 8 seconds
+// if the best is within GPS_OK_M, or with the best reading within GPS_WORST_M when time is up.
+// Never uses a remembered (old) position.
+// onProgress(reading) is called with each better reading, so the page can show it at once (pin, "±40 m")
+// instead of waiting; readings over GPS_WORST_M are rough (Wi-Fi / towers) and only fit for the "±m".
 export function currentPosition({ onProgress } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -105,20 +109,24 @@ export function currentPosition({ onProgress } = {}) {
     }
     let best = null
     let done = false
+    let watch = null
+    let settle = null
+    let timer = null
     const finish = (fn) => {
       if (done) return
       done = true
       navigator.geolocation.clearWatch(watch)
+      clearTimeout(settle)
       clearTimeout(timer)
       fn()
     }
     const fail = (message, extra = {}) => finish(() => reject(Object.assign(new Error(message), extra)))
-    const watch = navigator.geolocation.watchPosition(
+    watch = navigator.geolocation.watchPosition(
       (pos) => {
         const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 99999) }
-        if (!validPoint(p) || (best && p.accuracy >= best.accuracy)) return
+        if (done || !validPoint(p) || (best && p.accuracy >= best.accuracy)) return
         best = p
-        onProgress?.(p.accuracy)
+        onProgress?.(p)
         if (p.accuracy <= GPS_GOOD_M) finish(() => resolve(p))
       },
       (err) => {
@@ -127,7 +135,10 @@ export function currentPosition({ onProgress } = {}) {
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: GPS_WAIT_MS },
     )
-    const timer = setTimeout(() => {
+    settle = setTimeout(() => {
+      if (best && best.accuracy <= GPS_OK_M) finish(() => resolve(best))
+    }, GPS_SETTLE_MS)
+    timer = setTimeout(() => {
       if (best && best.accuracy <= GPS_WORST_M) finish(() => resolve(best))
       else fail('Could not get an exact GPS location. Turn on Location (GPS) in your phone, step outside or near a window and try again, or move the map to put the pin on your door.', { weak: true })
     }, GPS_WAIT_MS)

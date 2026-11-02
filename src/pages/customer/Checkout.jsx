@@ -13,7 +13,7 @@ import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
 import { cleanPhone, fmtTime, nameProblem, phoneProblem, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useCartDetails } from '../../lib/useCartDetails.js'
-import { GPS_GOOD_M, accuracyText, currentPosition, deliveryQuote, deliveryRules, expressStatus, expressTimeText, packagingFee, validPoint } from '../../lib/delivery.js'
+import { GPS_GOOD_M, GPS_WORST_M, accuracyText, currentPosition, deliveryQuote, deliveryRules, expressStatus, expressTimeText, packagingFee, validPoint } from '../../lib/delivery.js'
 import { getSavedDetails, getSavedLocation, getSavedReceiver, placeName, saveDetails, saveLocation, saveReceiver } from '../../lib/customerLocation.js'
 
 function InputRow({ icon: Icon, label, children, action }) {
@@ -110,16 +110,35 @@ export default function Checkout() {
   const [refCode, setRefCode] = useState(savedRefCode)
   const formRef = useRef(null)
 
+  // The first usable reading places the pin at once (distance and charge show, nobody waits for the GPS);
+  // better readings move the blue dot, and the best one moves the pin at the end. Rough readings (over
+  // GPS_WORST_M) only show as "±m". Once the customer moves the map, the pin stays where they put it.
+  const handMoved = useRef(false)
   const locate = async () => {
     setLocating(true)
     setLocError('')
     setAccuracy(null)
-    try {
-      const p = await currentPosition({ onProgress: setAccuracy })
-      setHere(p)
+    handMoved.current = false
+    let placed = false
+    const progress = (p) => {
       setAccuracy(p.accuracy)
+      if (p.accuracy > GPS_WORST_M) return
+      setHere(p)
+      if (placed || handMoved.current) return
+      placed = true
       setLocation({ lat: p.lat, lng: p.lng })
       setFocus((n) => n + 1)
+    }
+    try {
+      const p = await currentPosition({ onProgress: progress })
+      setHere(p)
+      if (handMoved.current) {
+        setAccuracy(null)
+      } else {
+        setAccuracy(p.accuracy)
+        setLocation({ lat: p.lat, lng: p.lng })
+        setFocus((n) => n + 1)
+      }
     } catch (err) {
       setAccuracy(null)
       setLocError(err.denied ? 'Location is off for this site. Move the map to put the pin on the home.' : err.message)
@@ -128,6 +147,7 @@ export default function Checkout() {
   }
   // Moving the map by hand: the pin is now where the customer put it, not the phone's reading.
   const setLocationByHand = (p) => {
+    handMoved.current = true
     setAccuracy(null)
     setLocation(p)
   }
@@ -390,7 +410,8 @@ export default function Checkout() {
               disabled={locating}
               className="absolute bottom-7 left-1/2 z-10 flex h-10 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-xs font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] disabled:opacity-80"
             >
-              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} /> {locating ? (accuracy ? `Getting exact location... ±${accuracy} m` : 'Finding you...') : other ? 'I am at their home' : 'Use current location'}
+              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} />{' '}
+              {locating ? (accuracy ? (accuracy <= GPS_WORST_M && location ? `Improving location... ±${accuracy} m` : `Getting location... ±${accuracy} m`) : 'Finding you...') : other ? 'I am at their home' : 'Use current location'}
             </button>
           </div>
           {locError && <p className="px-1 text-xs text-orange-700">{locError}</p>}

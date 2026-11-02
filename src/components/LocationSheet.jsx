@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, CircleCheck, LocateFixed, MapPin } from 'lucide-react'
 import LocationPicker from './LocationPicker.jsx'
 import OutOfArea from './OutOfArea.jsx'
 import { btnAccent } from './ui.js'
-import { GPS_GOOD_M, accuracyText, currentPosition, deliveryQuote } from '../lib/delivery.js'
+import { GPS_GOOD_M, GPS_WORST_M, accuracyText, currentPosition, deliveryQuote } from '../lib/delivery.js'
 import { getSavedLocation, placeName, saveLocation } from '../lib/customerLocation.js'
 
 // Full-screen location page: the pin stays in the middle and the customer moves the map under it.
@@ -18,16 +18,34 @@ export default function LocationSheet({ store, onClose }) {
   const [busy, setBusy] = useState(false)
   const [accuracy, setAccuracy] = useState(null) // ±metres of the phone's location (while finding: best so far)
 
+  // Same as checkout: the first usable reading shows the pin at once, the best one moves it at the end,
+  // and a pin the customer moved by hand stays where they put it.
+  const handMoved = useRef(false)
   const locate = async () => {
     setBusy(true)
     setStatus('')
     setAccuracy(null)
-    try {
-      const p = await currentPosition({ onProgress: setAccuracy })
-      setHere(p)
+    handMoved.current = false
+    let placed = false
+    const progress = (p) => {
       setAccuracy(p.accuracy)
+      if (p.accuracy > GPS_WORST_M) return
+      setHere(p)
+      if (placed || handMoved.current) return
+      placed = true
       setPoint({ lat: p.lat, lng: p.lng })
       setFocus((n) => n + 1)
+    }
+    try {
+      const p = await currentPosition({ onProgress: progress })
+      setHere(p)
+      if (handMoved.current) {
+        setAccuracy(null)
+      } else {
+        setAccuracy(p.accuracy)
+        setPoint({ lat: p.lat, lng: p.lng })
+        setFocus((n) => n + 1)
+      }
     } catch (err) {
       setAccuracy(null)
       setStatus(err.denied ? 'Location is turned off for this site. Allow it in your browser, or move the map to your home.' : err.message)
@@ -36,6 +54,7 @@ export default function LocationSheet({ store, onClose }) {
   }
   // Moving the map by hand: the pin is where the customer put it, not the phone's reading.
   const movePin = (p) => {
+    handMoved.current = true
     setAccuracy(null)
     setPoint(p)
   }
@@ -87,7 +106,8 @@ export default function LocationSheet({ store, onClose }) {
             disabled={busy}
             className="absolute bottom-8 left-1/2 z-10 flex h-11 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-sm font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] active:scale-[.98] disabled:opacity-80"
           >
-            <LocateFixed size={17} className={busy ? 'animate-pulse' : ''} /> {busy ? (accuracy ? `Getting exact location... ±${accuracy} m` : 'Finding you...') : 'Use current location'}
+            <LocateFixed size={17} className={busy ? 'animate-pulse' : ''} />{' '}
+            {busy ? (accuracy ? (accuracy <= GPS_WORST_M && point ? `Improving location... ±${accuracy} m` : `Getting location... ±${accuracy} m`) : 'Finding you...') : 'Use current location'}
           </button>
         </div>
 
