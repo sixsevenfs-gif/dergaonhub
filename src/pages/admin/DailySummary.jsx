@@ -6,6 +6,8 @@ import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, rupee } from '../../lib/format.js'
 import { useRole } from '../../lib/role.js'
 
+const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
+
 function Row({ label, value, strong }) {
   return (
     <div className={`flex justify-between py-1.5 ${strong ? 'text-lg font-black' : 'text-sm'}`}>
@@ -72,6 +74,26 @@ export default function DailySummary() {
         <Row label="Spent at shops" value={`− ${rupee(s.spent)}`} />
         <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />
       </section>
+
+      {/* Owner only (update 034): the same day estimated from buy prices, rider pay and bags. */}
+      {isOwner && s.byCost && s.delivered > 0 && (
+        <section className={`${lcard} divide-y divide-neutral-100 px-4 py-2`}>
+          <div className="py-2">
+            <h2 className="font-bold">Profit from buy prices <span className="ml-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Only you</span></h2>
+            <p className="text-xs text-neutral-500">Estimate from the buy prices in Products and Settings → Costs per order. The box above uses what you really spent at the shops.</p>
+          </div>
+          <Row label="Items (selling − buy price)" value={money(s.byCost.itemsEarned)} />
+          <Row label="Fees (delivery, packaging, express)" value={rupee(s.byCost.fees)} />
+          {s.byCost.discount > 0 && <Row label="Jholzo Money used" value={`− ${rupee(s.byCost.discount)}`} />}
+          <Row label="Riders + petrol" value={`− ${rupee(s.byCost.rider)}`} />
+          <Row label="Bags / packing" value={`− ${rupee(s.byCost.packing)}`} />
+          <Row label={s.byCost.profit >= 0 ? 'Profit' : 'Loss'} value={money(s.byCost.profit)} strong />
+          <Row label="Per delivered order" value={money(s.byCost.profit / s.byCost.orders)} />
+          {s.byCost.missing > 0 && (
+            <p className="py-2 text-xs text-amber-800">{s.byCost.missing} item{s.byCost.missing === 1 ? '' : 's'} had no buy price, so their margin isn't counted. Add buy prices in Products.</p>
+          )}
+        </section>
+      )}
 
       {/* Evening cash handover: each rider gives this much cash (QR and UPI payments are already in the bank). */}
       {s.byRider?.length > 0 && (

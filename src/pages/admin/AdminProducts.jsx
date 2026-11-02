@@ -5,12 +5,13 @@ import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { addProduct, addProductPhoto, deleteProduct, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductAvailable, setProductPhoto, updateProduct } from '../../lib/store.js'
+import { addProduct, addProductPhoto, deleteProduct, importProductsCSV, listCategories, listProductCosts, listProducts, removeProductPhoto, setProductAvailable, setProductCost, setProductPhoto, updateProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { percentOff, rupee, timeAgo } from '../../lib/format.js'
 import { DEMO_MODE } from '../../config.js'
 import { useRole } from '../../lib/role.js'
 import ProductThumb from '../../components/ProductThumb.jsx'
+import { margin } from '../../lib/profit.js'
 
 const MAX_EXTRA_PHOTOS = 4 // besides the main photo
 
@@ -42,6 +43,52 @@ function PriceEdit({ product }) {
     <form onSubmit={save} className="flex items-center gap-1">
       <input autoFocus type="number" inputMode="numeric" min="1" value={value} onChange={(e) => setValue(e.target.value)} className={`${lfieldBase} h-10 w-20 px-2`} />
       <button type="submit" className={`${lbtnDark} min-h-10 px-3 text-sm`}>Save</button>
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </form>
+  )
+}
+
+// What you pay at the shop (update 034, only the owner sees it): the margin shows next to it.
+// Saving an empty box removes it.
+function CostEdit({ product, cost }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [error, setError] = useState('')
+
+  const save = async (e) => {
+    e.preventDefault()
+    try {
+      await setProductCost(product.id, value.trim())
+      setEditing(false)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (!editing) {
+    if (cost == null) {
+      return (
+        <button type="button" onClick={() => { setValue(''); setEditing(true) }} className="h-10 rounded-lg border border-dashed border-neutral-300 px-2.5 text-xs font-semibold text-neutral-500">
+          + Buy price
+        </button>
+      )
+    }
+    const m = margin(product.price, cost)
+    return (
+      <button type="button" onClick={() => { setValue(String(cost)); setEditing(true) }} title="What you pay at the shop" className="flex h-10 flex-col items-start justify-center rounded-lg border border-neutral-200 px-2.5 text-left leading-tight">
+        <span className="text-[11px] text-neutral-500">Buy {rupee(cost)}</span>
+        <span className={`text-xs font-bold ${m.rupees > 0 ? 'text-green-700' : m.rupees < 0 ? 'text-red-600' : 'text-neutral-500'}`}>
+          {m.rupees < 0 ? '−' : '+'}{rupee(Math.abs(m.rupees))} · {m.percent}%
+        </span>
+      </button>
+    )
+  }
+  return (
+    <form onSubmit={save} className="flex items-center gap-1">
+      <input autoFocus type="number" inputMode="decimal" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Buy ₹" aria-label={`Buy price of ${product.name}`} className={`${lfieldBase} h-10 w-20 px-2`} />
+      <button type="submit" className={`${lbtnDark} min-h-10 px-3 text-sm`}>Save</button>
+      <button type="button" onClick={() => setEditing(false)} className="min-h-10 px-1 text-xs text-neutral-500">Cancel</button>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </form>
   )
@@ -247,12 +294,19 @@ function ProductEditor() {
   const [cat, setCat] = useState('')
   const [onlyOut, setOnlyOut] = useState(false)
   const [onlyNoPhoto, setOnlyNoPhoto] = useState(false)
+  const [costFilter, setCostFilter] = useState('') // '', 'none' (no buy price) or 'zero' (no margin)
   const [adding, setAdding] = useState(false)
   const { data: products = [] } = useData(() => listProducts({ q, categoryId: cat, includeHidden: true }), [q, cat])
   const { data: categories = [] } = useData(listCategories)
-  const shown = products.filter((p) => (!onlyOut || !p.available) && (!onlyNoPhoto || !p.photo_url))
+  const { data: costs = {} } = useData(listProductCosts)
+  const noCost = (p) => costs[p.id] == null
+  const noMargin = (p) => !noCost(p) && Number(p.price) - costs[p.id] <= 0
+  const shown = products.filter((p) => (!onlyOut || !p.available) && (!onlyNoPhoto || !p.photo_url) &&
+    (costFilter !== 'none' || noCost(p)) && (costFilter !== 'zero' || noMargin(p)))
   const outCount = products.filter((p) => !p.available).length
   const noPhotoCount = products.filter((p) => !p.photo_url).length
+  const noCostCount = products.filter(noCost).length
+  const noMarginCount = products.filter(noMargin).length
 
   const remove = async (p) => {
     if (!window.confirm(`Delete "${p.name} ${p.size}"? This cannot be undone. Old orders keep the item name. To stop selling for a while, use Hide instead.`)) return
@@ -268,7 +322,7 @@ function ProductEditor() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black">Products</h1>
-          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · tap the box to change a photo, + to add more photos · ⭐ = shown in Popular on home</p>
+          <p className="text-sm text-neutral-500">{products.length} products · {outCount} out of stock · tap the box to change a photo, + to add more photos · ⭐ = shown in Popular on home · Buy price = what you pay at the shop (only you see it)</p>
         </div>
         <button type="button" onClick={() => setAdding(!adding)} className={adding ? lbtnOutline : lbtnDark}><Plus size={18} /> {adding ? 'Close' : 'Add'}</button>
       </div>
@@ -295,6 +349,12 @@ function ProductEditor() {
         <button type="button" onClick={() => setOnlyNoPhoto(!onlyNoPhoto)} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${onlyNoPhoto ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
           No photo ({noPhotoCount})
         </button>
+        <button type="button" onClick={() => setCostFilter(costFilter === 'none' ? '' : 'none')} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${costFilter === 'none' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
+          No buy price ({noCostCount})
+        </button>
+        <button type="button" onClick={() => setCostFilter(costFilter === 'zero' ? '' : 'zero')} className={`h-11 rounded-xl border px-3 text-sm font-semibold ${costFilter === 'zero' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
+          ₹0 margin ({noMarginCount})
+        </button>
       </div>
 
       <div className="space-y-2">
@@ -316,6 +376,7 @@ function ProductEditor() {
               <Star size={18} fill={p.featured ? 'currentColor' : 'none'} />
             </button>
             <DiscountEdit key={`${p.price}-${p.compare_price}`} product={p} />
+            <CostEdit key={`cost-${costs[p.id]}`} product={p} cost={costs[p.id]} />
             <div className="flex items-center gap-2">
               <span className={`w-14 text-right text-xs font-semibold ${p.available ? 'text-green-700' : 'text-neutral-500'}`}>{p.available ? 'In stock' : 'Out'}</span>
               <Toggle checked={p.available} onChange={(v) => updateProduct(p.id, { available: v })} label={`${p.name} available`} />

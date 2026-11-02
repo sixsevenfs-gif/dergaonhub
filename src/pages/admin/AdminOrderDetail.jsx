@@ -17,6 +17,7 @@ import { CONFIG } from '../../config.js'
 import PaymentCheck from './PaymentCheck.jsx'
 import DeleteOrdersDialog from '../../components/DeleteOrdersDialog.jsx'
 import { useRole } from '../../lib/role.js'
+import { orderProfit } from '../../lib/profit.js'
 
 // Photo the rider took of the items at the customer's door.
 function DeliveryPhoto({ path }) {
@@ -40,6 +41,34 @@ function DeliveryPhoto({ path }) {
   )
 }
 
+const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
+
+// What this order earns you: items (selling − buy price) + fees − Jholzo Money − rider and petrol − bag.
+function ProfitCard({ order, items, costs, rules }) {
+  const p = orderProfit(order, items, costs, rules)
+  const line = (label, value) => <div className="flex justify-between text-neutral-600"><span>{label}</span><span>{value}</span></div>
+  return (
+    <section className={`${lcard} p-4`}>
+      <h2 className="font-bold">Your profit on this order <span className="ml-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Only you</span></h2>
+      <div className="mt-2 space-y-1 text-sm">
+        {line('Items (selling − buy price)', money(p.itemsEarned))}
+        {line('Delivery, packaging, express fees', money(p.fees))}
+        {p.discount > 0 && line('Jholzo Money used', `−${rupee(p.discount)}`)}
+        {line(`Rider + petrol${order.distance_km != null ? ` (${order.distance_km} km)` : ''}`, `−${rupee(p.rider)}`)}
+        {line('Bag / packing', `−${rupee(p.packing)}`)}
+        <div className="flex justify-between border-t border-neutral-200 pt-2 text-lg font-black">
+          <span>Profit</span><span className={p.profit >= 0 ? 'text-green-700' : 'text-red-600'}>{money(p.profit)}</span>
+        </div>
+      </div>
+      {p.missing.length > 0 && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          No buy price yet for {p.missing.join(', ')}, so their margin is not counted. <Link to="/admin/products" className="font-semibold underline">Add it in Products</Link>
+        </p>
+      )}
+    </section>
+  )
+}
+
 export default function AdminOrderDetail() {
   const { orderId } = useParams()
   const { data } = useData(() => getOrderById(orderId), [orderId])
@@ -55,7 +84,7 @@ export default function AdminOrderDetail() {
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
-  const { order, items, store, hint, complaints } = data
+  const { order, items, store, hint, complaints, costs, rules } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
   // Pay-now UPI order: the owner checks the payment before anyone else may confirm it.
   const payFirst = !isOwner && order.payment_method === 'upi_now' && order.payment_status !== 'paid'
@@ -179,6 +208,9 @@ export default function AdminOrderDetail() {
         {order.note && <p className="mt-3 rounded-xl bg-neutral-100 p-3 text-sm">Note: {order.note}</p>}
         {order.status === 'cancelled' && <p className="mt-3 text-sm text-neutral-600">Cancelled: {order.cancel_reason}</p>}
       </section>
+
+      {/* The owner's profit on this order from buy prices (update 034). */}
+      {isOwner && order.status !== 'cancelled' && rules && <ProfitCard order={order} items={items} costs={costs} rules={rules} />}
 
       {complaints.length > 0 && (
         <Link to="/admin/complaints" className={`${lcard} block p-4 text-sm`}>

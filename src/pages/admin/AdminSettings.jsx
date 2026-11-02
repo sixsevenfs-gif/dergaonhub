@@ -4,7 +4,7 @@ import Field from '../../components/Field.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { adminAddRider, adminListRiders, getPrivateSettings, getStore, resetDemo, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
+import { adminAddRider, adminListRiders, getCostRules, getPrivateSettings, getStore, resetDemo, saveCostRules, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
 import { currentPosition, deliveryRules, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { countHouses, savedHouseCount } from '../../lib/houses.js'
@@ -38,6 +38,45 @@ function EveningLimit() {
       {!data.ready && !DEMO_MODE && <p className="text-xs text-orange-700">Run supabase/migrations/014_private_cap.sql first.</p>}
       <div className="flex items-center gap-2">
         <input type="number" min="1" value={value || data.daily_order_cap} onChange={(e) => setValue(e.target.value)} className={`${lfieldBase} h-11 w-28`} />
+        <button type="submit" className={`${lbtnDark} h-11`}>Save</button>
+        {msg && <span className={`text-sm ${msg === 'Saved!' ? 'text-green-700' : 'text-red-600'}`}>{msg}</span>}
+      </div>
+    </form>
+  )
+}
+
+// Costs of one delivered order (update 034): the rider's pay with petrol, and the bag. They are taken off
+// the profit on each order and in the daily summary. Private like the evening limit.
+function CostsPerOrder() {
+  const { data } = useData(getCostRules)
+  const [v, setV] = useState(null)
+  const [msg, setMsg] = useState('')
+  if (!data) return null
+  const form = v ?? data
+  const set = (k) => (e) => setV({ ...form, [k]: e.target.value })
+  const save = async (e) => {
+    e.preventDefault()
+    setMsg('')
+    try {
+      await saveCostRules(form)
+      setV(null)
+      setMsg('Saved!')
+    } catch (err) {
+      setMsg(err.message)
+    }
+  }
+  return (
+    <form onSubmit={save} className={`${lcard} space-y-3 p-4`}>
+      <h2 className="font-bold">Costs per order <span className="ml-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Private</span></h2>
+      <p className="text-sm text-neutral-500">What one delivered order costs you besides the items: the rider's pay (petrol included) and the bag. Used for "Your profit" on each order and in the daily summary.</p>
+      {!data.ready && !DEMO_MODE && <p className="text-xs text-orange-700">Run supabase/migrations/034_buy_prices.sql first.</p>}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Field label={`Rider, up to ${form.rider_far_km} km (₹)`}><input type="number" min="0" step="0.5" value={form.rider_pay_near} onChange={set('rider_pay_near')} className={lfield} /></Field>
+        <Field label="Rider, farther (₹)"><input type="number" min="0" step="0.5" value={form.rider_pay_far} onChange={set('rider_pay_far')} className={lfield} /></Field>
+        <Field label="Near means up to (km)"><input type="number" min="0.5" step="0.5" value={form.rider_far_km} onChange={set('rider_far_km')} className={lfield} /></Field>
+        <Field label="Bag / packing (₹)"><input type="number" min="0" step="0.5" value={form.packing_cost} onChange={set('packing_cost')} className={lfield} /></Field>
+      </div>
+      <div className="flex items-center gap-3">
         <button type="submit" className={`${lbtnDark} h-11`}>Save</button>
         {msg && <span className={`text-sm ${msg === 'Saved!' ? 'text-green-700' : 'text-red-600'}`}>{msg}</span>}
       </div>
@@ -451,6 +490,7 @@ export default function AdminSettings() {
       <h1 className="text-2xl font-black">Settings</h1>
       <SettingsForm store={store} />
       <EveningLimit />
+      <CostsPerOrder />
       <Riders />
       {DEMO_MODE && (
         <button type="button" onClick={() => window.confirm('Reset all demo data?') && resetDemo()} className={`${lbtnDanger} w-full`}>

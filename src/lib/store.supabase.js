@@ -6,6 +6,7 @@ import { cleanPhone, dateStr, matches, slotDate } from './format.js'
 import { packagingFee, validPoint } from './delivery.js'
 import { walletReport } from './walletReport.js'
 import { cartRows } from './carts.js'
+import { COST_DEFAULTS, dayProfit } from './profit.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -502,13 +503,16 @@ export async function getOrderById(orderId) {
   await expireOld()
   const o = check(await sb.from('orders').select('*').eq('id', orderId).maybeSingle())
   if (!o) return null
-  const [items, complaints, store, hint] = await Promise.all([
+  const [items, complaints, store, hint, costs, rules] = await Promise.all([
     sb.from('order_items').select('*').eq('order_id', orderId).then(check).then(withPhotos),
     sb.from('complaints').select('*').eq('order_id', orderId).then(check),
     getStore(),
     hintsFor([o]),
+    listProductCosts(),
+    getCostRules(),
   ])
-  return { order: toOrder(o), items, store, complaints, hint: hint(o.customer_phone) }
+  const itemCosts = await orderItemCosts(items.map((i) => i.id))
+  return { order: toOrder(o), items: items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), store, complaints, hint: hint(o.customer_phone), costs, rules }
 }
 
 async function updateOrder(id, change, onlyFrom, message) {
@@ -670,7 +674,20 @@ export async function dailySummary(date) {
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
     byRider: cashByRider(done, team),
+    byCost: await profitOf(done.map(toOrder)),
   }
+}
+
+// The day's profit from buy prices (update 034). Only the owner can read buy prices; others get no costs.
+async function profitOf(orders) {
+  if (!orders.length) return dayProfit([], [], {}, COST_DEFAULTS)
+  const [items, costs, rules] = await Promise.all([
+    sb.from('order_items').select('id, order_id, product_id, name_snapshot, quantity, line_total').in('order_id', orders.map((o) => o.id)).then(check),
+    listProductCosts(),
+    getCostRules(),
+  ])
+  const itemCosts = await orderItemCosts(items.map((i) => i.id))
+  return dayProfit(orders, items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), costs, rules)
 }
 
 // Evening cash handover: what each rider (or the owner) delivered and how much cash they hold.
@@ -961,6 +978,49 @@ export async function savePrivateSettings({ daily_order_cap }) {
   if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
   check(await sb.from('private_settings').update({ daily_order_cap: Math.round(cap) }).eq('id', 1))
   notify()
+}
+
+/* ---------- buy prices and costs per order (update 034, the owner only) ---------- */
+
+// Rider pay (with petrol) and the bag for one delivered order. Defaults before update 034.
+export async function getCostRules() {
+  const { data } = await sb.from('private_settings').select('*').eq('id', 1).maybeSingle()
+  const ready = data?.rider_pay_near !== undefined
+  const pick = (k) => (ready ? Number(data[k]) : COST_DEFAULTS[k])
+  return { rider_pay_near: pick('rider_pay_near'), rider_pay_far: pick('rider_pay_far'), rider_far_km: pick('rider_far_km'), packing_cost: pick('packing_cost'), ready }
+}
+
+export async function saveCostRules(rules) {
+  const v = Object.fromEntries(['rider_pay_near', 'rider_pay_far', 'rider_far_km', 'packing_cost'].map((k) => [k, Number(rules[k])]))
+  if (Object.values(v).some((n) => !(n >= 0))) fail('Enter amounts of 0 or more.')
+  if (!(v.rider_far_km > 0)) fail('Enter the distance in km, like 2.')
+  check(await sb.from('private_settings').update(v).eq('id', 1))
+  notify()
+}
+
+// { productId: buy price }. Empty for anyone but the owner, and before update 034.
+export async function listProductCosts() {
+  const { data } = await sb.from('product_costs').select('product_id, cost')
+  return Object.fromEntries((data ?? []).map((c) => [c.product_id, Number(c.cost)]))
+}
+
+// value '' (or null) removes the buy price.
+export async function setProductCost(productId, value) {
+  if (value === '' || value == null) {
+    check(await sb.from('product_costs').delete().eq('product_id', productId))
+  } else {
+    const cost = Number(value)
+    if (!(cost >= 0)) fail('Enter what you pay at the shop, like 48.')
+    check(await sb.from('product_costs').upsert({ product_id: productId, cost, updated_at: now() }))
+  }
+  notify()
+}
+
+// Buy prices saved when the items were ordered: { orderItemId: cost }.
+async function orderItemCosts(itemIds) {
+  if (!itemIds.length) return {}
+  const { data } = await sb.from('order_item_costs').select('order_item_id, cost').in('order_item_id', itemIds)
+  return Object.fromEntries((data ?? []).map((c) => [c.order_item_id, Number(c.cost)]))
 }
 
 /* ---------- Pay now by UPI ---------- */

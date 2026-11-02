@@ -8,6 +8,7 @@ import { deliveryQuote, expressStatus, packagingFee, validPoint } from './delive
 import { parseCSV } from './csv.js'
 import { walletRules } from './wallet.js'
 import { cartRows } from './carts.js'
+import { COST_DEFAULTS, dayProfit } from './profit.js'
 
 const KEY = 'dergaonhub-demo-v9' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
@@ -476,6 +477,8 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   }
   db.orders.push(order)
   db.order_items.push(...items.map((i) => ({ ...i, order_id: order.id })))
+  db.order_item_costs ??= {}
+  for (const i of items) if (db.product_costs?.[i.product_id] != null) db.order_item_costs[i.id] = db.product_costs[i.product_id]
   db.carts = (db.carts ?? []).filter((c) => c.phone !== order.customer_phone && c.phone !== order.ordered_by_phone)
   if (walletUsed > 0) addEntry(me.id, -walletUsed, 'order_payment', order.id, `Used on order ${order.order_number}`)
   commit()
@@ -633,8 +636,9 @@ export async function getOrderById(orderId) {
   const o = db.orders.find((x) => x.id === orderId)
   if (!o) return null
   return clone({
-    order: o, items: withPhotos(itemsOf(o.id)), store: db.store, hint: hintFor(o.customer_phone),
+    order: o, items: withItemCosts(withPhotos(itemsOf(o.id))), store: db.store, hint: hintFor(o.customer_phone),
     complaints: db.complaints.filter((k) => k.order_id === o.id),
+    costs: db.product_costs ?? {}, rules: costRules(),
   })
 }
 
@@ -812,6 +816,7 @@ export async function dailySummary(date) {
     spent, spentNote: expense?.note ?? '',
     profit: cash + upi - spent,
     byRider: cashByRider(done),
+    byCost: dayProfit(done, withItemCosts(db.order_items.filter((i) => done.some((o) => o.id === i.order_id))), db.product_costs ?? {}, costRules()),
   }
 }
 
@@ -1129,6 +1134,39 @@ export async function savePrivateSettings({ daily_order_cap }) {
   const cap = Number(daily_order_cap)
   if (!(cap >= 1)) fail('Enter how many orders you can deliver in one evening.')
   db.private = { ...db.private, daily_order_cap: Math.round(cap) }
+  commit()
+}
+
+/* ---------- buy prices and costs per order (like update 034) ---------- */
+
+const costRules = () => ({ ...COST_DEFAULTS, ...(db.private?.costs ?? {}), ready: true })
+// The buy price saved when each item was ordered.
+const withItemCosts = (items) => items.map((i) => ({ ...i, cost: db.order_item_costs?.[i.id] ?? null }))
+
+export async function getCostRules() {
+  return costRules()
+}
+
+export async function saveCostRules(rules) {
+  const v = Object.fromEntries(['rider_pay_near', 'rider_pay_far', 'rider_far_km', 'packing_cost'].map((k) => [k, Number(rules[k])]))
+  if (Object.values(v).some((n) => !(n >= 0))) fail('Enter amounts of 0 or more.')
+  if (!(v.rider_far_km > 0)) fail('Enter the distance in km, like 2.')
+  db.private = { ...db.private, costs: v }
+  commit()
+}
+
+export async function listProductCosts() {
+  return clone(db.product_costs ?? {})
+}
+
+export async function setProductCost(productId, value) {
+  db.product_costs ??= {}
+  if (value === '' || value == null) delete db.product_costs[productId]
+  else {
+    const cost = Number(value)
+    if (!(cost >= 0)) fail('Enter what you pay at the shop, like 48.')
+    db.product_costs[productId] = cost
+  }
   commit()
 }
 
