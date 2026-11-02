@@ -10,7 +10,7 @@ import { btnAccent, btnOutline, card, cx } from '../../components/ui.js'
 import { cancelMyOrder, currentCustomer, getOrder, getStore } from '../../lib/store.js'
 import { HelpSupport, OrderList } from '../../components/MyOrders.jsx'
 import { useData } from '../../lib/useData.js'
-import { deliveryWhen, fmtClock, fmtDateTime, isExpress, rupee } from '../../lib/format.js'
+import { deliveryWhen, fmtClock, fmtDateTime, isExpress, lateDay, rupee, slotText } from '../../lib/format.js'
 import { waLink } from '../../lib/whatsapp.js'
 
 const STEPS = [
@@ -24,7 +24,7 @@ const STEPS = [
 const stepOf = (o) => (o.status === 'completed' ? 3 : o.dispatch ? 2 : o.status === 'confirmed' ? 1 : 0)
 
 // Cancel from this phone until the rider leaves; after that the button explains why it is gone.
-function CancelOrder({ order, mine }) {
+function CancelOrder({ order, mine, late }) {
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState('')
   if (!mine || order.status === 'cancelled' || order.status === 'completed') return null
@@ -44,7 +44,7 @@ function CancelOrder({ order, mine }) {
       {asking ? (
         <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3">
           <p className="text-sm">Cancel order #{order.order_number}?</p>
-          {order.payment_method !== 'upi_now' && (
+          {order.payment_method !== 'upi_now' && !late && (
             <p className="mt-1 text-xs font-medium text-red-700">If Cash on Delivery orders from this number are cancelled 2 times, the number is permanently blocked from ordering.</p>
           )}
           <div className="mt-2 flex gap-2">
@@ -58,6 +58,17 @@ function CancelOrder({ order, mine }) {
       <p className="mt-1.5 text-center text-xs text-muted">You can cancel until our rider is on the way.</p>
       {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
     </div>
+  )
+}
+
+// We missed the order's evening (update 038): say sorry and when it comes now.
+export function LateNote({ day, store }) {
+  return (
+    <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <b>We're really sorry!</b> Because of very high demand, all our delivery partners were busy and we couldn't
+      deliver your order on time. It will now be delivered <b>{slotText(day, store).replace(/^(Today|Tomorrow)/, (w) => w.toLowerCase())}</b>.
+      Thank you for your patience 🙏
+    </p>
   )
 }
 
@@ -97,6 +108,7 @@ function OrderView({ data }) {
   const { order, items, store, complaints } = data
   const cancelled = order.status === 'cancelled'
   const reached = stepOf(order)
+  const late = lateDay(order, store)
 
   return (
     <>
@@ -106,8 +118,9 @@ function OrderView({ data }) {
             <div className="text-2xl font-semibold">#{order.order_number}</div>
             <div className="text-sm text-muted">{fmtDateTime(order.created_at)}</div>
           </div>
-          <div className="text-right text-sm text-muted">Delivery<br />{deliveryWhen(order, store)}</div>
+          <div className="text-right text-sm text-muted">Delivery<br />{late ? slotText(late, store) : deliveryWhen(order, store)}</div>
         </div>
+        {late && <LateNote day={late} store={store} />}
 
         {cancelled ? (
           <div className="mt-4 flex items-center gap-3 rounded-xl bg-red-500/15 p-3">
@@ -148,7 +161,7 @@ function OrderView({ data }) {
           <div className="flex pt-2 text-lg font-semibold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
         {data.mine && <PayNow order={order} store={store} />}
-        <CancelOrder order={order} mine={data.mine} />
+        <CancelOrder order={order} mine={data.mine} late={!!late} />
         {order.status === 'completed' && (
           <Link to={`/bill/${order.order_number}`} className={`${btnOutline} mt-3 w-full`}>View / download bill (PDF)</Link>
         )}

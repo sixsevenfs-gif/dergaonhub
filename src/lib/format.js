@@ -39,6 +39,16 @@ export function dayLabel(str) {
 export const slotText = (date, shop) =>
   `${dayLabel(date)}, ${fmtTime(shop.slot_start)} – ${fmtTime(shop.slot_end)}`
 
+// Late delivery (update 038): an order not on its way when its evening ended moves to the next evening.
+// Returns the day it now comes, or '' when it is on time. Worked out here too, before an admin visit moves it.
+export function lateDay(o, shop, now = new Date()) {
+  if ((o.status !== 'placed' && o.status !== 'confirmed') || o.dispatch || !shop?.slot_end) return ''
+  const today = dateStr(now)
+  const beforeEnd = now.getHours() * 60 + now.getMinutes() < toMinutes(shop.slot_end)
+  if (o.delivery_date < today || (o.delivery_date === today && !beforeEnd)) return beforeEnd ? today : addDays(today, 1)
+  return o.delayed_from ? o.delivery_date : ''
+}
+
 // Orders before the cut-off go to today's slot, later ones to tomorrow's.
 export function slotDate(shop, now = new Date()) {
   const today = dateStr(now)

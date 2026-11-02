@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, FileText, Headphones, Package, Phone, RotateCcw, Truck } from 'lucide-react'
 import { WhatsAppIcon } from './icons.jsx'
 import { btnAccent, btnOutline, card, cx } from './ui.js'
-import { listProducts, ordersByPhone } from '../lib/store.js'
+import { getStore, listProducts, ordersByPhone } from '../lib/store.js'
 import { useData } from '../lib/useData.js'
 import { useCart } from '../lib/cart-context.js'
-import { dayLabel, fmtClock, fmtDateTime, isExpress, itemsText, rupee, statusLabel } from '../lib/format.js'
+import { dayLabel, fmtClock, fmtDateTime, isExpress, itemsText, lateDay, rupee, slotText, statusLabel } from '../lib/format.js'
 import { waLink } from '../lib/whatsapp.js'
 
 const STATUS_STYLE = {
@@ -19,6 +19,7 @@ export function OrderList({ phone }) {
   const navigate = useNavigate()
   const { setQty } = useCart()
   const { data: products = [] } = useData(listProducts)
+  const { data: store } = useData(getStore)
   const { data: orders, loading } = useData(() => ordersByPhone(phone), [phone])
   const [note, setNote] = useState('')
 
@@ -42,7 +43,9 @@ export function OrderList({ phone }) {
     <section>
       {note && <p className="mb-2 text-sm text-orange-700">{note}</p>}
       <div className="space-y-3">
-        {list.map((o) => (
+        {list.map((o) => {
+          const late = lateDay(o, store)
+          return (
           <div key={o.id} className={`${card} p-4`}>
             <Link to={`/track/${o.order_number}`} className="flex gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mint text-brand"><Package size={20} /></span>
@@ -55,7 +58,10 @@ export function OrderList({ phone }) {
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold">{rupee(o.total)} <ChevronRight size={18} className="text-muted" /></span>
                 </span>
                 <span className="mt-0.5 block text-[13px] text-muted">{fmtDateTime(o.created_at)} · {itemsText(o.item_count)}</span>
-                <span className="block text-[13px] text-muted">{isExpress(o) ? <b className="font-semibold text-amber-700">⚡ Express, by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}</span>
+                <span className="block text-[13px] text-muted">
+                  {late ? <b className="font-semibold text-amber-700">Sorry, delayed · now {slotText(late, store)}</b>
+                    : isExpress(o) ? <b className="font-semibold text-amber-700">⚡ Express, by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}
+                </span>
               </span>
             </Link>
             <p className="mt-2 line-clamp-1 text-xs text-muted">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>
@@ -64,7 +70,8 @@ export function OrderList({ phone }) {
               <Link to={`/report/${o.order_number}`} className={`${btnOutline} min-h-10 text-sm`}>Report problem</Link>
             </div>
           </div>
-        ))}
+          )
+        })}
         {!list.length && (
           <div className={`${card} py-8 text-center`}>
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-mint text-brand"><Package size={26} /></span>

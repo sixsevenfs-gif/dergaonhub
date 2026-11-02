@@ -6,7 +6,8 @@ import { card } from '../../components/ui.js'
 import PayNow from '../../components/PayNow.jsx'
 import { getOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { deliveryWhen, fmtClock, isExpress, rupee } from '../../lib/format.js'
+import { deliveryWhen, fmtClock, isExpress, lateDay, rupee, slotText } from '../../lib/format.js'
+import { LateNote } from './Track.jsx'
 
 export default function OrderPlaced() {
   const { orderNumber } = useParams()
@@ -14,6 +15,7 @@ export default function OrderPlaced() {
   if (loading) return null
   if (!data) return <p className="p-10 text-center text-muted">Order not found.</p>
   const { order, items, store } = data
+  const late = lateDay(order, store)
   const trackUrl = `${window.location.host}/track/${order.order_number}`
   // "Pay now by UPI" orders are only placed once paid: until then the page asks for the payment.
   const upiNow = order.payment_method === 'upi_now' && order.status !== 'cancelled'
@@ -119,8 +121,9 @@ export default function OrderPlaced() {
         </div>
         <div className="flex justify-between border-t border-line pt-3 text-xl font-semibold"><span>Total</span><span>{rupee(order.total)}</span></div>
         <div className="mt-3 flex items-center gap-2 text-sm text-muted">
-          <Clock size={16} /> Delivery {deliveryWhen(order, store)}
+          <Clock size={16} /> Delivery {late ? slotText(late, store) : deliveryWhen(order, store)}
         </div>
+        {late && <LateNote day={late} store={store} />}
       </section>
 
       {stage !== 'cancelled' && <div className={`${card} mt-3 flex items-center gap-3 p-4`}>

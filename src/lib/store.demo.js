@@ -3,7 +3,7 @@
 import { CONFIG } from '../config.js'
 import { walletReport } from './walletReport.js'
 import { makeSeed } from './seed.js'
-import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
+import { addDays, cleanPhone, dateStr, lateDay, matches, rupee, slotDate } from './format.js'
 import { deliveryQuote, expressStatus, packagingFee, validPoint } from './delivery.js'
 import { parseCSV } from './csv.js'
 import { walletRules } from './wallet.js'
@@ -494,13 +494,21 @@ function expireOld() {
       changed = true
     }
   }
+  // Missed evenings move to the next one (update 038); orders forgotten for more than 3 days expire.
   for (const o of db.orders) {
-    if ((o.status === 'placed' || o.status === 'confirmed') && o.delivery_date < today) {
+    if (o.status !== 'placed' && o.status !== 'confirmed') continue
+    if ((o.delayed_from ?? o.delivery_date) < addDays(today, -3)) {
       const from = o.status
       o.status = 'cancelled'
       o.cancel_reason = 'Expired'
       walletOnStatus(o, from)
       changed = true
+    } else {
+      const day = lateDay(o, db.store)
+      if (day && day !== o.delivery_date) {
+        Object.assign(o, { delayed_from: o.delayed_from ?? o.delivery_date, delivery_date: day })
+        changed = true
+      }
     }
   }
   if (changed) commit()
@@ -1070,12 +1078,14 @@ export async function cancelMyOrder(orderNumber) {
   if (o.status === 'cancelled') return
   if (o.status === 'completed') fail('This order is already delivered.')
   if (o.dispatch) fail("Our rider is already on the way, so this order can't be cancelled now.")
+  const late = !!lateDay(o, db.store)
   const from = o.status
   o.status = 'cancelled'
   o.cancel_reason = 'Cancelled by customer'
   walletOnStatus(o, from)
   // A cash order counts towards the block (update 037).
-  const c = o.payment_method !== 'upi_now' && db.customers.find((x) => x.id === ordererId(o))
+  // Not when we were late (update 038).
+  const c = o.payment_method !== 'upi_now' && !late && db.customers.find((x) => x.id === ordererId(o))
   if (c) {
     c.cancel_count = (c.cancel_count ?? 0) + 1
     autoBlock(c)

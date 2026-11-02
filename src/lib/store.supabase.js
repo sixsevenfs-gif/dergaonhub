@@ -807,6 +807,7 @@ export async function partnerSignIn(email, password) {
 }
 
 export async function partnerOrders(date) {
+  await sb.rpc('carry_missed_orders') // missed evenings move to the next one (update 038; an error before it is ignored)
   const orders = check(await sb.rpc('partner_orders', { p_date: date })).map(toOrder)
   const items = await withPhotos(orders.flatMap((o) => o.items))
   return orders.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) }))
