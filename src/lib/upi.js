@@ -1,4 +1,6 @@
 // upi://pay link: opens GPay / PhonePe / Paytm with the amount and order number filled in.
+// The UPI ID keeps its plain "@" (as in the NPCI format, pa=name@bank): some UPI apps don't decode "%40"
+// and then can't find the account ("Could not load banking name").
 function upiQuery(order, store) {
   const q = new URLSearchParams({
     pa: store.upi_id,
@@ -7,7 +9,7 @@ function upiQuery(order, store) {
     cu: 'INR',
     tn: `Jholzo ${order.order_number}`,
   })
-  return q.toString().replace(/\+/g, '%20')
+  return q.toString().replace(/\+/g, '%20').replace(/%40/g, '@')
 }
 
 export const upiLink = (order, store) => `upi://pay?${upiQuery(order, store)}`
