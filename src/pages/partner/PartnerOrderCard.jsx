@@ -3,6 +3,7 @@ import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPi
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
+import ItemPhoto from '../../components/ItemPhoto.jsx'
 import {
   confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
 } from '../../lib/store.js'
@@ -283,6 +284,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${on ? 'border-brand bg-brand text-white' : 'border-line'}`}>
                         {on && <Check size={15} strokeWidth={3} />}
                       </span>
+                      <ItemPhoto item={i} size="size-18" className={on ? 'opacity-40' : ''} />
                       <span className={`flex-1 text-sm ${on ? 'text-muted line-through' : ''}`}>
                         {i.name_snapshot}
                         {i.note && <span className="block text-xs text-orange-700 no-underline">“{i.note}”</span>}

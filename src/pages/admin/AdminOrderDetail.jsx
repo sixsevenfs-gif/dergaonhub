@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-rea
 import CustomerHint from '../../components/CustomerHint.jsx'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
+import ItemPhoto from '../../components/ItemPhoto.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
@@ -110,6 +111,7 @@ export default function AdminOrderDetail() {
         <div className="mt-2 divide-y divide-neutral-100">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-2 py-2">
+              <ItemPhoto item={i} size="h-20 w-20 sm:h-24 sm:w-24" className="mr-1" />
               <span className="flex-1">
                 <span className="block">{i.name_snapshot}</span>
                 <span className="text-sm text-neutral-500">{rupee(i.price_snapshot)} × {i.quantity}{i.note ? ` · "${i.note}"` : ''}</span>

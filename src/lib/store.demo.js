@@ -507,6 +507,12 @@ function expireOld() {
 }
 
 const itemsOf = (orderId) => db.order_items.filter((i) => i.order_id === orderId)
+// Product photo of each order item, like store.supabase.js.
+const withPhotos = (items) =>
+  items.map((i) => {
+    const p = db.products.find((x) => x.id === i.product_id)
+    return { ...i, product: p ? { id: p.id, photo_url: p.photo_url, category_id: p.category_id } : null }
+  })
 
 export async function getOrder(orderNumber) {
   expireOld()
@@ -625,7 +631,7 @@ export async function getOrderById(orderId) {
   const o = db.orders.find((x) => x.id === orderId)
   if (!o) return null
   return clone({
-    order: o, items: itemsOf(o.id), store: db.store, hint: hintFor(o.customer_phone),
+    order: o, items: withPhotos(itemsOf(o.id)), store: db.store, hint: hintFor(o.customer_phone),
     complaints: db.complaints.filter((k) => k.order_id === o.id),
   })
 }
@@ -864,7 +870,7 @@ export async function partnerOrders(date) {
     db.orders
       .filter((o) => o.delivery_date === date && o.status !== 'cancelled')
       .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
-      .map((o) => ({ dispatch: '', ...o, items: itemsOf(o.id), messages: messagesOf(o.id) })),
+      .map((o) => ({ dispatch: '', ...o, items: withPhotos(itemsOf(o.id)), messages: messagesOf(o.id) })),
   )
 }
 

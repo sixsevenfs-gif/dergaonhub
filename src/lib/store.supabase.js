@@ -483,12 +483,22 @@ export async function adminListOrders({ status = '', date = '' } = {}) {
   return rows.map(({ order_items, ...o }) => ({ ...toOrder(o), item_count: sum(order_items, (i) => i.quantity), hint: hint(o.customer_phone) }))
 }
 
+// Product photo (and category, for the icon when there is none) of each order item: an item keeps only
+// product_id. The admin and riders see what to pick. Not required: if it can't be read, items show without it.
+async function withPhotos(items) {
+  const ids = [...new Set(items.map((i) => i.product_id).filter(Boolean))]
+  if (!ids.length) return items
+  const { data } = await sb.from('products').select('id, photo_url, category_id').in('id', ids)
+  const byId = new Map((data ?? []).map((p) => [p.id, p]))
+  return items.map((i) => ({ ...i, product: byId.get(i.product_id) ?? null }))
+}
+
 export async function getOrderById(orderId) {
   await expireOld()
   const o = check(await sb.from('orders').select('*').eq('id', orderId).maybeSingle())
   if (!o) return null
   const [items, complaints, store, hint] = await Promise.all([
-    sb.from('order_items').select('*').eq('order_id', orderId).then(check),
+    sb.from('order_items').select('*').eq('order_id', orderId).then(check).then(withPhotos),
     sb.from('complaints').select('*').eq('order_id', orderId).then(check),
     getStore(),
     hintsFor([o]),
@@ -709,8 +719,9 @@ export async function partnerSignIn(email, password) {
 }
 
 export async function partnerOrders(date) {
-  const rows = check(await sb.rpc('partner_orders', { p_date: date }))
-  return rows.map(toOrder)
+  const orders = check(await sb.rpc('partner_orders', { p_date: date })).map(toOrder)
+  const items = await withPhotos(orders.flatMap((o) => o.items))
+  return orders.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) }))
 }
 
 const partnerCall = async (fn, args) => {
