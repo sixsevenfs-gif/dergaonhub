@@ -114,7 +114,7 @@ export default function AdminOrderDetail() {
         </p>
       </section>
 
-      {/* Who delivers it (update 032): riders accept on their page, or the desk chooses one here. */}
+      {/* Who delivers it (updates 032, 033): the desk assigns a rider; only that rider sees the order. */}
       {(editable || order.status === 'completed') && (
         <section className={`${lcard} flex flex-wrap items-center gap-3 p-4`}>
           <Bike size={20} className="shrink-0 text-neutral-500" />
@@ -125,7 +125,7 @@ export default function AdminOrderDetail() {
               <span className="min-w-0 flex-1">
                 <span className="block font-bold">Rider</span>
                 <span className="text-sm text-neutral-500">
-                  {order.rider_id ? <>{nameOf(order.rider_id)}{order.assigned_at && ` · since ${fmtClock(order.assigned_at)}`}</> : 'Nobody yet. Riders can accept it on their page, or choose one here.'}
+                  {order.rider_id ? <>{nameOf(order.rider_id)}{order.assigned_at && ` · since ${fmtClock(order.assigned_at)}`}</> : 'No rider yet. Choose one: only they will see this order.'}
                 </span>
               </span>
               <select value={order.rider_id ?? ''} onChange={(e) => run(() => assignRider(order.id, e.target.value))} aria-label="Rider" className={`${lfieldBase} h-11 w-40`}>

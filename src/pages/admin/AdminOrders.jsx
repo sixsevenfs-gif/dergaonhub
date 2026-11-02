@@ -5,8 +5,8 @@ import CustomerHint from '../../components/CustomerHint.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { PaymentBadge } from './PaymentCheck.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
-import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
-import { adminListOrders, confirmOrder, listTeam } from '../../lib/store.js'
+import { lbtnDark, lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
+import { adminListOrders, assignRider, confirmOrder, listTeam } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { addDays, dateStr, dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
@@ -61,6 +61,9 @@ export default function AdminOrders() {
   const { data: team = [] } = useData(listTeam)
   const { isOwner } = useRole()
   const nameOf = (id) => team.find((t) => t.user_id === id)?.name || 'Owner'
+  const riders = team.filter((t) => t.role === 'rider' && t.active)
+  // Riders get orders only from here or the order page (update 033); a deactivated rider still shows on their orders.
+  const riderOptions = (o) => (o.rider_id && !riders.some((r) => r.user_id === o.rider_id) ? [...riders, { user_id: o.rider_id, name: nameOf(o.rider_id) }] : riders)
   const seen = useRef(null)
 
   // Check for new orders every 15 seconds and beep when one arrives.
@@ -161,11 +164,6 @@ export default function AdminOrders() {
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
                 <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
               </p>
-              {(o.status === 'placed' || o.status === 'confirmed') && (
-                <p className={`mt-1 flex items-center gap-1.5 text-sm ${o.rider_id ? 'text-neutral-700' : 'text-neutral-400'}`}>
-                  <Bike size={15} /> {o.rider_id ? <>Rider <b>{nameOf(o.rider_id)}</b></> : 'No rider yet'}
-                </p>
-              )}
               {o.status === 'cancelled' && <p className="mt-1 text-sm text-neutral-500">Reason: {o.cancel_reason}</p>}
               <div className="mt-1"><CustomerHint hint={o.hint} /></div>
             </Link>
@@ -182,6 +180,20 @@ export default function AdminOrders() {
                   <button type="button" onClick={() => confirmOrder(o.id).catch((err) => window.alert(err.message))} className={lbtnDark}>Confirm</button>
                 )}
               </div>
+            )}
+            {(o.status === 'placed' || o.status === 'confirmed') && (
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <Bike size={16} className="shrink-0 text-neutral-500" />
+                <span className="shrink-0 font-semibold text-neutral-600">Rider</span>
+                <select
+                  value={o.rider_id ?? ''}
+                  onChange={(e) => assignRider(o.id, e.target.value).catch((err) => window.alert(err.message))}
+                  className={`${lfieldBase} h-10 min-w-0 flex-1 ${o.rider_id ? '' : 'border-amber-400 bg-amber-50'}`}
+                >
+                  <option value="">Choose a rider</option>
+                  {riderOptions(o).map((r) => <option key={r.user_id} value={r.user_id}>{r.name}</option>)}
+                </select>
+              </label>
             )}
           </div>
         ))}

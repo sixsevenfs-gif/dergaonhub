@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Hand, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Repeat, Smartphone, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
 import ItemPhoto from '../../components/ItemPhoto.jsx'
 import {
-  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, riderAccept, riderRelease, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
+  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
 } from '../../lib/store.js'
 import { compressImage } from '../../lib/image.js'
 import { fmtClock, isExpress, rupee } from '../../lib/format.js'
@@ -213,11 +213,10 @@ function MessageButton({ order, store, kind, auto, before, label, icon: Icon, pr
   )
 }
 
-// me: the rider's own login id. A rider sees their orders and free confirmed ones ("Accept" first);
-// the owner sees every order with its rider (update 032).
-export default function PartnerOrderCard({ order: o, store, isAdmin, me, auto }) {
+// A rider sees only the orders the order desk assigned to them; the owner sees every order with its
+// rider (updates 032, 033). Riders confirm new orders only when the owner allows it in Settings.
+export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const stage = stageOf(o)
-  const mustAccept = !isAdmin && !o.rider_id && o.status === 'confirmed'
   const mayConfirm = isAdmin || !!store.riders_confirm
   const done = stage === 'done'
   const [open, setOpen] = useState(!done)
@@ -347,16 +346,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, me, auto })
             </div>
           )}
 
-          {mustAccept && (
-            <div className="space-y-1.5">
-              <button type="button" onClick={run(() => riderAccept(o.id))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[15px] font-semibold text-white active:scale-[.99]">
-                <Hand size={18} /> Accept this order
-              </button>
-              <p className="text-center text-xs text-muted">Nobody has it yet. Accept it and it is yours to deliver.</p>
-            </div>
-          )}
-
-          {!mustAccept && (stage === 'ready' || stage === 'on_the_way' || stage === 'arriving') && (
+          {(stage === 'ready' || stage === 'on_the_way' || stage === 'arriving') && (
             <div className="space-y-2">
               <div className="flex gap-2">
                 <MessageButton
@@ -424,12 +414,6 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, me, auto })
                 </p>
               )}
             </div>
-          )}
-
-          {!isAdmin && o.rider_id === me && stage === 'ready' && (
-            <button type="button" onClick={run(() => riderRelease(o.id))} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-muted">
-              <Undo2 size={16} /> Give this order back
-            </button>
           )}
 
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}

@@ -55,6 +55,13 @@ function Riders() {
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
+  // Deactivate: the login stops working everywhere at once (the database checks "active" on every action).
+  const toggleActive = (r) => {
+    const place = r.role === 'executive' ? 'the dashboard' : 'the rider page'
+    if (r.active && !window.confirm(`Deactivate ${r.name}? They can't open ${place} until you activate them again.`)) return
+    setRiderActive(r.user_id, !r.active).catch((err) => setError(err.message))
+  }
+
   const add = async (e) => {
     e.preventDefault()
     setError('')
@@ -72,7 +79,8 @@ function Riders() {
         <h2 className="font-bold">Team (executives and riders)</h2>
         <p className="text-sm text-neutral-500">
           <b>Executive</b> opens <b>{window.location.host}/executive</b>: orders, customers, WhatsApp, stock, carts. Never settings,
-          payments, Jholzo Money, prices or deleting. <b>Rider</b> opens <b>{window.location.host}/partner</b>: their own deliveries.
+          payments, Jholzo Money, prices or deleting. <b>Rider</b> opens <b>{window.location.host}/partner</b>: only the orders
+          assigned to them. <b>Deactivate</b> locks someone out at once; <b>Activate</b> gives the access back.
           {!DEMO_MODE && ' First create their login in Supabase → Authentication → Users → Add user (tick Auto confirm), then add the same email here.'}
         </p>
       </div>
@@ -88,8 +96,11 @@ function Riders() {
                 </span>
                 <span className="block truncate text-xs text-neutral-500">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
               </span>
-              <button type="button" onClick={() => setRiderActive(r.user_id, !r.active).catch((err) => setError(err.message))} className={`${lbtnOutline} min-h-9 text-sm`}>
-                {r.active ? 'Remove access' : 'Give access'}
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${r.active ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-600'}`}>
+                {r.active ? 'Active' : 'Deactivated'}
+              </span>
+              <button type="button" onClick={() => toggleActive(r)} className={`${r.active ? lbtnDanger : lbtnOutline} min-h-9 text-sm`}>
+                {r.active ? 'Deactivate' : 'Activate'}
               </button>
             </li>
           ))}
@@ -376,7 +387,7 @@ function SettingsForm({ store }) {
             <h2 className="font-bold">Riders can confirm new orders</h2>
             <p className="text-sm text-neutral-500">
               Off: only you and the executive confirm (after calling the customer). Turn it on for days without an executive:
-              riders then see new orders too, and the one who confirms gets the order.
+              a rider can then call and confirm the new orders assigned to them.
             </p>
           </div>
           {v.riders_confirm !== undefined && (

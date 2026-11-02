@@ -807,9 +807,6 @@ export const partnerComplete = (id, cash, photo) =>
 // Customer paid by the UPI QR at the door (update 031): a cash order becomes UPI on delivery, so the rider
 // doesn't owe that cash. Called just before partnerComplete.
 export const partnerPaidByQr = (id) => partnerCall('partner_paid_by_qr', { p_order_id: id })
-// Update 032: a rider takes a confirmed order nobody has, or gives it back before "On the way".
-export const riderAccept = (id) => partnerCall('rider_accept', { p_order_id: id })
-export const riderRelease = (id) => partnerCall('rider_release', { p_order_id: id })
 
 // Photo of the items at the door (data URL from the camera), saved in the private "deliveries" bucket.
 export async function uploadDeliveryPhoto(orderId, photoUrl) {

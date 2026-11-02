@@ -644,7 +644,8 @@ export async function confirmOrder(id) {
   const o = orderOrFail(id)
   if (o.status !== 'placed') fail('Only new orders can be confirmed.')
   if (o.payment_method === 'upi_now' && o.payment_status !== 'paid' && demoAs() === 'executive') fail('Pay-now order: the owner checks the UPI payment first.')
-  claimForRider(o)
+  if (demoAs().startsWith('rider') && !db.store.riders_confirm) fail('Only the order desk can confirm orders.')
+  checkRiderOrder(o)
   o.status = 'confirmed'
   o.confirmed_at = now()
   o.confirmed_by = demoUser()
@@ -905,20 +906,17 @@ function demoUser() {
   return 'demo-owner'
 }
 
-// Like check_my_order() in update 032: a rider can't work on another rider's order; a free one becomes theirs.
-function claimForRider(o) {
-  if (!demoAs().startsWith('rider')) return
-  const me = demoUser()
-  if (o.rider_id && o.rider_id !== me) fail(`This order is with ${demoTeam().find((t) => t.user_id === o.rider_id)?.name ?? 'another rider'}.`)
-  if (!o.rider_id) {
-    o.rider_id = me
-    o.assigned_at = now()
-  }
+// Like check_my_order() in update 033: a rider works only on the orders assigned to them.
+function checkRiderOrder(o) {
+  if (demoAs().startsWith('rider') && o.rider_id !== demoUser()) fail('This order is not assigned to you. Ask the order desk.')
 }
+
+// A deactivated team member is locked out, as is_executive() / is_rider() do in the database.
+const demoActive = () => demoAs() === 'owner' || !!demoTeam().find((t) => t.user_id === demoUser())?.active
 
 export async function adminSession() {
   const as = demoAs()
-  const role = as === 'executive' ? 'executive' : as.startsWith('rider') ? '' : 'owner'
+  const role = as === 'executive' ? (demoActive() ? 'executive' : '') : as.startsWith('rider') ? '' : 'owner'
   return { email: 'demo', isAdmin: role === 'owner', role }
 }
 
@@ -932,7 +930,7 @@ export async function adminSignOut() {}
 
 export async function partnerSession() {
   const as = demoAs()
-  return { email: 'demo', userId: demoUser(), role: as === 'executive' ? '' : as.startsWith('rider') ? 'rider' : 'admin' }
+  return { email: 'demo', userId: demoUser(), role: as === 'executive' ? '' : as.startsWith('rider') ? (demoActive() ? 'rider' : '') : 'admin' }
 }
 
 export async function partnerSignIn() {
@@ -941,17 +939,16 @@ export async function partnerSignIn() {
 
 const messagesOf = (orderId) => (db.order_messages ?? []).filter((m) => m.order_id === orderId)
 
-// Like partner_orders() in update 032: the owner sees every order, a rider their own and the free ones.
+// Like partner_orders() in update 033: the owner sees every order, a rider only the ones assigned to them.
 export async function partnerOrders(date) {
   expireOld()
   const rider = demoAs().startsWith('rider')
   const me = demoUser()
   const team = demoTeam()
-  const mayConfirm = !!db.store.riders_confirm
   return clone(
     db.orders
       .filter((o) => o.delivery_date === date && o.status !== 'cancelled')
-      .filter((o) => !rider || o.rider_id === me || o.delivered_by === me || (!o.rider_id && (o.status === 'confirmed' || (o.status === 'placed' && mayConfirm))))
+      .filter((o) => !rider || o.rider_id === me || o.delivered_by === me)
       .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
       .map((o) => ({
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
@@ -960,26 +957,11 @@ export async function partnerOrders(date) {
   )
 }
 
-export async function riderAccept(id) {
-  const o = orderOrFail(id)
-  if (o.rider_id === demoUser()) return
-  claimForRider(o)
-  if (o.status !== 'confirmed') fail('Only confirmed orders can be accepted.')
-  commit()
-}
-
-export async function riderRelease(id) {
-  const o = orderOrFail(id)
-  if (o.rider_id !== demoUser() || o.status !== 'confirmed' || o.dispatch) fail('You can give an order back only before "On the way".')
-  o.rider_id = null
-  o.assigned_at = null
-  commit()
-}
 
 export async function setDispatch(id, dispatch) {
   const o = orderOrFail(id)
   if (o.status !== 'confirmed') fail('Only confirmed orders can go out for delivery.')
-  claimForRider(o)
+  checkRiderOrder(o)
   o.dispatch = dispatch
   o.dispatched_at = dispatch ? now() : null
   commit()
@@ -989,7 +971,7 @@ export async function partnerComplete(id, cash, photo) {
   const o = orderOrFail(id)
   if (!photo) fail('Take a photo of the items at the door first.')
   if (o.status !== 'confirmed') fail('Only confirmed orders can be marked delivered.')
-  claimForRider(o)
+  checkRiderOrder(o)
   o.delivery_photo = photo
   o.delivered_by = demoUser()
   await completeOrder(id, cash)
@@ -998,7 +980,7 @@ export async function partnerComplete(id, cash, photo) {
 // Customer paid by the UPI QR at the door: the cash order becomes UPI on delivery (like update 031).
 export async function partnerPaidByQr(id) {
   const o = orderOrFail(id)
-  claimForRider(o)
+  checkRiderOrder(o)
   if (o.status === 'confirmed' && o.payment_method === 'cash') o.payment_method = 'upi'
   commit()
 }
@@ -1095,6 +1077,7 @@ export async function cancelMyOrder(orderNumber) {
 export async function partnerNoShow(id) {
   const o = orderOrFail(id)
   if (o.status !== 'confirmed') fail('Only confirmed orders can be marked as a no-show.')
+  checkRiderOrder(o)
   await cancelOrder(id, 'No-show')
 }
 
