@@ -7,6 +7,7 @@ import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format
 import { deliveryQuote, expressStatus, packagingFee, validPoint } from './delivery.js'
 import { parseCSV } from './csv.js'
 import { walletRules } from './wallet.js'
+import { cartRows } from './carts.js'
 
 const KEY = 'dergaonhub-demo-v9' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
@@ -77,10 +78,10 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 /* ---------- store settings ---------- */
 
 export async function getStore() {
-  return clone(db.store)
+  return clone({ riders_confirm: false, ...db.store }) // older demo stores have no riders_confirm yet
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -475,6 +476,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   }
   db.orders.push(order)
   db.order_items.push(...items.map((i) => ({ ...i, order_id: order.id })))
+  db.carts = (db.carts ?? []).filter((c) => c.phone !== order.customer_phone && c.phone !== order.ordered_by_phone)
   if (walletUsed > 0) addEntry(me.id, -walletUsed, 'order_payment', order.id, `Used on order ${order.order_number}`)
   commit()
   return clone(order)
@@ -641,8 +643,21 @@ const orderOrFail = (id) => db.orders.find((o) => o.id === id) ?? fail('Order no
 export async function confirmOrder(id) {
   const o = orderOrFail(id)
   if (o.status !== 'placed') fail('Only new orders can be confirmed.')
+  if (o.payment_method === 'upi_now' && o.payment_status !== 'paid' && demoAs() === 'executive') fail('Pay-now order: the owner checks the UPI payment first.')
+  claimForRider(o)
   o.status = 'confirmed'
   o.confirmed_at = now()
+  o.confirmed_by = demoUser()
+  commit()
+}
+
+// Give an open order to a rider, or take it back (riderId null). Like desk_assign_rider() in update 032.
+export async function assignRider(orderId, riderId) {
+  const o = orderOrFail(orderId)
+  if (riderId && !demoTeam().some((t) => t.user_id === riderId && t.role === 'rider' && t.active)) fail('Choose an active rider.')
+  if (o.status !== 'placed' && o.status !== 'confirmed') fail('Only open orders can be assigned.')
+  o.rider_id = riderId || null
+  o.assigned_at = riderId ? now() : null
   commit()
 }
 
@@ -675,6 +690,7 @@ export async function cancelOrder(id, reason) {
   const from = o.status
   o.status = 'cancelled'
   o.cancel_reason = reason
+  o.cancelled_by = demoUser()
   walletOnStatus(o, from)
   if (reason === 'No-show') {
     const c = db.customers.find((x) => x.id === o.customer_id)
@@ -794,7 +810,21 @@ export async function dailySummary(date) {
     packaging: sum(done, (o) => o.packaging_fee ?? 0),
     spent, spentNote: expense?.note ?? '',
     profit: cash + upi - spent,
+    byRider: cashByRider(done),
   }
+}
+
+// Evening cash handover: what each rider (or the owner) delivered and how much cash they hold.
+function cashByRider(done) {
+  const team = demoTeam()
+  const rows = {}
+  for (const o of done) {
+    const who = o.delivered_by ?? ''
+    rows[who] ??= { name: team.find((t) => t.user_id === who)?.name || 'Owner', delivered: 0, cash: 0 }
+    rows[who].delivered += 1
+    if (o.payment_method === 'cash') rows[who].cash += Number(o.cash_collected) || 0
+  }
+  return Object.values(rows).sort((a, b) => b.cash - a.cash)
 }
 
 // Every order (with its items) and shop spend for delivery days from..to, for the sales report and sheet.
@@ -840,10 +870,56 @@ export async function resetNoShows(id) {
   commit()
 }
 
-/* ---------- admin login (demo: always admin) ---------- */
+/* ---------- admin login (demo: the owner, or try the team with ?as=executive / ?as=rider) ---------- */
+
+// Demo only: open any page with ?as=executive, ?as=rider (first rider) or ?as=rider2; ?as=owner goes back.
+const AS_KEY = 'dergaonhub-demo-as'
+function demoAs() {
+  const asked = new URLSearchParams(window.location.search).get('as')
+  try {
+    if (asked) localStorage.setItem(AS_KEY, asked)
+    return localStorage.getItem(AS_KEY) || 'owner'
+  } catch {
+    return asked || 'owner'
+  }
+}
+
+// Two riders and an executive, so assigning and accepting can be tried (riders added in Settings join them).
+function demoTeam() {
+  db.riders ??= []
+  if (!db.riders.length) {
+    db.riders.push(
+      { user_id: 'demo-rider-1', email: 'ravi@demo', name: 'Ravi', phone: '9000000201', role: 'rider', active: true },
+      { user_id: 'demo-rider-2', email: 'sonu@demo', name: 'Sonu', phone: '9000000202', role: 'rider', active: true },
+      { user_id: 'demo-exec', email: 'rahul@demo', name: 'Rahul', phone: '9000000203', role: 'executive', active: true },
+    )
+  }
+  return db.riders.map((r) => ({ role: 'rider', ...r }))
+}
+
+function demoUser() {
+  const as = demoAs()
+  const team = demoTeam()
+  if (as === 'executive') return team.find((t) => t.role === 'executive')?.user_id ?? 'demo-exec'
+  if (as.startsWith('rider')) return team.filter((t) => t.role === 'rider')[as === 'rider2' ? 1 : 0]?.user_id ?? 'demo-rider-1'
+  return 'demo-owner'
+}
+
+// Like check_my_order() in update 032: a rider can't work on another rider's order; a free one becomes theirs.
+function claimForRider(o) {
+  if (!demoAs().startsWith('rider')) return
+  const me = demoUser()
+  if (o.rider_id && o.rider_id !== me) fail(`This order is with ${demoTeam().find((t) => t.user_id === o.rider_id)?.name ?? 'another rider'}.`)
+  if (!o.rider_id) {
+    o.rider_id = me
+    o.assigned_at = now()
+  }
+}
 
 export async function adminSession() {
-  return { email: 'demo', isAdmin: true }
+  const as = demoAs()
+  const role = as === 'executive' ? 'executive' : as.startsWith('rider') ? '' : 'owner'
+  return { email: 'demo', isAdmin: role === 'owner', role }
 }
 
 export async function adminSignIn() {
@@ -855,7 +931,8 @@ export async function adminSignOut() {}
 /* ---------- delivery partner (demo: the admin is the rider) ---------- */
 
 export async function partnerSession() {
-  return { email: 'demo', role: 'admin' }
+  const as = demoAs()
+  return { email: 'demo', userId: demoUser(), role: as === 'executive' ? '' : as.startsWith('rider') ? 'rider' : 'admin' }
 }
 
 export async function partnerSignIn() {
@@ -864,19 +941,45 @@ export async function partnerSignIn() {
 
 const messagesOf = (orderId) => (db.order_messages ?? []).filter((m) => m.order_id === orderId)
 
+// Like partner_orders() in update 032: the owner sees every order, a rider their own and the free ones.
 export async function partnerOrders(date) {
   expireOld()
+  const rider = demoAs().startsWith('rider')
+  const me = demoUser()
+  const team = demoTeam()
+  const mayConfirm = !!db.store.riders_confirm
   return clone(
     db.orders
       .filter((o) => o.delivery_date === date && o.status !== 'cancelled')
+      .filter((o) => !rider || o.rider_id === me || o.delivered_by === me || (!o.rider_id && (o.status === 'confirmed' || (o.status === 'placed' && mayConfirm))))
       .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
-      .map((o) => ({ dispatch: '', ...o, items: withPhotos(itemsOf(o.id)), messages: messagesOf(o.id) })),
+      .map((o) => ({
+        dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
+        items: withPhotos(itemsOf(o.id)), messages: messagesOf(o.id),
+      })),
   )
+}
+
+export async function riderAccept(id) {
+  const o = orderOrFail(id)
+  if (o.rider_id === demoUser()) return
+  claimForRider(o)
+  if (o.status !== 'confirmed') fail('Only confirmed orders can be accepted.')
+  commit()
+}
+
+export async function riderRelease(id) {
+  const o = orderOrFail(id)
+  if (o.rider_id !== demoUser() || o.status !== 'confirmed' || o.dispatch) fail('You can give an order back only before "On the way".')
+  o.rider_id = null
+  o.assigned_at = null
+  commit()
 }
 
 export async function setDispatch(id, dispatch) {
   const o = orderOrFail(id)
   if (o.status !== 'confirmed') fail('Only confirmed orders can go out for delivery.')
+  claimForRider(o)
   o.dispatch = dispatch
   o.dispatched_at = dispatch ? now() : null
   commit()
@@ -886,13 +989,16 @@ export async function partnerComplete(id, cash, photo) {
   const o = orderOrFail(id)
   if (!photo) fail('Take a photo of the items at the door first.')
   if (o.status !== 'confirmed') fail('Only confirmed orders can be marked delivered.')
+  claimForRider(o)
   o.delivery_photo = photo
+  o.delivered_by = demoUser()
   await completeOrder(id, cash)
 }
 
 // Customer paid by the UPI QR at the door: the cash order becomes UPI on delivery (like update 031).
 export async function partnerPaidByQr(id) {
   const o = orderOrFail(id)
+  claimForRider(o)
   if (o.status === 'confirmed' && o.payment_method === 'cash') o.payment_method = 'upi'
   commit()
 }
@@ -917,24 +1023,56 @@ export async function sendAutoMessage() {
 /* ---------- admin: riders (demo: names only, no logins) ---------- */
 
 export async function adminListRiders() {
-  return clone(db.riders ?? [])
+  return clone(demoTeam())
 }
 
-export async function adminAddRider({ email, name, phone }) {
-  if (!email?.trim()) fail('Enter the rider login email.')
-  if (!name?.trim()) fail('Enter the rider name.')
+export async function listTeam() {
+  return clone(demoTeam().map((r) => ({ user_id: r.user_id, name: r.name, phone: r.phone, role: r.role, active: r.active })))
+}
+
+export async function adminAddRider({ email, name, phone, role = 'rider' }) {
+  if (!email?.trim()) fail('Enter the login email.')
+  if (!name?.trim()) fail('Enter the name.')
   const ph = cleanPhone(phone ?? '')
   if (ph && ph.length !== 10) fail('Enter a valid 10-digit phone number.')
-  db.riders ??= []
+  demoTeam()
   const found = db.riders.find((r) => r.email.toLowerCase() === email.trim().toLowerCase())
-  if (found) Object.assign(found, { name: name.trim(), phone: ph, active: true })
-  else db.riders.push({ user_id: newId(), email: email.trim(), name: name.trim(), phone: ph, active: true })
+  if (found) Object.assign(found, { name: name.trim(), phone: ph, role, active: true })
+  else db.riders.push({ user_id: newId(), email: email.trim(), name: name.trim(), phone: ph, role, active: true })
   commit()
 }
 
 export async function setRiderActive(userId, active) {
   const r = (db.riders ?? []).find((x) => x.user_id === userId) ?? fail('Rider not found.')
   r.active = !!active
+  commit()
+}
+
+/* ---------- order desk: stock and carts (like update 032) ---------- */
+
+export const setProductAvailable = (id, available) => updateProduct(id, { available: !!available })
+
+export async function adminCarts() {
+  return clone(cartRows((db.carts ?? []).slice().sort((a, b) => b.updated_at.localeCompare(a.updated_at)), db.products, demoTeam()))
+}
+
+export async function markReminded(phone) {
+  const c = (db.carts ?? []).find((x) => x.phone === phone) ?? fail('Cart not found.')
+  c.reminded_at = now()
+  c.reminded_by = demoUser()
+  commit()
+}
+
+// The logged-in customer's cart (items: [{ id, qty }]); an empty cart removes it.
+export async function saveMyCart(items) {
+  const me = currentCustomer()
+  if (!me?.phone) return
+  db.carts ??= []
+  const list = (items ?? []).filter((i) => i.id && i.qty > 0).slice(0, 60).map((i) => ({ id: i.id, qty: Math.min(99, i.qty) }))
+  const found = db.carts.find((c) => c.phone === me.phone)
+  if (!list.length) db.carts = db.carts.filter((c) => c.phone !== me.phone)
+  else if (found) Object.assign(found, { name: me.name || found.name, updated_at: JSON.stringify(found.items) === JSON.stringify(list) ? found.updated_at : now(), items: list })
+  else db.carts.push({ phone: me.phone, name: me.name ?? '', items: list, updated_at: now(), reminded_at: null, reminded_by: null })
   commit()
 }
 

@@ -8,11 +8,13 @@ import { deliverySheet, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, fmtClock, isExpress, rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
+import { useRole } from '../../lib/role.js'
 
 // The evening run: first the shopping list (buy everything in one trip), then deliveries by area.
 export default function DeliverySheet() {
   const [date, setDate] = useState(dateStr())
   const { data } = useData(() => deliverySheet(date), [date])
+  const { isOwner } = useRole()
   if (!data) return null
   const all = data.groups.flatMap((g) => g.orders)
   const toCollect = all.filter((o) => o.payment_method === 'cash' && o.status !== 'completed').reduce((s, o) => s + o.total, 0)
@@ -90,8 +92,9 @@ export default function DeliverySheet() {
                     </div>
                   </div>
                   <div className="mt-3 print:hidden">
-                    {o.status === 'confirmed' && <DeliveredButton order={o} items={o.items} className="w-full" />}
-                    {done && <button type="button" onClick={() => reopenOrder(o.id)} className={`${lbtnOutline} w-full`}>Undo delivered</button>}
+                    {/* Delivered with cash and Undo: the owner only (riders use their page). */}
+                    {o.status === 'confirmed' && isOwner && <DeliveredButton order={o} items={o.items} className="w-full" />}
+                    {done && isOwner && <button type="button" onClick={() => reopenOrder(o.id)} className={`${lbtnOutline} w-full`}>Undo delivered</button>}
                     {o.status === 'placed' && <p className="text-xs text-orange-600">Confirm first.</p>}
                   </div>
                 </div>

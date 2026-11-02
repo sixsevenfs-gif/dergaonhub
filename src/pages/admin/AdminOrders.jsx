@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarDays, Phone, Truck } from 'lucide-react'
+import { Bike, CalendarDays, Phone, Truck } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { PaymentBadge } from './PaymentCheck.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard } from '../../components/ui.js'
-import { adminListOrders, confirmOrder } from '../../lib/store.js'
+import { adminListOrders, confirmOrder, listTeam } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { addDays, dateStr, dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
+import { useRole } from '../../lib/role.js'
 
 const FILTERS = [
   ['placed', 'New'],
@@ -57,6 +58,9 @@ export default function AdminOrders() {
   const [filter, setFilter] = useState('placed')
   const [day, setDay] = useState('all') // 'all', 'today', 'yesterday' or a date like 2026-11-02
   const { data: orders = [], reload } = useData(adminListOrders)
+  const { data: team = [] } = useData(listTeam)
+  const { isOwner } = useRole()
+  const nameOf = (id) => team.find((t) => t.user_id === id)?.name || 'Owner'
   const seen = useRef(null)
 
   // Check for new orders every 15 seconds and beep when one arrives.
@@ -157,6 +161,11 @@ export default function AdminOrders() {
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
                 <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
               </p>
+              {(o.status === 'placed' || o.status === 'confirmed') && (
+                <p className={`mt-1 flex items-center gap-1.5 text-sm ${o.rider_id ? 'text-neutral-700' : 'text-neutral-400'}`}>
+                  <Bike size={15} /> {o.rider_id ? <>Rider <b>{nameOf(o.rider_id)}</b></> : 'No rider yet'}
+                </p>
+              )}
               {o.status === 'cancelled' && <p className="mt-1 text-sm text-neutral-500">Reason: {o.cancel_reason}</p>}
               <div className="mt-1"><CustomerHint hint={o.hint} /></div>
             </Link>
@@ -166,7 +175,12 @@ export default function AdminOrders() {
                 <a href={waLink(toWa(o.customer_phone), `Hello ${o.customer_name}, this is Jholzo. We have received your order #${o.order_number}.`)} target="_blank" rel="noreferrer" className={lbtnOutline}>
                   <WhatsAppIcon size={17} />
                 </a>
-                <button type="button" onClick={() => confirmOrder(o.id)} className={lbtnDark}>Confirm</button>
+                {/* Pay-now UPI order: the owner checks the payment first (the database refuses others). */}
+                {!isOwner && o.payment_method === 'upi_now' && o.payment_status !== 'paid' ? (
+                  <span className="flex items-center justify-center rounded-xl bg-amber-50 px-2 text-center text-xs font-semibold text-amber-800">Owner checks payment</span>
+                ) : (
+                  <button type="button" onClick={() => confirmOrder(o.id).catch((err) => window.alert(err.message))} className={lbtnDark}>Confirm</button>
+                )}
               </div>
             )}
           </div>

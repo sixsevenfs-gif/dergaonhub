@@ -131,7 +131,8 @@ export const POLICIES = {
         <H>WhatsApp and phone</H>
         <P>
           When you tap a WhatsApp button, the message is sent through WhatsApp, which has its own privacy policy. We
-          only message you about your orders.
+          message you about your orders. If you are logged in and leave items in your cart without ordering, we may send
+          you one reminder about them.
         </P>
         <H>Stored on your phone</H>
         <P>

@@ -45,10 +45,13 @@ function EveningLimit() {
   )
 }
 
-// Delivery partners: each rider logs in on /partner with their own email + password.
+const ROLES = [['rider', 'Rider'], ['executive', 'Executive']]
+
+// The team: riders log in on /partner, executives on /executive (the order desk, update 032).
+// Each has their own email + password. "Remove access" locks them out at once.
 function Riders() {
   const { data: riders, error: loadError } = useData(adminListRiders)
-  const [form, setForm] = useState({ email: '', name: '', phone: '' })
+  const [form, setForm] = useState({ email: '', name: '', phone: '', role: 'rider' })
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
@@ -57,7 +60,7 @@ function Riders() {
     setError('')
     try {
       await adminAddRider(form)
-      setForm({ email: '', name: '', phone: '' })
+      setForm({ email: '', name: '', phone: '', role: 'rider' })
     } catch (err) {
       setError(err.message)
     }
@@ -66,9 +69,10 @@ function Riders() {
   return (
     <section className={`${lcard} space-y-3 p-4`}>
       <div>
-        <h2 className="font-bold">Delivery partners (riders)</h2>
+        <h2 className="font-bold">Team (executives and riders)</h2>
         <p className="text-sm text-neutral-500">
-          Riders open <b>{window.location.host}/partner</b>. They see the day's orders and send delivery messages, nothing else.
+          <b>Executive</b> opens <b>{window.location.host}/executive</b>: orders, customers, WhatsApp, stock, carts. Never settings,
+          payments, Jholzo Money, prices or deleting. <b>Rider</b> opens <b>{window.location.host}/partner</b>: their own deliveries.
           {!DEMO_MODE && ' First create their login in Supabase → Authentication → Users → Add user (tick Auto confirm), then add the same email here.'}
         </p>
       </div>
@@ -78,7 +82,10 @@ function Riders() {
           {riders.map((r) => (
             <li key={r.user_id} className={`flex items-center gap-3 px-3 py-2.5 ${r.active ? '' : 'opacity-50'}`}>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{r.name}</span>
+                <span className="flex items-center gap-2 font-semibold">
+                  {r.name}
+                  <span className={`rounded px-1.5 text-[11px] font-bold uppercase ${r.role === 'executive' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{r.role === 'executive' ? 'Executive' : 'Rider'}</span>
+                </span>
                 <span className="block truncate text-xs text-neutral-500">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
               </span>
               <button type="button" onClick={() => setRiderActive(r.user_id, !r.active).catch((err) => setError(err.message))} className={`${lbtnOutline} min-h-9 text-sm`}>
@@ -88,10 +95,13 @@ function Riders() {
           ))}
         </ul>
       )}
-      <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+      <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1fr_auto_auto]">
         <input type="email" required placeholder="Login email" value={form.email} onChange={set('email')} className={lfield} />
         <input required placeholder="Name" value={form.name} onChange={set('name')} className={lfield} />
         <input inputMode="numeric" placeholder="Phone" value={form.phone} onChange={set('phone')} className={lfield} />
+        <select value={form.role} onChange={set('role')} aria-label="Role" className={lfieldBase}>
+          {ROLES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        </select>
         <button type="submit" className={lbtnDark}><UserPlus size={17} /> Add</button>
       </form>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -357,6 +367,24 @@ function SettingsForm({ store }) {
           <p className="rounded-xl bg-neutral-100 p-3 text-xs text-neutral-600">Demo mode cannot send messages by itself.</p>
         ) : v.whatsapp_auto === undefined && (
           <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/003_partners.sql in the Supabase SQL Editor to use this.</p>
+        )}
+      </section>
+
+      <section className={`${lcard} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold">Riders can confirm new orders</h2>
+            <p className="text-sm text-neutral-500">
+              Off: only you and the executive confirm (after calling the customer). Turn it on for days without an executive:
+              riders then see new orders too, and the one who confirms gets the order.
+            </p>
+          </div>
+          {v.riders_confirm !== undefined && (
+            <Toggle checked={!!v.riders_confirm} onChange={(on) => setV({ ...v, riders_confirm: on })} label="Riders can confirm new orders" />
+          )}
+        </div>
+        {v.riders_confirm === undefined && (
+          <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/032_team.sql in the Supabase SQL Editor to use this.</p>
         )}
       </section>
 

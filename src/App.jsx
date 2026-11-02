@@ -18,7 +18,7 @@ import Report from './pages/customer/Report.jsx'
 import Policy from './pages/customer/Policy.jsx'
 import LuckyDraw from './pages/customer/LuckyDraw.jsx'
 
-import AdminArea from './pages/admin/AdminArea.jsx'
+import AdminArea, { OwnerOnly } from './pages/admin/AdminArea.jsx'
 import AdminHome from './pages/admin/AdminHome.jsx'
 import AdminOrders from './pages/admin/AdminOrders.jsx'
 import AdminOrderDetail from './pages/admin/AdminOrderDetail.jsx'
@@ -33,6 +33,7 @@ import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
 import AdminLogins from './pages/admin/AdminLogins.jsx'
 import AdminDeleteOrders from './pages/admin/AdminDeleteOrders.jsx'
 import AdminWallet from './pages/admin/AdminWallet.jsx'
+import AdminCarts from './pages/admin/AdminCarts.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
@@ -63,6 +64,8 @@ export default function App() {
         <Route path="/lucky-draw" element={<LuckyDraw />} />
 
         <Route path="/partner" element={<Partner />} />
+        {/* The executive's link: the same dashboard, it shows only what an executive may use. */}
+        <Route path="/executive" element={<Navigate to="/admin" replace />} />
 
         <Route path="/admin" element={<AdminArea />}>
           <Route index element={<AdminHome />} />
@@ -74,11 +77,12 @@ export default function App() {
           <Route path="top-items" element={<TopItems />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="carts" element={<AdminCarts />} />
           <Route path="money" element={<AdminWallet />} />
           <Route path="logins" element={<AdminLogins />} />
           <Route path="waitlist" element={<AdminWaitlist />} />
-          <Route path="settings" element={<AdminSettings />} />
-          <Route path="delete-orders" element={<AdminDeleteOrders />} />
+          <Route path="settings" element={<OwnerOnly><AdminSettings /></OwnerOnly>} />
+          <Route path="delete-orders" element={<OwnerOnly><AdminDeleteOrders /></OwnerOnly>} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}

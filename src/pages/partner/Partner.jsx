@@ -39,7 +39,11 @@ function PartnerRun({ session }) {
     }
   }, [reload])
 
-  const list = (orders ?? []).slice().sort((a, b) => ORDER[stageOf(a)] - ORDER[stageOf(b)])
+  const all = (orders ?? []).slice().sort((a, b) => ORDER[stageOf(a)] - ORDER[stageOf(b)])
+  // A rider: free orders to accept, and their own (update 032). The owner: every order.
+  const rider = session.role === 'rider'
+  const available = rider ? all.filter((o) => !o.rider_id && o.status !== 'completed') : []
+  const list = rider ? all.filter((o) => o.rider_id === session.userId || o.delivered_by === session.userId) : all
   const left = list.filter((o) => o.status === 'confirmed')
   const delivered = list.filter((o) => o.status === 'completed').length
   const cash = left.filter((o) => o.payment_method === 'cash').reduce((s, o) => s + o.total, 0)
@@ -117,12 +121,30 @@ function PartnerRun({ session }) {
 
       {error && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{error.message}</p>}
 
-      <div className="mt-4 space-y-3">
-        {list.map((o) => (
-          <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} auto={!!store?.whatsapp_auto} />
-        ))}
-        {orders && !list.length && <p className={`${card} p-8 text-center text-muted`}>No orders for this day yet.</p>}
-      </div>
+      {available.length > 0 && (
+        <section className="mt-4">
+          <h2 className="mb-2 text-sm font-semibold text-muted">Available to accept · {available.length}</h2>
+          <div className="space-y-3">
+            {available.map((o) => (
+              <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={false} me={session.userId} auto={!!store?.whatsapp_auto} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-4">
+        {rider && <h2 className="mb-2 text-sm font-semibold text-muted">My orders · {list.length}</h2>}
+        <div className="space-y-3">
+          {list.map((o) => (
+            <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} me={session.userId} auto={!!store?.whatsapp_auto} />
+          ))}
+          {orders && !list.length && (
+            <p className={`${card} p-8 text-center text-muted`}>
+              {rider ? 'No orders for you yet. Accept one above, or wait for the desk to give you one.' : 'No orders for this day yet.'}
+            </p>
+          )}
+        </div>
+      </section>
 
       {session.role === 'admin' && (
         <Link to="/admin" className="mt-8 block text-center text-sm text-muted underline">Back to admin</Link>

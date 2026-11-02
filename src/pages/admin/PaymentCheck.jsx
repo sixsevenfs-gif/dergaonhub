@@ -4,6 +4,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { setPaymentStatus } from '../../lib/store.js'
 import { rupee } from '../../lib/format.js'
 import { messagePhone, paymentMessage, toWa, waLink } from '../../lib/whatsapp.js'
+import { useRole } from '../../lib/role.js'
 
 const LABELS = {
   awaiting: ['Not paid yet', 'bg-neutral-100 text-neutral-600'],
@@ -20,8 +21,10 @@ export const PaymentBadge = ({ order }) => {
 
 // "Pay now by UPI" orders: open your bank / UPI app, find this amount (and UPI Ref No.), then tap.
 // After "Payment received", send the customer the confirmation on WhatsApp.
+// The executive sees the status only: the owner checks the bank app (and the database allows only them).
 export default function PaymentCheck({ order, store, onPaid }) {
   const [error, setError] = useState('')
+  const { isOwner } = useRole()
   if (order.payment_method !== 'upi_now') return null
   const set = (status) =>
     setPaymentStatus(order.id, status)
@@ -38,7 +41,9 @@ export default function PaymentCheck({ order, store, onPaid }) {
         {order.upi_ref ? <>UPI Ref No. (UTR): <b className="font-mono">{order.upi_ref}</b></> : 'The customer has not entered a UPI Ref No. yet.'}
         {' '}Check your bank or UPI app for {rupee(order.total)} before tapping.
       </p>
-      {st !== 'paid' ? (
+      {st !== 'paid' && !isOwner ? (
+        <p className="text-xs font-semibold text-amber-800">The owner checks this payment in the bank app.</p>
+      ) : st !== 'paid' ? (
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => set('paid')} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-green-700 px-3 font-semibold text-white">
             <BadgeCheck size={16} /> Payment received

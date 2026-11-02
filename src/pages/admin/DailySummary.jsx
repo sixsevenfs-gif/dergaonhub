@@ -4,6 +4,7 @@ import { lbtnDark, lcard, lfield, lfieldBase } from '../../components/ui.js'
 import { dailySummary, setDailyExpense } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, rupee } from '../../lib/format.js'
+import { useRole } from '../../lib/role.js'
 
 function Row({ label, value, strong }) {
   return (
@@ -47,6 +48,7 @@ function ExpenseForm({ date, summary }) {
 export default function DailySummary() {
   const [date, setDate] = useState(dateStr())
   const { data: s } = useData(() => dailySummary(date), [date])
+  const { isOwner } = useRole()
   if (!s) return null
 
   return (
@@ -71,7 +73,23 @@ export default function DailySummary() {
         <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />
       </section>
 
-      <ExpenseForm key={date} date={date} summary={s} />
+      {/* Evening cash handover: each rider gives this much cash (QR and UPI payments are already in the bank). */}
+      {s.byRider?.length > 0 && (
+        <section className={`${lcard} p-4`}>
+          <h2 className="font-bold">Cash with each rider</h2>
+          <div className="mt-1 divide-y divide-neutral-100">
+            {s.byRider.map((r) => (
+              <div key={r.name} className="flex items-center justify-between py-2 text-sm">
+                <span><b>{r.name}</b> <span className="text-neutral-500">· {r.delivered} delivered</span></span>
+                <span className="font-bold">{rupee(r.cash)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Shop spend changes the profit: the owner enters it. */}
+      {isOwner && <ExpenseForm key={date} date={date} summary={s} />}
     </div>
   )
 }

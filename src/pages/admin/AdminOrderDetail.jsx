@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
+import { ArrowLeft, Bike, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import ItemPhoto from '../../components/ItemPhoto.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
-import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
+import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
+import { assignRider, cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, listTeam, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { deliveryWhen, fmtDateTime, rupee } from '../../lib/format.js'
+import { deliveryWhen, fmtClock, fmtDateTime, rupee } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
 import PaymentCheck from './PaymentCheck.jsx'
 import DeleteOrdersDialog from '../../components/DeleteOrdersDialog.jsx'
+import { useRole } from '../../lib/role.js'
 
 // Photo the rider took of the items at the customer's door.
 function DeliveryPhoto({ path }) {
@@ -48,11 +49,18 @@ export default function AdminOrderDetail() {
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
+  const { data: team = [] } = useData(listTeam)
+  const { isOwner } = useRole()
+  const nameOf = (id) => team.find((t) => t.user_id === id)?.name || 'Owner'
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
   const { order, items, store, hint, complaints } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
+  // Pay-now UPI order: the owner checks the payment before anyone else may confirm it.
+  const payFirst = !isOwner && order.payment_method === 'upi_now' && order.payment_status !== 'paid'
+  const riders = team.filter((t) => t.role === 'rider' && t.active)
+  if (order.rider_id && !riders.some((r) => r.user_id === order.rider_id)) riders.push({ user_id: order.rider_id, name: nameOf(order.rider_id) })
 
   const run = async (fn) => {
     setError('')
@@ -70,7 +78,11 @@ export default function AdminOrderDetail() {
         <h1 className="text-2xl font-black">#{order.order_number}</h1>
         <StatusBadge status={order.status} />
       </div>
-      <p className="text-sm text-neutral-500">Placed {fmtDateTime(order.created_at)}</p>
+      <p className="text-sm text-neutral-500">
+        Placed {fmtDateTime(order.created_at)}
+        {order.confirmed_by && <> · confirmed by {nameOf(order.confirmed_by)}</>}
+        {order.cancelled_by && <> · cancelled by {nameOf(order.cancelled_by)}</>}
+      </p>
 
       <section className={`${lcard} p-4`}>
         <div className="font-semibold">{order.customer_name}</div>
@@ -101,6 +113,29 @@ export default function AdminOrderDetail() {
           <Repeat size={16} className="mt-0.5 shrink-0" /> {order.allow_substitute ? 'Similar brand is OK' : 'Only this brand'}
         </p>
       </section>
+
+      {/* Who delivers it (update 032): riders accept on their page, or the desk chooses one here. */}
+      {(editable || order.status === 'completed') && (
+        <section className={`${lcard} flex flex-wrap items-center gap-3 p-4`}>
+          <Bike size={20} className="shrink-0 text-neutral-500" />
+          {order.status === 'completed' ? (
+            <span className="flex-1 text-sm">Delivered by <b>{nameOf(order.delivered_by)}</b>{order.completed_at && <> · {fmtClock(order.completed_at)}</>}</span>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold">Rider</span>
+                <span className="text-sm text-neutral-500">
+                  {order.rider_id ? <>{nameOf(order.rider_id)}{order.assigned_at && ` · since ${fmtClock(order.assigned_at)}`}</> : 'Nobody yet. Riders can accept it on their page, or choose one here.'}
+                </span>
+              </span>
+              <select value={order.rider_id ?? ''} onChange={(e) => run(() => assignRider(order.id, e.target.value))} aria-label="Rider" className={`${lfieldBase} h-11 w-40`}>
+                <option value="">No rider</option>
+                {riders.map((r) => <option key={r.user_id} value={r.user_id}>{r.name}</option>)}
+              </select>
+            </>
+          )}
+        </section>
+      )}
 
       {order.payment_method === 'upi_now' && <section className={`${lcard} p-4`}><PaymentCheck order={order} store={store} /></section>}
       {order.delivery_photo && <DeliveryPhoto path={order.delivery_photo} />}
@@ -155,10 +190,13 @@ export default function AdminOrderDetail() {
 
       {editable && !cancelling && (
         <section className="space-y-2">
-          {order.status === 'placed' && (
+          {order.status === 'placed' && (payFirst ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Pay-now order: the owner checks the UPI payment first. It confirms by itself once marked paid.</p>
+          ) : (
             <button type="button" onClick={() => run(() => confirmOrder(order.id))} className={`${lbtnDark} h-12 w-full`}>Confirm order (after calling)</button>
-          )}
-          {order.status === 'confirmed' && (
+          ))}
+          {/* Delivered with the cash amount: the owner (riders mark it on their page). */}
+          {order.status === 'confirmed' && isOwner && (
             <div className={`${lcard} space-y-2 p-4`}>
               {order.payment_method === 'cash' && (
                 <Field label="Cash collected (₹)">
@@ -177,7 +215,7 @@ export default function AdminOrderDetail() {
           <a href={waLink(toWa(order.customer_phone), billMessage({ order, items }))} target="_blank" rel="noreferrer" className={lbtnOutline}>
             <WhatsAppIcon size={17} /> Send bill again
           </a>
-          <button type="button" onClick={() => run(() => reopenOrder(order.id))} className={lbtnOutline}>Undo delivered</button>
+          {isOwner && <button type="button" onClick={() => run(() => reopenOrder(order.id))} className={lbtnOutline}>Undo delivered</button>}
         </div>
       )}
 
@@ -201,10 +239,12 @@ export default function AdminOrderDetail() {
         </section>
       )}
 
-      {/* Test or demo orders only: gone from the database, counts nowhere (update 029). */}
-      <button type="button" onClick={() => setDeleting(true)} className="flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold text-red-600">
-        <Trash2 size={16} /> Delete this order permanently (test / demo)
-      </button>
+      {/* Test or demo orders only: gone from the database, counts nowhere (update 029). The owner only. */}
+      {isOwner && (
+        <button type="button" onClick={() => setDeleting(true)} className="flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold text-red-600">
+          <Trash2 size={16} /> Delete this order permanently (test / demo)
+        </button>
+      )}
       {deleting && (
         <DeleteOrdersDialog
           orders={[order]}

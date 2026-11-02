@@ -5,7 +5,7 @@ import Field from '../../components/Field.jsx'
 import { lbtnDark, lcard, lfield } from '../../components/ui.js'
 import { adminSignIn } from '../../lib/store.js'
 
-// Admin login (email + password created in Supabase → Authentication → Users).
+// Owner and executive login (email + password created in Supabase → Authentication → Users).
 export default function AdminLogin({ onDone }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +30,8 @@ export default function AdminLogin({ onDone }) {
       <div className="mx-auto max-w-sm">
         <Wordmark theme="light" />
         <form onSubmit={submit} className={`${lcard} mt-6 space-y-3 p-5`}>
-          <h1 className="text-xl font-black">Admin login</h1>
+          <h1 className="text-xl font-black">Jholzo team login</h1>
+          <p className="text-sm text-neutral-500">Owner or executive. Riders log in on /partner.</p>
           <Field label="Email"><input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={lfield} /></Field>
           <Field label="Password"><input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={lfield} /></Field>
           {error && <p className="text-sm text-red-600">{error}</p>}

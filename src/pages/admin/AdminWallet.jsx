@@ -4,6 +4,7 @@ import { lbtnDark, lcard, lfield } from '../../components/ui.js'
 import { adminWalletAdjust, adminWallets } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { cleanPhone, fmtDateTime, rupee } from '../../lib/format.js'
+import { useRole } from '../../lib/role.js'
 
 const KIND_STYLE = {
   referral_bonus: 'bg-green-100 text-green-800',
@@ -55,6 +56,7 @@ export default function AdminWallet() {
   const [q, setQ] = useState('')
   const [onlyMoney, setOnlyMoney] = useState(true)
   const [open, setOpen] = useState(null)
+  const { isOwner } = useRole() // adding or taking back money: the owner only
 
   if (data === undefined && !error) return null
   const customers = data?.customers ?? []
@@ -133,7 +135,7 @@ export default function AdminWallet() {
                       </li>
                     ))}
                   </ul>
-                  <Adjust customer={c} />
+                  {isOwner && <Adjust customer={c} />}
                 </div>
               )}
             </li>

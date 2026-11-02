@@ -8,6 +8,7 @@ import { adminListComplaints, adminListOrders, adminStats, getStore, setPaused }
 import PaymentCheck from './PaymentCheck.jsx'
 import DayReport from './DayReport.jsx'
 import { useData } from '../../lib/useData.js'
+import { useRole } from '../../lib/role.js'
 import { fmtClock, itemsText, rupee, timeAgo } from '../../lib/format.js'
 
 function Stat({ label, value, to, hot }) {
@@ -25,25 +26,29 @@ export default function AdminHome() {
   const { data: complaints = [] } = useData(() => adminListComplaints({ status: 'open' }))
   const { data: allOrders = [] } = useData(() => adminListOrders())
   const { data: store } = useData(getStore)
+  const { isOwner } = useRole()
   // "Pay now by UPI" orders waiting for you to check the bank app.
   // Just marked paid stays here until you close it, so you can send the WhatsApp confirmation.
   const [justPaid, setJustPaid] = useState([])
-  const toCheck = allOrders.filter(
+  // UPI payments are checked by the owner only (bank app); the executive doesn't get this list.
+  const toCheck = !isOwner ? [] : allOrders.filter(
     (o) => o.payment_method === 'upi_now' && o.status !== 'cancelled' && (['awaiting', 'verifying', 'failed'].includes(o.payment_status) || justPaid.includes(o.id)),
   )
   if (!stats) return null
 
   return (
     <div className="space-y-5">
-      <section className={`${lcard} flex items-center justify-between gap-3 p-4`}>
-        <span>
-          <span className="block font-bold">{stats.paused ? 'Store is paused' : 'Store is open'}</span>
-          <span className="text-sm text-neutral-500">Pause for rain, holidays or rush days. Customers can't order while paused.</span>
-        </span>
-        <Toggle checked={!stats.paused} onChange={(open) => setPaused(!open)} label="Store open" />
-      </section>
+      {isOwner && (
+        <section className={`${lcard} flex items-center justify-between gap-3 p-4`}>
+          <span>
+            <span className="block font-bold">{stats.paused ? 'Store is paused' : 'Store is open'}</span>
+            <span className="text-sm text-neutral-500">Pause for rain, holidays or rush days. Customers can't order while paused.</span>
+          </span>
+          <Toggle checked={!stats.paused} onChange={(open) => setPaused(!open)} label="Store open" />
+        </section>
+      )}
 
-      {(stats.otpOff || (stats.otpLeft != null && stats.otpLeft <= stats.otpAlertAt)) && (
+      {isOwner && (stats.otpOff || (stats.otpLeft != null && stats.otpLeft <= stats.otpAlertAt)) && (
         <Link to="/admin/settings" className={`${lcard} flex items-center justify-between gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-800`}>
           <span>
             {stats.otpOff

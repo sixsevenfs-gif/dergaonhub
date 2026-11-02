@@ -39,5 +39,5 @@ export const LEGAL = {
   FSSAI: '20326120001321', // Basic Registration (Retailer), issued 28 Oct 2026, valid to Oct 2027
   INSTAGRAM: 'https://www.instagram.com/jholzo/', // shown in the footer
   COMPLAINT_HOURS: 24, // report damaged / wrong / missing items within this many hours
-  LAST_UPDATED: '29 October 2026',
+  LAST_UPDATED: '2 November 2026',
 }

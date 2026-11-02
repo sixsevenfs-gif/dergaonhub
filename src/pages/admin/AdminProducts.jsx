@@ -5,10 +5,12 @@ import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { addProduct, addProductPhoto, deleteProduct, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductPhoto, updateProduct } from '../../lib/store.js'
+import { addProduct, addProductPhoto, deleteProduct, importProductsCSV, listCategories, listProducts, removeProductPhoto, setProductAvailable, setProductPhoto, updateProduct } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { percentOff, rupee, timeAgo } from '../../lib/format.js'
 import { DEMO_MODE } from '../../config.js'
+import { useRole } from '../../lib/role.js'
+import ProductThumb from '../../components/ProductThumb.jsx'
 
 const MAX_EXTRA_PHOTOS = 4 // besides the main photo
 
@@ -190,7 +192,57 @@ function ImportCSV() {
   )
 }
 
+// The owner edits everything; the executive only switches items in or out of stock (update 032).
 export default function AdminProducts() {
+  const { isOwner } = useRole()
+  return isOwner ? <ProductEditor /> : <StockOnly />
+}
+
+// Executive: search the list and tap the switch when an item runs out or comes back. Prices are read-only.
+function StockOnly() {
+  const [q, setQ] = useState('')
+  const [onlyOut, setOnlyOut] = useState(false)
+  const [error, setError] = useState('')
+  const { data: products = [] } = useData(() => listProducts({ q, includeHidden: false }), [q])
+  const shown = products.filter((p) => !onlyOut || !p.available)
+  const outCount = products.filter((p) => !p.available).length
+  const flip = (p, v) => setProductAvailable(p.id, v).catch((err) => setError(err.message))
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-black">Stock</h1>
+        <p className="text-sm text-neutral-500">Item not at the shop? Switch it off: customers see "Out of stock". Switch it on when it is back.</p>
+      </div>
+      <div className="flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className={`${lfield} pl-9`} />
+        </div>
+        <button type="button" onClick={() => setOnlyOut(!onlyOut)} className={`h-11 shrink-0 rounded-xl border px-3 text-sm font-semibold ${onlyOut ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
+          Out of stock ({outCount})
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className={`${lcard} divide-y divide-neutral-100`}>
+        {shown.map((p) => (
+          <div key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+            <ProductThumb product={p} size="h-12 w-12" iconSize={22} className="border border-black/10 bg-white" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold leading-tight">{p.name}</span>
+              <span className="text-sm text-neutral-500">{p.size} · {rupee(p.price)}</span>
+            </span>
+            <span className={`w-12 text-right text-xs font-semibold ${p.available ? 'text-green-700' : 'text-neutral-500'}`}>{p.available ? 'In stock' : 'Out'}</span>
+            <Toggle checked={p.available} onChange={(v) => flip(p, v)} label={`${p.name} available`} />
+          </div>
+        ))}
+        {!shown.length && <p className="py-8 text-center text-neutral-500">No products found.</p>}
+      </div>
+    </div>
+  )
+}
+
+function ProductEditor() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [onlyOut, setOnlyOut] = useState(false)

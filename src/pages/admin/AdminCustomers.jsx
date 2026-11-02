@@ -5,6 +5,7 @@ import { rupee } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
 import { CONFIG } from '../../config.js'
 import OfferSender from './OfferSender.jsx'
+import { useRole } from '../../lib/role.js'
 
 // Add money (goodwill for a complaint) or take it back (minus amount), always with a reason.
 async function adjustWallet(c) {
@@ -22,6 +23,8 @@ async function adjustWallet(c) {
 export default function AdminCustomers() {
   const [onlyNoShows, setOnlyNoShows] = useState(true)
   const { data: customers = [] } = useData(adminListCustomers)
+  // Jholzo Money changes and resetting no-shows (cash on delivery again) stay with the owner.
+  const { isOwner } = useRole()
   const shown = customers.filter((c) => !onlyNoShows || c.no_show_count > 0 || c.blocked)
 
   return (
@@ -49,11 +52,15 @@ export default function AdminCustomers() {
                 </span>
               )}
             </span>
-            <button type="button" onClick={() => adjustWallet(c)} className={`${lbtnOutline} min-h-9 text-sm`} title="Jholzo Money: add or take back">
-              {rupee(c.wallet ?? 0)}
-            </button>
+            {isOwner ? (
+              <button type="button" onClick={() => adjustWallet(c)} className={`${lbtnOutline} min-h-9 text-sm`} title="Jholzo Money: add or take back">
+                {rupee(c.wallet ?? 0)}
+              </button>
+            ) : (
+              <span className="text-sm text-neutral-500" title="Jholzo Money">{rupee(c.wallet ?? 0)}</span>
+            )}
             <span className={`text-sm font-bold ${c.no_show_count ? 'text-orange-600' : 'text-neutral-400'}`}>{c.no_show_count} no-show</span>
-            {c.no_show_count > 0 && <button type="button" onClick={() => resetNoShows(c.id)} className={`${lbtnOutline} min-h-9 text-sm`}>Reset</button>}
+            {isOwner && c.no_show_count > 0 && <button type="button" onClick={() => resetNoShows(c.id)} className={`${lbtnOutline} min-h-9 text-sm`}>Reset</button>}
             <button type="button" onClick={() => setCustomerBlocked(c.id, !c.blocked)} className={`${c.blocked ? lbtnOutline : lbtnDanger} min-h-9 text-sm`}>
               {c.blocked ? 'Unblock' : 'Block'}
             </button>

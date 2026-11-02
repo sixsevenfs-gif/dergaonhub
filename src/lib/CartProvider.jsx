@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CartContext } from './cart-context.js'
+import { saveMyCart } from './store.js'
 
 const KEY = 'dergaonhub-cart'
 const EMPTY = { lines: {}, note: '' }
@@ -24,6 +25,15 @@ export default function CartProvider({ children }) {
       // storage blocked: cart lasts until reload
     }
   }, [cart])
+
+  // A logged-in customer's cart also goes to the database a few seconds after the last change (update 032),
+  // so the order desk can send one reminder if it is left behind. Nothing is sent for visitors not logged in.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      saveMyCart(Object.entries(cart.lines).map(([id, l]) => ({ id, qty: l.qty }))).catch(() => {})
+    }, 4000)
+    return () => clearTimeout(t)
+  }, [cart.lines])
 
   const setQty = (productId, qty) =>
     setCart((c) => {

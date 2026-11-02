@@ -5,6 +5,7 @@ import { parseCSV } from './csv.js'
 import { cleanPhone, dateStr, matches, slotDate } from './format.js'
 import { packagingFee, validPoint } from './delivery.js'
 import { walletReport } from './walletReport.js'
+import { cartRows } from './carts.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -47,21 +48,24 @@ function session() {
 // sb is null in demo mode (no keys); this file is then never used.
 if (sb) sb.auth.onAuthStateChange(() => notify())
 
+// role: 'owner', 'executive' (order desk, update 032) or '' (not allowed on the dashboard).
 export async function adminSession() {
   const { data } = await sb.auth.getSession()
   const user = data.session?.user
-  if (!user || user.is_anonymous) return { email: '', isAdmin: false }
-  const isAdmin = check(await sb.rpc('is_admin'))
-  return { email: user.email, isAdmin: !!isAdmin }
+  if (!user || user.is_anonymous) return { email: '', isAdmin: false, role: '' }
+  const isAdmin = !!check(await sb.rpc('is_admin'))
+  // Before update 032 is_executive() doesn't exist: nobody is an executive yet.
+  const isExecutive = !isAdmin && !!(await sb.rpc('is_executive')).data
+  return { email: user.email, isAdmin, role: isAdmin ? 'owner' : isExecutive ? 'executive' : '' }
 }
 
 export async function adminSignIn(email, password) {
   check(await sb.auth.signInWithPassword({ email: email.trim(), password }))
   const s = await adminSession()
-  if (!s.isAdmin) {
+  if (!s.role) {
     await sb.auth.signOut()
     ready = null
-    fail('This login is not an admin.')
+    fail('This login is not on the Jholzo team.')
   }
   return s
 }
@@ -150,6 +154,7 @@ export async function saveStore(data) {
     ...(data.express_from === undefined ? {} : { express_from: data.express_from || '10:00', express_until: data.express_until || '16:00' }), // after 027
     ...(data.upi_pay_minutes === undefined ? {} : { upi_pay_minutes: Math.min(120, Math.max(5, wholeRupees(data.upi_pay_minutes) || 15)) }), // after 023
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
+    ...(data.riders_confirm === undefined ? {} : { riders_confirm: !!data.riders_confirm }), // after 032
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()
@@ -514,8 +519,23 @@ async function updateOrder(id, change, onlyFrom, message) {
   notify()
 }
 
+// Order desk actions (update 032), for the owner and the executive. Before 032 the function is missing;
+// the owner's change then goes in directly, as it did before.
+const missingFunction = (error) => error?.code === 'PGRST202'
+
+async function deskCall(fn, args, before032) {
+  const res = await sb.rpc(fn, args)
+  if (before032 && missingFunction(res.error)) return before032()
+  check(res)
+  notify()
+}
+
 export const confirmOrder = (id) =>
-  updateOrder(id, { status: 'confirmed', confirmed_at: now() }, ['placed'], 'Only new orders can be confirmed.')
+  deskCall('desk_confirm_order', { p_order_id: id }, () =>
+    updateOrder(id, { status: 'confirmed', confirmed_at: now() }, ['placed'], 'Only new orders can be confirmed.'))
+
+// Give an open order to a rider, or take it back (riderId null).
+export const assignRider = (orderId, riderId) => deskCall('desk_assign_rider', { p_order_id: orderId, p_rider: riderId || null })
 
 // Delivered and paid.
 export async function completeOrder(id, cashCollected) {
@@ -565,8 +585,11 @@ export async function adminWallets() {
   return walletReport(customers, entries, orders)
 }
 
-// An item was not found at the shop: remove it and recalculate the total.
-export async function removeOrderItem(orderId, itemId) {
+// An item was not found at the shop: remove it and recalculate the total (in the database after 032).
+export const removeOrderItem = (orderId, itemId) =>
+  deskCall('desk_remove_item', { p_order_id: orderId, p_item_id: itemId }, () => removeOrderItemDirect(orderId, itemId))
+
+async function removeOrderItemDirect(orderId, itemId) {
   const o = check(await sb.from('orders').select('*').eq('id', orderId).single())
   if (o.status !== 'placed' && o.status !== 'confirmed') fail('This order can no longer be changed.')
   const items = check(await sb.from('order_items').select('id, line_total').eq('order_id', orderId))
@@ -631,9 +654,10 @@ export async function deliverySheet(date) {
 
 // Money for one day: what customers paid, what was spent at the shops, what is left.
 export async function dailySummary(date) {
-  const [day, expense] = await Promise.all([
-    sb.from('orders').select('status, payment_method, total, cash_collected, delivery_fee, packaging_fee, cancel_reason').eq('delivery_date', date).then(check),
+  const [day, expense, team] = await Promise.all([
+    sb.from('orders').select('*').eq('delivery_date', date).then(check),
     sb.from('daily_expenses').select('*').eq('date', date).maybeSingle().then(check),
+    listTeam(),
   ])
   const done = day.filter((o) => o.status === 'completed')
   const cash = sum(done.filter((o) => o.payment_method === 'cash'), (o) => o.cash_collected)
@@ -645,7 +669,20 @@ export async function dailySummary(date) {
     noShows: day.filter((o) => o.cancel_reason === 'No-show').length,
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
+    byRider: cashByRider(done, team),
   }
+}
+
+// Evening cash handover: what each rider (or the owner) delivered and how much cash they hold.
+function cashByRider(done, team) {
+  const rows = {}
+  for (const o of done) {
+    const who = o.delivered_by ?? ''
+    rows[who] ??= { name: team.find((t) => t.user_id === who)?.name || 'Owner', delivered: 0, cash: 0 }
+    rows[who].delivered += 1
+    if (o.payment_method === 'cash') rows[who].cash += Number(o.cash_collected) || 0
+  }
+  return Object.values(rows).sort((a, b) => b.cash - a.cash)
 }
 
 // Every order (with its items) and shop spend for delivery days from..to, for the sales report and sheet.
@@ -685,14 +722,47 @@ export async function adminListCustomers() {
     .sort((a, b) => b.no_show_count - a.no_show_count || a.name.localeCompare(b.name))
 }
 
-export async function setCustomerBlocked(id, blocked) {
-  check(await sb.from('customers').update({ blocked }).eq('id', id))
-  notify()
-}
+export const setCustomerBlocked = (id, blocked) =>
+  deskCall('desk_set_blocked', { p_customer_id: id, p_blocked: !!blocked }, async () => {
+    check(await sb.from('customers').update({ blocked }).eq('id', id))
+    notify()
+  })
 
 export async function resetNoShows(id) {
   check(await sb.from('customers').update({ no_show_count: 0 }).eq('id', id))
   notify()
+}
+
+/* ---------- order desk: stock and carts (update 032) ---------- */
+
+// Out of stock on/off. The executive can only do this; prices and photos stay with the owner.
+export const setProductAvailable = (id, available) =>
+  deskCall('desk_set_available', { p_product_id: id, p_available: !!available }, () => updateProduct(id, { available: !!available }))
+
+// Carts customers left without ordering (newest first), with today's prices.
+export async function adminCarts() {
+  const [carts, team] = await Promise.all([
+    sb.from('carts').select('*').order('updated_at', { ascending: false }).then(check),
+    listTeam(),
+  ])
+  const ids = [...new Set(carts.flatMap((c) => (c.items ?? []).map((i) => i.id)))]
+  const products = ids.length ? check(await sb.from('products').select('id, name, size, price, photo_url, category_id').in('id', ids)) : []
+  return cartRows(carts, products, team)
+}
+
+export const markReminded = (phone) => deskCall('desk_mark_reminded', { p_phone: phone })
+
+// The logged-in customer's cart, so the order desk can send one reminder. Never throws or blocks the cart;
+// before update 032 (or for a number this phone hasn't verified) nothing is saved.
+export async function saveMyCart(items) {
+  const me = currentCustomer()
+  if (!me?.phone) return
+  try {
+    await session()
+    await sb.rpc('save_my_cart', { p_phone: me.phone, p_name: me.name ?? '', p_items: items })
+  } catch {
+    // reminders only
+  }
 }
 
 /* ---------- delivery partner (rider) ---------- */
@@ -703,7 +773,7 @@ export async function partnerSession() {
   const user = data.session?.user
   if (!user || user.is_anonymous) return { email: '', role: '' }
   const [isAdmin, isRider] = await Promise.all([sb.rpc('is_admin').then(check), sb.rpc('is_rider').then(check)])
-  return { email: user.email, role: isAdmin ? 'admin' : isRider ? 'rider' : '' }
+  return { email: user.email, userId: user.id, role: isAdmin ? 'admin' : isRider ? 'rider' : '' }
 }
 
 export async function partnerSignIn(email, password) {
@@ -737,6 +807,9 @@ export const partnerComplete = (id, cash, photo) =>
 // Customer paid by the UPI QR at the door (update 031): a cash order becomes UPI on delivery, so the rider
 // doesn't owe that cash. Called just before partnerComplete.
 export const partnerPaidByQr = (id) => partnerCall('partner_paid_by_qr', { p_order_id: id })
+// Update 032: a rider takes a confirmed order nobody has, or gives it back before "On the way".
+export const riderAccept = (id) => partnerCall('rider_accept', { p_order_id: id })
+export const riderRelease = (id) => partnerCall('rider_release', { p_order_id: id })
 
 // Photo of the items at the door (data URL from the camera), saved in the private "deliveries" bucket.
 export async function uploadDeliveryPhoto(orderId, photoUrl) {
@@ -774,13 +847,28 @@ export async function adminListRiders() {
   return check(await sb.rpc('admin_list_riders'))
 }
 
-export async function adminAddRider({ email, name, phone }) {
-  if (!email?.trim()) fail('Enter the rider login email.')
-  if (!name?.trim()) fail('Enter the rider name.')
+// role: 'rider' or 'executive' (update 032; before it only riders can be added).
+export async function adminAddRider({ email, name, phone, role = 'rider' }) {
+  if (!email?.trim()) fail('Enter the login email.')
+  if (!name?.trim()) fail('Enter the name.')
   const ph = cleanPhone(phone ?? '')
   if (ph && ph.length !== 10) fail('Enter a valid 10-digit phone number.')
-  check(await sb.rpc('admin_add_rider', { p_email: email.trim(), p_name: name.trim(), p_phone: ph }))
+  const args = { p_email: email.trim(), p_name: name.trim(), p_phone: ph }
+  const res = await sb.rpc('admin_add_rider', { ...args, p_role: role })
+  if (missingFunction(res.error)) {
+    if (role !== 'rider') fail('Run update 032 in the Supabase SQL Editor first to add an executive.')
+    check(await sb.rpc('admin_add_rider', args))
+  } else check(res)
   notify()
+}
+
+// Riders and executives with their names, for assigning orders and showing who did what.
+// The executive reads it too (update 032); before 032 everyone is a rider.
+export async function listTeam() {
+  const res = await sb.from('riders').select('user_id, name, phone, role, active')
+  if (!res.error) return res.data
+  const old = await sb.from('riders').select('user_id, name, phone, active')
+  return (old.data ?? []).map((r) => ({ ...r, role: 'rider' }))
 }
 
 export async function setRiderActive(userId, active) {

@@ -1,6 +1,7 @@
 User-agent: *
 Disallow: /admin
 Disallow: /partner
+Disallow: /executive
 Disallow: /checkout
 Disallow: /cart
 Disallow: /order/

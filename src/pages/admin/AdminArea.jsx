@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, Settings, Trash2, TrendingUp, Truck, Users, WalletMinimal, X } from 'lucide-react'
+import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, Settings, ShoppingCart, Trash2, TrendingUp, Truck, Users, WalletMinimal, X } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
 import { adminSession, adminSignOut, adminStats } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { RoleContext, useRole } from '../../lib/role.js'
 import { DEMO_MODE } from '../../config.js'
 
 const NAV = [
@@ -16,6 +17,7 @@ const NAV = [
   ['/admin/top-items', 'Top items', null, TrendingUp],
   ['/admin/complaints', 'Complaints', 'openComplaints', MessageSquareWarning],
   ['/admin/customers', 'Customers', null, Users],
+  ['/admin/carts', 'Carts', null, ShoppingCart],
   ['/admin/money', 'Jholzo Money', null, WalletMinimal],
   ['/admin/logins', 'Logins', null, LogIn],
   ['/admin/waitlist', 'Waitlist', 'waitlist', ListChecks],
@@ -24,35 +26,52 @@ const NAV = [
 ]
 // Phone: these four sit in the bottom bar, the rest open from "More".
 const BOTTOM = ['/admin', '/admin/orders', '/admin/delivery', '/admin/products']
+// Settings hold the UPI and bank details, fees and the team; delete wipes orders. The owner only.
+const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders']
 
-// Founder-only area. With the database, only the admin login can open it (demo mode skips the login).
+// The owner's dashboard, and the executive's (order desk, update 032) without the owner-only pages and
+// buttons. With the database only these logins open it (demo mode skips the login; try ?as=executive).
 export default function AdminArea() {
   const { data: session, error, reload } = useData(adminSession)
   if (session === undefined && !error) return null
-  if (!session?.isAdmin) return <AdminLogin onDone={reload} />
-  return <AdminShell email={session.email} />
+  if (!session?.role) return <AdminLogin onDone={reload} />
+  return (
+    <RoleContext.Provider value={session.role}>
+      <AdminShell email={session.email} role={session.role} />
+    </RoleContext.Provider>
+  )
 }
 
-function AdminShell({ email }) {
+// An owner-only page opened by the executive (old link, typed address).
+export function OwnerOnly({ children }) {
+  const { isOwner } = useRole()
+  if (isOwner) return children
+  return <p className="rounded-2xl border border-neutral-200 bg-white p-6 text-center text-neutral-600">Only the owner can open this page.</p>
+}
+
+function AdminShell({ email, role }) {
   const { data: stats } = useData(adminStats)
+  const nav = NAV.filter(([to]) => role === 'owner' || !OWNER_ONLY.includes(to))
   return (
     <div className="min-h-screen bg-neutral-100 font-ui text-neutral-900">
       <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white print:hidden">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
           <Wordmark theme="light" />
-          <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase text-white">Admin</span>
+          <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs font-bold uppercase text-white">{role === 'executive' ? 'Executive' : 'Admin'}</span>
           {stats?.paused && <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">Store paused</span>}
-          <Link to="/partner" className="ml-auto flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-neutral-700">
-            <Bike size={16} /> Rider page
-          </Link>
+          {role === 'owner' && (
+            <Link to="/partner" className="ml-auto flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-neutral-700">
+              <Bike size={16} /> Rider page
+            </Link>
+          )}
           {!DEMO_MODE && (
-            <button type="button" onClick={adminSignOut} title={email} className="hidden h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-neutral-600 sm:flex">
+            <button type="button" onClick={adminSignOut} title={email} className={`${role === 'owner' ? '' : 'ml-auto'} hidden h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-neutral-600 sm:flex`}>
               <LogOut size={16} /> Log out
             </button>
           )}
         </div>
         <nav className="mx-auto hidden max-w-3xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:flex">
-          {NAV.map(([to, label, countKey]) => (
+          {nav.map(([to, label, countKey]) => (
             <NavLink
               key={to}
               to={to}
@@ -75,7 +94,7 @@ function AdminShell({ email }) {
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-4 sm:pb-16">
         <Outlet />
       </main>
-      <PhoneNav stats={stats} email={email} />
+      <PhoneNav nav={nav} stats={stats} email={email} />
     </div>
   )
 }
@@ -83,13 +102,13 @@ function AdminShell({ email }) {
 const Badge = ({ n }) => (n > 0 ? <span className="absolute -right-2 -top-1 min-w-4 rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-ink">{n}</span> : null)
 
 // Phone menu: a bottom bar like an app, with the other pages in a "More" sheet.
-function PhoneNav({ stats, email }) {
+function PhoneNav({ nav, stats, email }) {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   // Any page change closes the sheet.
   useEffect(() => setOpen(false), [pathname])
-  const bottom = NAV.filter(([to]) => BOTTOM.includes(to))
-  const more = NAV.filter(([to]) => !BOTTOM.includes(to))
+  const bottom = nav.filter(([to]) => BOTTOM.includes(to))
+  const more = nav.filter(([to]) => !BOTTOM.includes(to))
   const moreActive = more.some(([to]) => pathname.startsWith(to))
   const moreCount = more.reduce((n, [, , key]) => n + (key ? stats?.[key] ?? 0 : 0), 0)
   const item = 'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold'
