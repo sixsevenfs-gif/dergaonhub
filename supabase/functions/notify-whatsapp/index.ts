@@ -1,6 +1,6 @@
 // Sends a WhatsApp message to the customer automatically (WhatsApp Cloud API by Meta).
-// "Order confirmed": the database calls it the moment an order is saved (update 036), with no login.
-// "On the way" / "Arriving": the rider page calls it when the rider taps, with the rider's login.
+// "Order confirmed" / "Delivered": the database calls it the moment an order is saved / marked delivered
+// (update 036), with no login. "On the way": the rider page calls it when the rider taps, with their login.
 // It does nothing until the admin turns on "Automatic WhatsApp" in Admin → Settings.
 //
 // Deploy:  npx supabase functions deploy notify-whatsapp --no-verify-jwt --use-api --project-ref <your project ref>
@@ -12,6 +12,7 @@ const TEMPLATES: Record<string, string> = {
   placed: 'order_confirmed',
   on_the_way: 'rider_on_the_way',
   arriving: 'rider_arriving',
+  delivered: 'order_delivered',
 }
 
 const cors = {
@@ -58,10 +59,13 @@ Deno.serve(async (req) => {
     const { data: o } = await query.maybeSingle()
     if (!o) return json({ error: 'Order not found.' }, 404)
 
-    // "Order confirmed" may come from the database (no login) or the order's own customer; it goes out once
-    // per order, so calling it again does nothing. The rider messages need a rider or the admin.
+    // "Order confirmed" may come from the database (no login) or the order's own customer; "Delivered" from the
+    // database once the order is delivered. Each goes out once per order, so calling again does nothing.
+    // The rider messages need a rider or the admin.
     const staff = auth.user ? (await caller.rpc('is_staff')).data : false
-    const allowed = kind === 'placed' ? !auth.user || o.placed_by === auth.user.id || staff : staff
+    const allowed = kind === 'placed' ? !auth.user || o.placed_by === auth.user.id || staff
+      : kind === 'delivered' ? o.status === 'completed' && (!auth.user || staff)
+      : staff
     if (!allowed) return json({ error: auth.user ? 'Not allowed.' : 'Please log in again.' }, auth.user ? 403 : 401)
 
     const { data: store } = await db.from('store_settings').select('*').eq('id', 1).single()

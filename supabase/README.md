@@ -112,17 +112,18 @@ Without any setup, the rider page opens WhatsApp with the message ready and the 
 Send (free). The "order placed" message is sent the same way from the order page in Admin.
 
 To send them automatically (no tap), connect the **WhatsApp Cloud API** (Meta). Meta charges
-a small fee per message. Then "order confirmed" goes out by itself the moment an order is saved
-(the database sends it, update 036), and the rider's "On the way" / "Arriving" go out when tapped.
+a small fee per message. Then "order confirmed" goes out by itself the moment an order is saved and
+"delivered" the moment it is marked Delivered (the database sends both, update 036), and "On the way"
+goes out when the rider or you tap it.
 Pay-now UPI orders get their confirmation from you after the payment check. One time:
 
 1. https://business.facebook.com → create a Business account → **WhatsApp Manager** → add a
    phone number for the store. It must not be in use on the WhatsApp app (a new SIM is simplest).
-2. **Message templates → Create**, category **Utility**, language **English**, these three
-   (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
+2. **Message templates → Create**, category **Utility**, type **Default**, language **English**,
+   variables **Number**, these three (`{{1}}` name, `{{2}}` order number, `{{3}}` / `{{4}}` as shown):
    - `order_confirmed`: Hello {{1}}, your Jholzo order #{{2}} is confirmed ✅ It will be delivered {{3}}. Total: {{4}}. We will call you once before packing your order. For help, call or WhatsApp us at 9181061864. Thank you for shopping with Jholzo!
    - `rider_on_the_way`: Hello {{1}}, our rider has left with your Jholzo order #{{2}} 🛵 You will get it in 10–15 minutes. Please keep {{3}} ready. For help, call us at 9181061864.
-   - `rider_arriving`: Hello {{1}}, our rider is arriving soon with your Jholzo order #{{2}} 📍 Please keep {{3}} ready. For help, call us at 9181061864.
+   - `order_delivered`: Hello {{1}}, your Jholzo order #{{2}} has been delivered ✅ Total: {{3}}. Thank you for shopping with Jholzo! If anything is wrong with your order, call or WhatsApp us at 9181061864.
 3. In Meta → WhatsApp → **API Setup**, copy the **Phone number ID**, and make a permanent
    access token (Business settings → System users → Generate token, permission
    `whatsapp_business_messaging`).
