@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Search, Trash2 } from 'lucide-react'
+import { Check, Lock, Search, Trash2 } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import DeleteOrdersDialog from '../../components/DeleteOrdersDialog.jsx'
+import DeleteCodeGate from '../../components/DeleteCodeGate.jsx'
+import { deleteCode, lockDelete } from '../../lib/deleteCode.js'
 import { lcard, lfield } from '../../components/ui.js'
 import { adminListOrders } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
@@ -24,8 +26,29 @@ function inRange(iso, range) {
   return true
 }
 
-// Test or demo orders out of the database for good (update 029), so they count nowhere.
+// Test or demo orders out of the database for good (updates 029 and 030), so they count nowhere.
+// Opens only with the secret delete code, which the database checks.
 export default function AdminDeleteOrders() {
+  const [unlocked, setUnlocked] = useState(() => !!deleteCode())
+  if (!unlocked) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-black">Delete orders</h1>
+        <div className={`${lcard} p-6`}><DeleteCodeGate onUnlocked={() => setUnlocked(true)} /></div>
+      </div>
+    )
+  }
+  return (
+    <DeleteOrdersList
+      onLock={() => {
+        lockDelete()
+        setUnlocked(false)
+      }}
+    />
+  )
+}
+
+function DeleteOrdersList({ onLock }) {
   const { data: orders = [], error } = useData(adminListOrders)
   const [q, setQ] = useState('')
   const [range, setRange] = useState('all')
@@ -56,7 +79,12 @@ export default function AdminDeleteOrders() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-black">Delete orders</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-black">Delete orders</h1>
+          <button type="button" onClick={onLock} className="flex h-9 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-sm font-semibold">
+            <Lock size={15} /> Lock
+          </button>
+        </div>
         <p className="text-sm text-neutral-600">
           For test or demo orders. A deleted order is gone from the database and counts nowhere: sales, daily summary,
           reports, top items, customers, Jholzo Money. Real orders: cancel them instead.

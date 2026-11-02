@@ -1,6 +1,7 @@
 // Demo data layer: everything lives in this browser's localStorage.
 // Used when no Supabase keys are set. store.supabase.js has the same functions for the real database.
 import { CONFIG } from '../config.js'
+import { walletReport } from './walletReport.js'
 import { makeSeed } from './seed.js'
 import { addDays, cleanPhone, dateStr, matches, rupee, slotDate } from './format.js'
 import { deliveryQuote, expressStatus, packagingFee, validPoint } from './delivery.js'
@@ -701,6 +702,15 @@ export async function adminDeleteOrders(ids) {
   db.wallet = entries().filter((e) => alive.has(e.customer_id))
   commit()
   return { orders: orders.length, customers: before - db.customers.length }
+}
+
+// Demo mode has no database to keep a secret code in: any 4–8 digit code opens Delete orders.
+export async function adminCheckDeleteCode(code) {
+  return /^[0-9]{4,8}$/.test(String(code ?? ''))
+}
+
+export async function adminWallets() {
+  return walletReport(db.customers, entries(), db.orders)
 }
 
 // An item was not found at the shop: remove it and recalculate the total.

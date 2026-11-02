@@ -1,18 +1,15 @@
 import { useState } from 'react'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 import { lbtnOutline, lfield } from './ui.js'
+import DeleteCodeGate from './DeleteCodeGate.jsx'
 import { adminDeleteOrders } from '../lib/store.js'
+import { deleteCode, friendlyDeleteError, lockDelete } from '../lib/deleteCode.js'
 import { rupee } from '../lib/format.js'
 
-// The database answers "function not found" until update 029 is run.
-const friendly = (msg) =>
-  /admin_delete_orders|schema cache|does not exist/i.test(msg ?? '')
-    ? 'Run supabase/migrations/029_admin_delete_orders.sql in Supabase first.'
-    : msg
-
-// Last step before orders leave the database for good: type DELETE to confirm.
-// onDone({ orders, customers }) after they are deleted.
+// Last step before orders leave the database for good: the delete code (if not given yet), then type
+// DELETE to confirm. onDone({ orders, customers }) after they are deleted.
 export default function DeleteOrdersDialog({ orders, onClose, onDone }) {
+  const [unlocked, setUnlocked] = useState(() => !!deleteCode())
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -23,9 +20,13 @@ export default function DeleteOrdersDialog({ orders, onClose, onDone }) {
     setBusy(true)
     setError('')
     try {
-      onDone(await adminDeleteOrders(orders.map((o) => o.id)))
+      onDone(await adminDeleteOrders(orders.map((o) => o.id), deleteCode()))
     } catch (err) {
-      setError(friendly(err.message))
+      if (/wrong delete code/i.test(err.message)) {
+        lockDelete()
+        setUnlocked(false)
+      }
+      setError(friendlyDeleteError(err.message))
       setBusy(false)
     }
   }
@@ -33,6 +34,14 @@ export default function DeleteOrdersDialog({ orders, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center" onClick={busy ? undefined : onClose}>
       <div className="w-full max-w-md rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        {!unlocked ? (
+          <>
+            <DeleteCodeGate onUnlocked={() => setUnlocked(true)} className="py-2" />
+            {error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">{error}</p>}
+            <button type="button" onClick={onClose} className={`${lbtnOutline} mt-3 w-full`}>Cancel</button>
+          </>
+        ) : (
+        <>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600"><AlertTriangle size={22} /></span>
           <h2 className="text-lg font-bold leading-tight">
@@ -69,6 +78,8 @@ export default function DeleteOrdersDialog({ orders, onClose, onDone }) {
             <Trash2 size={17} /> {busy ? 'Deleting…' : 'Delete for good'}
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { supabase as sb } from './supabase.js'
 import { parseCSV } from './csv.js'
 import { cleanPhone, dateStr, matches, slotDate } from './format.js'
 import { packagingFee, validPoint } from './delivery.js'
+import { walletReport } from './walletReport.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -525,14 +526,33 @@ export async function cancelOrder(id, reason) {
 // Admin → Delete orders (update 029): test / demo orders out of the database for good, so they count
 // nowhere. Items, complaints, messages, Jholzo Money entries and customers with no other orders go too.
 // The rider's delivery photos are removed afterwards (an order is deleted even if a photo can't be).
-export async function adminDeleteOrders(ids) {
+export async function adminDeleteOrders(ids, code) {
   if (!ids?.length) fail('Choose at least one order.')
   const rows = check(await sb.from('orders').select('delivery_photo').in('id', ids))
   const photos = rows.map((r) => r.delivery_photo).filter(Boolean)
-  const res = check(await sb.rpc('admin_delete_orders', { p_ids: ids }))
+  const res = check(await sb.rpc('admin_delete_orders', { p_ids: ids, p_code: String(code ?? '') }))
   if (photos.length) await sb.storage.from('deliveries').remove(photos).catch(() => {})
   notify()
   return { orders: res?.orders ?? 0, customers: res?.customers ?? 0 }
+}
+
+// The secret code that opens Admin → Delete orders, checked by the database (update 030).
+export async function adminCheckDeleteCode(code) {
+  return check(await sb.rpc('admin_check_delete_code', { p_code: String(code ?? '') })) === true
+}
+
+// Admin → Jholzo Money: balance and history of every customer who has any.
+export async function adminWallets() {
+  const [customers, entries] = await Promise.all([
+    sb.from('customers').select('id, name, phone, referral_code, referred_by').then(check),
+    // Before update 017 there is no wallet: nothing to show.
+    sb.from('wallet_entries').select('*').order('created_at', { ascending: false }).then((res) => res.data ?? []),
+  ])
+  const ids = [...new Set(entries.map((e) => e.order_id).filter(Boolean))]
+  const orders = ids.length
+    ? check(await sb.from('orders').select('id, order_number, customer_id, orderer_id').in('id', ids))
+    : []
+  return walletReport(customers, entries, orders)
 }
 
 // An item was not found at the shop: remove it and recalculate the total.
