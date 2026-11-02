@@ -71,8 +71,9 @@ export default function DailySummary() {
         <Row label="Delivery charges (included above)" value={rupee(s.fees)} />
         <Row label="Packaging charges (included above)" value={rupee(s.packaging ?? 0)} />
         <Row label="Total received" value={rupee(s.collected)} strong />
-        <Row label="Spent at shops" value={`− ${rupee(s.spent)}`} />
-        <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />
+        {/* Shop spend and profit: the owner only (the executive sees the sales). */}
+        {isOwner && <Row label="Spent at shops" value={`− ${rupee(s.spent)}`} />}
+        {isOwner && <Row label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} strong />}
       </section>
 
       {/* Owner only (update 034): the same day estimated from buy prices, rider pay and bags. */}
@@ -96,7 +97,7 @@ export default function DailySummary() {
       )}
 
       {/* Evening cash handover: each rider gives this much cash (QR and UPI payments are already in the bank). */}
-      {s.byRider?.length > 0 && (
+      {isOwner && s.byRider?.length > 0 && (
         <section className={`${lcard} p-4`}>
           <h2 className="font-bold">Cash with each rider</h2>
           <div className="mt-1 divide-y divide-neutral-100">

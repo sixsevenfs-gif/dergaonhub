@@ -64,7 +64,8 @@ const line = (values) => values.map(cell).join(',')
 const timeOf = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '')
 
 // One sheet with three parts: day by day, every order, and items sold.
-export function reportCSV({ from, to, orders, expenses }) {
+// withCosts false (the executive's sheet) leaves out what was spent at the shops and the profit.
+export function reportCSV({ from, to, orders, expenses, withCosts = true }) {
   const out = []
   const total = summarize(orders, expenses)
   out.push(line([`Jholzo sales report: ${from === to ? from : `${from} to ${to}`}`]))
@@ -72,8 +73,8 @@ export function reportCSV({ from, to, orders, expenses }) {
   out.push('')
 
   out.push(line(['DAY BY DAY']))
-  out.push(line(['Date', 'Orders', 'Delivered', 'Cancelled', 'Pending', 'Sales', 'Cash', 'UPI', 'Delivery charges', 'Packaging', 'Wallet used', 'Items sold', 'Spent at shops', 'Profit']))
-  const row = (label, s) => [label, s.orders, s.delivered, s.cancelled, s.pending, s.sales, s.cash, s.upi, s.deliveryFees, s.packaging, s.walletUsed, s.itemsSold, s.spent, s.profit]
+  out.push(line(['Date', 'Orders', 'Delivered', 'Cancelled', 'Pending', 'Sales', 'Cash', 'UPI', 'Delivery charges', 'Packaging', 'Wallet used', 'Items sold', ...(withCosts ? ['Spent at shops', 'Profit'] : [])]))
+  const row = (label, s) => [label, s.orders, s.delivered, s.cancelled, s.pending, s.sales, s.cash, s.upi, s.deliveryFees, s.packaging, s.walletUsed, s.itemsSold, ...(withCosts ? [s.spent, s.profit] : [])]
   for (let d = from; d <= to; d = addDays(d, 1)) {
     out.push(line(row(d, summarize(orders.filter((o) => o.delivery_date === d), expenses.filter((e) => e.date === d)))))
   }

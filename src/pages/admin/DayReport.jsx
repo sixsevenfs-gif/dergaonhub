@@ -7,6 +7,7 @@ import { salesReport } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { addDays, dateStr, dayLabel, fmtClock, rupee } from '../../lib/format.js'
 import { downloadCSV, itemsSold, reportCSV, summarize } from '../../lib/report.js'
+import { useRole } from '../../lib/role.js'
 
 const ITEMS_SHOWN = 8
 
@@ -32,6 +33,8 @@ export default function DayReport() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const { data } = useData(() => salesReport(date, date), [date])
+  // Shop spend and profit are the owner's: the executive sees sales, items and orders only.
+  const { isOwner } = useRole()
 
   const ranges = {
     day: [date, date],
@@ -44,7 +47,7 @@ export default function DayReport() {
     setError('')
     try {
       const r = await salesReport(from, to)
-      downloadCSV(`jholzo-sales-${from === to ? from : `${from}-to-${to}`}.csv`, reportCSV({ from, to, ...r }))
+      downloadCSV(`jholzo-sales-${from === to ? from : `${from}-to-${to}`}.csv`, reportCSV({ from, to, ...r, withCosts: isOwner }))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -83,8 +86,8 @@ export default function DayReport() {
             <Tile label="Items sold" value={s.itemsSold} sub={`${s.customers} customer${s.customers === 1 ? '' : 's'}`} />
             <Tile label="Cancelled" value={s.cancelled} sub={s.pending ? `${s.pending} not delivered yet` : undefined} />
             <Tile label="Delivery + packaging" value={rupee(s.deliveryFees + s.packaging)} sub="included in sales" />
-            <Tile label="Spent at shops" value={rupee(s.spent)} sub={<Link to="/admin/summary" className="underline">enter in Daily summary</Link>} />
-            <Tile label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} sub="received − spent" />
+            {isOwner && <Tile label="Spent at shops" value={rupee(s.spent)} sub={<Link to="/admin/summary" className="underline">enter in Daily summary</Link>} />}
+            {isOwner && <Tile label={s.profit >= 0 ? 'Profit' : 'Loss'} value={rupee(s.profit)} sub="received − spent" />}
           </div>
 
           {items.length > 0 && (
