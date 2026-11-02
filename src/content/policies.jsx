@@ -31,8 +31,8 @@ export const POLICIES = {
     body: (store) => (
       <>
         <P>
-          {LEGAL.BRAND} is Dergaon's own online grocery store. Right now we serve Dergaon: you order daily
-          essentials on our website, and we bring them to your door.
+          {LEGAL.BRAND} is Dergaon's own online grocery store. We launched on 1 November 2026 at 10 AM, and right
+          now we serve Dergaon: you order daily essentials on our website, and we bring them to your door.
         </P>
         <H>Our story</H>
         <P>

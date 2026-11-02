@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 
 const PAGES = {
-  about: ['About us', 'About Jholzo: online grocery delivery in Dergaon, Assam. Daily essentials at better prices, delivered to your door. Powered by Malchetra Group.'],
+  about: ['About us', 'About Jholzo: online grocery delivery in Dergaon, Assam, live since 1 November 2026. Daily essentials at better prices, delivered to your door. Powered by Malchetra Group.'],
   contact: ['Contact us', 'Contact Jholzo in Dergaon, Assam: call or WhatsApp 9181061864, or email support@jholzo.com for orders, delivery and help.'],
   delivery: ['Delivery policy', 'Jholzo delivery policy: delivery areas in Dergaon, delivery times and slots, delivery charges and free delivery.'],
   refund: ['Refund & cancellation', 'Jholzo refund and cancellation policy: how to cancel an order, report a damaged or missing item, and get a refund.'],
