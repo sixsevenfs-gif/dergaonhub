@@ -676,6 +676,33 @@ export async function cancelOrder(id, reason) {
   commit()
 }
 
+// Admin → Delete orders: same as admin_delete_orders() in the database (update 029).
+export async function adminDeleteOrders(ids) {
+  if (!ids?.length) fail('Choose at least one order.')
+  const gone = new Set(ids)
+  const orders = db.orders.filter((o) => gone.has(o.id))
+  const people = new Set(orders.flatMap((o) => [o.customer_id, o.orderer_id]).filter(Boolean))
+  for (const o of orders) {
+    if (o.status === 'cancelled' && o.cancel_reason === 'No-show') {
+      const c = db.customers.find((x) => x.id === o.customer_id)
+      if (c) c.no_show_count = Math.max(0, c.no_show_count - 1)
+    }
+  }
+  db.wallet = entries().filter((e) => !gone.has(e.order_id))
+  db.orders = db.orders.filter((o) => !gone.has(o.id))
+  db.order_items = db.order_items.filter((i) => !gone.has(i.order_id))
+  db.complaints = db.complaints.filter((k) => !gone.has(k.order_id))
+  db.order_messages = (db.order_messages ?? []).filter((m) => !gone.has(m.order_id))
+  const keep = (id) => db.orders.some((o) => o.customer_id === id || o.orderer_id === id)
+  const before = db.customers.length
+  db.customers = db.customers.filter((c) => !people.has(c.id) || keep(c.id))
+  // Their Jholzo Money goes with them (like "on delete cascade" in the database).
+  const alive = new Set(db.customers.map((c) => c.id))
+  db.wallet = entries().filter((e) => alive.has(e.customer_id))
+  commit()
+  return { orders: orders.length, customers: before - db.customers.length }
+}
+
 // An item was not found at the shop: remove it and recalculate the total.
 export async function removeOrderItem(orderId, itemId) {
   const o = orderOrFail(orderId)

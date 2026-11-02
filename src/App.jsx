@@ -31,6 +31,7 @@ import AdminCustomers from './pages/admin/AdminCustomers.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
 import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
 import AdminLogins from './pages/admin/AdminLogins.jsx'
+import AdminDeleteOrders from './pages/admin/AdminDeleteOrders.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="logins" element={<AdminLogins />} />
           <Route path="waitlist" element={<AdminWaitlist />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="delete-orders" element={<AdminDeleteOrders />} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}

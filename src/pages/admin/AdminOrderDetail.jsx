@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
@@ -14,6 +14,7 @@ import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
 import PaymentCheck from './PaymentCheck.jsx'
+import DeleteOrdersDialog from '../../components/DeleteOrdersDialog.jsx'
 
 // Photo the rider took of the items at the customer's door.
 function DeliveryPhoto({ path }) {
@@ -44,6 +45,8 @@ export default function AdminOrderDetail() {
   const [reason, setReason] = useState('')
   const [cash, setCash] = useState('')
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const navigate = useNavigate()
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
@@ -194,6 +197,18 @@ export default function AdminOrderDetail() {
             </button>
           </div>
         </section>
+      )}
+
+      {/* Test or demo orders only: gone from the database, counts nowhere (update 029). */}
+      <button type="button" onClick={() => setDeleting(true)} className="flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold text-red-600">
+        <Trash2 size={16} /> Delete this order permanently (test / demo)
+      </button>
+      {deleting && (
+        <DeleteOrdersDialog
+          orders={[order]}
+          onClose={() => setDeleting(false)}
+          onDone={() => navigate('/admin/orders', { replace: true })}
+        />
       )}
     </div>
   )

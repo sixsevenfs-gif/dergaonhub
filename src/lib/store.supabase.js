@@ -522,6 +522,19 @@ export async function cancelOrder(id, reason) {
   notify()
 }
 
+// Admin → Delete orders (update 029): test / demo orders out of the database for good, so they count
+// nowhere. Items, complaints, messages, Jholzo Money entries and customers with no other orders go too.
+// The rider's delivery photos are removed afterwards (an order is deleted even if a photo can't be).
+export async function adminDeleteOrders(ids) {
+  if (!ids?.length) fail('Choose at least one order.')
+  const rows = check(await sb.from('orders').select('delivery_photo').in('id', ids))
+  const photos = rows.map((r) => r.delivery_photo).filter(Boolean)
+  const res = check(await sb.rpc('admin_delete_orders', { p_ids: ids }))
+  if (photos.length) await sb.storage.from('deliveries').remove(photos).catch(() => {})
+  notify()
+  return { orders: res?.orders ?? 0, customers: res?.customers ?? 0 }
+}
+
 // An item was not found at the shop: remove it and recalculate the total.
 export async function removeOrderItem(orderId, itemId) {
   const o = check(await sb.from('orders').select('*').eq('id', orderId).single())
