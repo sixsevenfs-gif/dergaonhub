@@ -378,7 +378,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 </p>
               )}
               {/* Exact-amount UPI QR for the customer to scan, instead of a personal GPay QR (no ₹82.80 → ₹82). */}
-              {!payNow && store.upi_id && (
+              {!payNow && store.upi_id && store.upi_on !== false && (
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setShowQr(true)} className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-black/[0.03] px-3 text-[15px] font-semibold active:scale-[.99]">
                     <QrCode size={18} /> {byQr ? 'Show QR again' : `Show QR · ${rupee(o.total)}`}

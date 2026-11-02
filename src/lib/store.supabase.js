@@ -156,6 +156,7 @@ export async function saveStore(data) {
     ...(data.upi_pay_minutes === undefined ? {} : { upi_pay_minutes: Math.min(120, Math.max(5, wholeRupees(data.upi_pay_minutes) || 15)) }), // after 023
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     ...(data.riders_confirm === undefined ? {} : { riders_confirm: !!data.riders_confirm }), // after 032
+    ...(data.upi_on === undefined ? {} : { upi_on: !!data.upi_on }), // after 035
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()

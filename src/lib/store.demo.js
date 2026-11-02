@@ -79,10 +79,10 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 /* ---------- store settings ---------- */
 
 export async function getStore() {
-  return clone({ riders_confirm: false, ...db.store }) // older demo stores have no riders_confirm yet
+  return clone({ riders_confirm: false, upi_on: true, ...db.store }) // older demo stores don't have these yet
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm', 'upi_on']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -443,10 +443,11 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const walletUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
   total = Math.round((total - walletUsed) * 100) / 100
 
-  if (payment_method !== 'upi_now' && total > (store.cod_limit ?? 350)) {
+  if (payment_method !== 'upi_now' && total > (store.cod_limit ?? 350) && store.upi_on !== false) {
     fail(`Orders above ${rupee(store.cod_limit ?? 350)} are paid by UPI before delivery. Please choose "Pay now by UPI".`)
   }
   if (payment_method === 'upi_now' && !store.upi_id) fail('Online payment is not available right now. Please choose another payment method.')
+  if ((payment_method === 'upi' || payment_method === 'upi_now') && store.upi_on === false) fail('UPI payment is unavailable right now. Please choose Cash on Delivery.')
 
   if (!customer) {
     customer = { id: newId(), phone: ph, name: name.trim(), no_show_count: 0, blocked: false, created_at: now() }

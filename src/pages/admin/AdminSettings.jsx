@@ -380,13 +380,28 @@ function SettingsForm({ store }) {
 
       {(v.upi_id !== undefined || DEMO_MODE) && (
         <section className={`${lcard} space-y-3 p-4`}>
-          <div>
-            <h2 className="font-bold">Payments: "Pay now by UPI"</h2>
-            <p className="text-sm text-neutral-500">
-              Customers pay to this UPI ID from GPay, PhonePe or Paytm, then enter the UPI Ref No. You confirm it on the
-              admin home page ("Payments to check"). Leave the UPI ID empty to switch "Pay now" off.
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-bold">Payments: "Pay now by UPI"</h2>
+              <p className="text-sm text-neutral-500">
+                Customers pay to this UPI ID from GPay, PhonePe or Paytm, then enter the UPI Ref No. You confirm it on the
+                admin home page ("Payments to check"). Leave the UPI ID empty to switch "Pay now" off.
+              </p>
+            </div>
+            {v.upi_on !== undefined && (
+              <Toggle checked={v.upi_on !== false} onChange={(on) => setV({ ...v, upi_on: on })} label="UPI payments" />
+            )}
           </div>
+          {v.upi_on === false && (
+            <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
+              <b>UPI is off.</b> Checkout shows "Pay now by UPI" as currently unavailable and customers choose Cash on Delivery,
+              for any order size (the ₹{v.cod_limit ?? 350} cash limit below applies only while UPI is on). The rider page
+              hides "Show QR". Save changes to apply.
+            </p>
+          )}
+          {v.upi_on === undefined && !DEMO_MODE && (
+            <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">UPI on/off: run supabase/migrations/035_upi_switch.sql in the Supabase SQL Editor first.</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Your UPI ID" hint="e.g. yourname@okaxis"><input value={v.upi_id ?? ''} onChange={set('upi_id')} placeholder="name@bank" className={lfield} /></Field>
             <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Jholzo" className={lfield} /></Field>
