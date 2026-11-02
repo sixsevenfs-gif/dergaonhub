@@ -108,14 +108,13 @@ Deno.serve(async (req) => {
     const components: Record<string, unknown>[] = []
     if (kind === 'placed') params = [name, o.order_number, slotWords(o.delivery_date, store), rupee(o.total)]
     if (kind === 'delivered') {
-      // The bill: items and charges, total, how it was paid; buttons open the bill (PDF) and the report page.
+      // The bill: items and charges, total, how it was paid, the order number for the report link in the text;
+      // the button opens the bill (PDF).
       const { data: items } = await db.from('order_items').select('name_snapshot, quantity, line_total, note')
         .eq('order_id', o.id).order('name_snapshot')
       const paid = o.payment_method === 'cash' ? `Cash ${rupee(o.cash_collected || o.total)}` : `UPI ${rupee(o.total)}`
-      params = [name, o.order_number, billLine(o, items ?? []), rupee(o.total), paid]
-      for (const index of ['0', '1']) {
-        components.push({ type: 'button', sub_type: 'url', index, parameters: [{ type: 'text', text: o.order_number }] })
-      }
+      params = [name, o.order_number, billLine(o, items ?? []), rupee(o.total), paid, o.order_number]
+      components.push({ type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: o.order_number }] })
     }
 
     const res = await fetch(`https://graph.facebook.com/v21.0/${Deno.env.get('WA_PHONE_ID')}/messages`, {
