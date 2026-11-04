@@ -982,6 +982,21 @@ export async function savePrivateSettings({ daily_order_cap }) {
   notify()
 }
 
+/* ---------- new orders go to one rider by themselves (update 039, the owner only) ---------- */
+
+// The rider's user id, '' for nobody; null before update 039.
+export async function getAutoRider() {
+  const { data } = await sb.from('private_settings').select('*').eq('id', 1).maybeSingle()
+  return data && 'auto_rider' in data ? data.auto_rider ?? '' : null
+}
+
+// Also hands them every open order not on its way yet; returns how many.
+export async function setAutoRider(riderId) {
+  const n = check(await sb.rpc('admin_set_auto_rider', { p_rider: riderId || null }))
+  notify()
+  return n ?? 0
+}
+
 /* ---------- buy prices and costs per order (update 034, the owner only) ---------- */
 
 // Rider pay (with petrol) and the bag for one delivered order. Defaults before update 034.

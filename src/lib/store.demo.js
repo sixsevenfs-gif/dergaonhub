@@ -367,6 +367,11 @@ function pickDate() {
   return date
 }
 
+// The rider who gets new orders (update 039), if still an active rider.
+const autoRider = () => {
+  const id = db.private?.auto_rider
+  return id && demoTeam().some((t) => t.user_id === id && t.role === 'rider' && t.active) ? id : null
+}
 const dailyCap = () => Math.max(1, Number(db.private?.daily_order_cap) || CONFIG.DELIVERY_CAP)
 
 // The day the next order would be delivered (today, tomorrow, or later if those evenings are full).
@@ -439,6 +444,10 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   const walletUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
   total = Math.round((total - walletUsed) * 100) / 100
 
+  // Big orders pay online first while UPI works (update 039).
+  if (payment_method !== 'upi_now' && store.upi_on !== false && store.upi_id && total > (store.cod_limit ?? 350)) {
+    fail(`Orders above ${rupee(store.cod_limit ?? 350)} are paid online before delivery. Please choose "Pay now by UPI".`)
+  }
   if (payment_method === 'upi_now' && !store.upi_id) fail('Online payment is not available right now. Please choose another payment method.')
   if ((payment_method === 'upi' || payment_method === 'upi_now') && store.upi_on === false) fail('UPI payment is unavailable right now. Please choose Cash on Delivery.')
 
@@ -466,6 +475,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     // Cash orders are confirmed at once (update 037); pay-now UPI orders wait for the payment check.
     delivery_date: express ? dateStr() : pickDate(), status: payment_method === 'upi_now' ? 'placed' : 'confirmed', cancel_reason: '',
     delivery_type: express ? 'express' : 'evening', express_fee: dq.expressFee,
+    ...(autoRider() ? { rider_id: autoRider(), assigned_at: now() } : {}),
     express_by: express ? new Date(Date.now() + expressStatus(store).minutes * 60000).toISOString() : null,
     created_at: now(), confirmed_at: payment_method === 'upi_now' ? null : now(), completed_at: null,
     ordered_by_name: ob?.name ?? '', ordered_by_phone: ob?.phone ?? '',
@@ -1167,6 +1177,27 @@ const withItemCosts = (items) => items.map((i) => ({ ...i, cost: db.order_item_c
 
 export async function getCostRules() {
   return costRules()
+}
+
+// New orders go to one rider by themselves (update 039).
+export async function getAutoRider() {
+  return db.private?.auto_rider ?? ''
+}
+
+export async function setAutoRider(riderId) {
+  if (riderId && !demoTeam().some((t) => t.user_id === riderId && t.role === 'rider' && t.active)) fail('Choose an active rider.')
+  db.private = { ...db.private, auto_rider: riderId || '' }
+  let n = 0
+  if (riderId) {
+    for (const o of db.orders) {
+      if ((o.status === 'placed' || o.status === 'confirmed') && !o.dispatch && o.rider_id !== riderId) {
+        Object.assign(o, { rider_id: riderId, assigned_at: now() })
+        n++
+      }
+    }
+  }
+  commit()
+  return n
 }
 
 export async function saveCostRules(rules) {

@@ -209,11 +209,12 @@ export default function Checkout() {
   const total = Math.round((fullTotal - walletUse) * 100) / 100
   // Invite code box: only for a number with no orders yet (the database checks this again).
   const showInvite = !!wallet && rules.on && (wallet.locked || (!wallet.has_orders && !wallet.referred))
-  // Pay now by UPI needs the store's UPI ID and UPI switched on (Settings, update 035). Cash on Delivery
-  // works for any amount (update 037).
+  // Pay now by UPI needs the store's UPI ID and UPI switched on (Settings, update 035). While it works, orders
+  // above cod_limit are paid online first (update 039); with UPI off, Cash on Delivery takes any amount.
   const upiOn = store.upi_on !== false
   const canPayNow = !!store.upi_id && upiOn
-  const method = payment === 'upi_now' && !canPayNow ? 'cash' : payment
+  const overLimit = canPayNow && store.cod_limit != null && total > store.cod_limit
+  const method = overLimit ? 'upi_now' : payment === 'upi_now' && !canPayNow ? 'cash' : payment
   const firstName = receiver.name.trim().split(' ')[0]
 
   const fromContacts = async () => {
@@ -500,13 +501,16 @@ export default function Checkout() {
 
         <section className={`${card} space-y-2 p-3`}>
           <h2 className="px-1 pt-1 font-semibold">Payment method</h2>
+          {overLimit && (
+            <p className="px-1 text-xs font-medium text-brand">Orders above {rupee(store.cod_limit)} are paid online now by UPI.</p>
+          )}
           {[
             ...(store.upi_id || !upiOn ? [['upi_now', Zap, 'Pay now by UPI', other ? 'You pay now with GPay, PhonePe or Paytm' : 'GPay, PhonePe, Paytm or any UPI app']] : []),
             ['cash', Banknote, 'Cash on delivery', !upiOn ? (other ? `${firstName || 'They'} pay cash at the door` : 'Pay cash on delivery') : other ? `${firstName || 'They'} pay cash / UPI at the door` : 'Pay cash / UPI on delivery'],
           ].map(([value, Icon, title, note]) => {
             const noCod = value === 'cash' && !codOk
             const upiOff = value === 'upi_now' && !upiOn
-            const off = noCod || upiOff
+            const off = noCod || upiOff || (overLimit && value === 'cash')
             return (
               <button key={value} type="button" disabled={off} onClick={() => setPayment(value)} className={cx('flex w-full items-center gap-3 rounded-xl border p-3 text-left', method === value ? 'border-brand' : 'border-line', off && 'opacity-50')}>
                 <Radio on={method === value} />
@@ -517,6 +521,8 @@ export default function Checkout() {
                     <span className="text-xs text-red-700">This number is blocked from ordering. Please call us.</span>
                   ) : upiOff ? (
                     <span className="text-xs font-semibold text-orange-700">Temporarily unavailable. Please choose Cash on Delivery.</span>
+                  ) : off ? (
+                    <span className="text-xs text-muted">Only for orders up to {rupee(store.cod_limit)}</span>
                   ) : (
                     <span className="text-xs text-muted">{note}</span>
                   )}

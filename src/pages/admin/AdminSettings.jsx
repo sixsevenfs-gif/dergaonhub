@@ -4,7 +4,7 @@ import Field from '../../components/Field.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { adminAddRider, adminListRiders, getCostRules, getPrivateSettings, getStore, resetDemo, saveCostRules, savePrivateSettings, saveStore, setRiderActive } from '../../lib/store.js'
+import { adminAddRider, adminListRiders, getAutoRider, getCostRules, getPrivateSettings, getStore, resetDemo, saveCostRules, savePrivateSettings, saveStore, setAutoRider, setRiderActive } from '../../lib/store.js'
 import { currentPosition, deliveryRules, packagingFee } from '../../lib/delivery.js'
 import { placeName } from '../../lib/customerLocation.js'
 import { countHouses, savedHouseCount } from '../../lib/houses.js'
@@ -145,6 +145,7 @@ function Riders() {
           ))}
         </ul>
       )}
+      <AutoRider riders={riders ?? []} />
       <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1.4fr_1fr_1fr_auto_auto]">
         <input type="email" required placeholder="Login email" value={form.email} onChange={set('email')} className={lfield} />
         <input required placeholder="Name" value={form.name} onChange={set('name')} className={lfield} />
@@ -156,6 +157,42 @@ function Riders() {
       </form>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </section>
+  )
+}
+
+// Every new order goes to this rider by themselves (update 039); picking one also hands them the open orders.
+function AutoRider({ riders }) {
+  const { data: current, reload } = useData(getAutoRider)
+  const [msg, setMsg] = useState('')
+  const options = riders.filter((r) => r.role !== 'executive' && (r.active || r.user_id === current))
+  if (current === null && !DEMO_MODE) {
+    return <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Automatic assigning: run supabase/migrations/039_auto_assign.sql first.</p>
+  }
+  if (current === undefined) return null
+  const pick = async (e) => {
+    const id = e.target.value
+    const name = riders.find((r) => r.user_id === id)?.name
+    setMsg('')
+    try {
+      const n = await setAutoRider(id)
+      setMsg(id ? `New orders now go to ${name}.${n ? ` ${n} open order${n === 1 ? '' : 's'} given to them now.` : ''}` : 'New orders are assigned by hand again.')
+      reload()
+    } catch (err) {
+      setMsg(err.message)
+    }
+  }
+  return (
+    <div className="rounded-xl border border-neutral-200 p-3">
+      <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+        New orders go to
+        <select value={current ?? ''} onChange={pick} className={`${lfieldBase} h-10 min-w-40 flex-1`}>
+          <option value="">Nobody (assign each order by hand)</option>
+          {options.map((r) => <option key={r.user_id} value={r.user_id}>{r.name}</option>)}
+        </select>
+      </label>
+      <p className="mt-1 text-xs text-neutral-500">Every new order (today's or tomorrow's) is assigned to this rider by itself. Picking someone also gives them all open orders not on their way yet. Only riders are listed: executives can't deliver orders.</p>
+      {msg && <p className="mt-1 text-sm text-green-700">{msg}</p>}
+    </div>
   )
 }
 
@@ -395,7 +432,7 @@ function SettingsForm({ store }) {
           {v.upi_on === false && (
             <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
               <b>UPI is off.</b> Checkout shows "Pay now by UPI" as temporarily unavailable and customers choose Cash on
-              Delivery. The rider page hides "Show QR". Save changes to apply.
+              Delivery for any amount. The rider page hides "Show QR". Save changes to apply.
             </p>
           )}
           {v.upi_on === undefined && !DEMO_MODE && (
@@ -404,6 +441,7 @@ function SettingsForm({ store }) {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Your UPI ID" hint="e.g. yourname@okaxis"><input value={v.upi_id ?? ''} onChange={set('upi_id')} placeholder="name@bank" className={lfield} /></Field>
             <Field label="Name shown in the UPI app"><input value={v.upi_name ?? ''} onChange={set('upi_name')} placeholder="Jholzo" className={lfield} /></Field>
+            <Field label="Cash on delivery up to ₹" hint="Bigger orders pay online first (while UPI is on)"><input type="number" min="0" value={v.cod_limit ?? 350} onChange={set('cod_limit')} className={lfield} /></Field>
             {v.upi_pay_minutes !== undefined ? (
               <Field label="Time to pay (minutes)" hint="Not paid by then: the order is cancelled. 5 to 120."><input type="number" min="5" max="120" value={v.upi_pay_minutes} onChange={set('upi_pay_minutes')} className={lfield} /></Field>
             ) : (
