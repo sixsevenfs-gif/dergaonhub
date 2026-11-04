@@ -254,6 +254,10 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
     await partnerComplete(o.id, isCash && !byQr ? o.total : 0, photo)
   })
   const billSent = !!sent('delivered')
+  // Automatic WhatsApp on: the "delivered" message carries the bill (update 036), so the button shows only
+  // if that message failed (for example the template is not approved yet).
+  const autoBillFailed = !!o.messages?.some((m) => m.kind === 'delivered' && m.channel === 'auto' && !m.ok) && !billSent
+  const showBillButton = !auto || autoBillFailed
 
   return (
     <article className={`${card} overflow-hidden ${done && billSent ? 'opacity-70' : ''}`}>
@@ -417,7 +421,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
           )}
 
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
-          {done && (
+          {done && showBillButton && (
             <a
               href={waLink(toWa(o.customer_phone), billMessage({ order: o, items: o.items }))}
               target="_blank"
