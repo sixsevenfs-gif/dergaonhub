@@ -949,6 +949,44 @@ export async function adminSignIn() {
 
 export async function adminSignOut() {}
 
+/* ---------- price survey (demo: photos kept in the browser; ?as=collector tries the collector) ---------- */
+
+export async function collectSession() {
+  const as = demoAs()
+  return { email: 'demo', userId: as === 'collector' ? 'demo-collector' : demoUser(), role: as === 'collector' ? 'collector' : as === 'owner' ? 'admin' : '' }
+}
+
+export async function collectSignIn() {
+  return collectSession()
+}
+
+export async function listSurvey() {
+  return clone(db.survey ?? []).map((r) => ({ ...r, photo_url: r.photo }))
+}
+
+export async function addSurveyItem({ shop, details, mrp, photo }) {
+  db.survey ??= []
+  const row = {
+    id: newId(), created_at: now(), created_by: (await collectSession()).userId, shop: shop.trim(), photo, details: details.trim(),
+    mrp: mrp === '' || mrp == null ? null : Number(mrp), shop_price: null, priced_at: null, priced_by: null, done: false,
+  }
+  db.survey.unshift(row)
+  commitPhoto(() => db.survey.shift())
+  return row
+}
+
+export async function updateSurveyItem(id, patch) {
+  const r = (db.survey ?? []).find((x) => x.id === id) ?? fail('Item not found.')
+  if ('shop_price' in patch) Object.assign(r, { priced_at: patch.shop_price == null ? null : now(), priced_by: (await collectSession()).userId })
+  Object.assign(r, patch)
+  commit()
+}
+
+export async function deleteSurveyItem(id) {
+  db.survey = (db.survey ?? []).filter((x) => x.id !== id)
+  commit()
+}
+
 /* ---------- delivery partner (demo: the admin is the rider) ---------- */
 
 export async function partnerSession() {

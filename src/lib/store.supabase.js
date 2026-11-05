@@ -783,6 +783,62 @@ export async function saveMyCart(items) {
   }
 }
 
+/* ---------- price survey at the wholesaler (update 040, jholzo.com/collect) ---------- */
+
+// role: 'admin', 'collector' or '' (not allowed on the collect page).
+export async function collectSession() {
+  const { data } = await sb.auth.getSession()
+  const user = data.session?.user
+  if (!user || user.is_anonymous) return { email: '', role: '' }
+  const [isAdmin, isCollector] = await Promise.all([sb.rpc('is_admin').then(check), sb.rpc('is_collector').then((r) => r.data === true)])
+  return { email: user.email, userId: user.id, role: isAdmin ? 'admin' : isCollector ? 'collector' : '' }
+}
+
+export async function collectSignIn(email, password) {
+  check(await sb.auth.signInWithPassword({ email: email.trim(), password }))
+  const s = await collectSession()
+  if (!s.role) {
+    await sb.auth.signOut()
+    ready = null
+    fail('This login is not a price collector.')
+  }
+  notify()
+  return s
+}
+
+// Every item, newest first, with a short-lived link to its photo (the bucket is private).
+export async function listSurvey() {
+  const rows = check(await sb.from('survey_items').select('*').order('created_at', { ascending: false }))
+  const paths = rows.map((r) => r.photo).filter(Boolean)
+  const { data: links } = paths.length ? await sb.storage.from('survey').createSignedUrls(paths, 6 * 3600) : { data: [] }
+  const url = new Map((links ?? []).map((l) => [l.path, l.signedUrl]))
+  const num = (v) => (v == null ? null : Number(v))
+  return rows.map((r) => ({ ...r, mrp: num(r.mrp), shop_price: num(r.shop_price), photo_url: url.get(r.photo) ?? '' }))
+}
+
+// photo: data URL from the camera (already shrunk).
+export async function addSurveyItem({ shop, details, mrp, photo }) {
+  const path = `items/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+  check(await sb.storage.from('survey').upload(path, dataUrlToBlob(photo), { contentType: 'image/jpeg' }))
+  const row = check(await sb.from('survey_items').insert({
+    shop: shop.trim(), details: details.trim(), mrp: mrp === '' || mrp == null ? null : Number(mrp), photo: path,
+  }).select().single())
+  notify()
+  return row
+}
+
+// patch: any of details, mrp, shop_price (null clears it), shop, done (owner only).
+export async function updateSurveyItem(id, patch) {
+  check(await sb.from('survey_items').update(patch).eq('id', id))
+  notify()
+}
+
+export async function deleteSurveyItem(id) {
+  const row = check(await sb.from('survey_items').delete().eq('id', id).select('photo').maybeSingle())
+  if (row?.photo) await sb.storage.from('survey').remove([row.photo])
+  notify()
+}
+
 /* ---------- delivery partner (rider) ---------- */
 
 // role: 'admin', 'rider' or '' (not allowed on the partner page).

@@ -34,6 +34,8 @@ import AdminLogins from './pages/admin/AdminLogins.jsx'
 import AdminDeleteOrders from './pages/admin/AdminDeleteOrders.jsx'
 import AdminWallet from './pages/admin/AdminWallet.jsx'
 import AdminCarts from './pages/admin/AdminCarts.jsx'
+import AdminSurvey from './pages/admin/AdminSurvey.jsx'
+import Collect from './pages/collect/Collect.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
@@ -64,6 +66,7 @@ export default function App() {
         <Route path="/lucky-draw" element={<LuckyDraw />} />
 
         <Route path="/partner" element={<Partner />} />
+        <Route path="/collect" element={<Collect />} />
         {/* The executive's link: the same dashboard, it shows only what an executive may use. */}
         <Route path="/executive" element={<Navigate to="/admin" replace />} />
 
@@ -83,6 +86,7 @@ export default function App() {
           <Route path="waitlist" element={<AdminWaitlist />} />
           <Route path="settings" element={<OwnerOnly><AdminSettings /></OwnerOnly>} />
           <Route path="delete-orders" element={<OwnerOnly><AdminDeleteOrders /></OwnerOnly>} />
+          <Route path="survey" element={<OwnerOnly><AdminSurvey /></OwnerOnly>} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}

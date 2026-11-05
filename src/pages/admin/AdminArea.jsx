@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, Settings, ShoppingCart, Trash2, TrendingUp, Truck, Users, WalletMinimal, X } from 'lucide-react'
+import { BarChart3, Bike, ClipboardList, Ellipsis, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, ScanBarcode, Settings, ShoppingCart, Trash2, TrendingUp, Truck, Users, WalletMinimal, X } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
 import { adminSession, adminSignOut, adminStats } from '../../lib/store.js'
@@ -21,13 +21,14 @@ const NAV = [
   ['/admin/money', 'Jholzo Money', null, WalletMinimal],
   ['/admin/logins', 'Logins', null, LogIn],
   ['/admin/waitlist', 'Waitlist', 'waitlist', ListChecks],
+  ['/admin/survey', 'Wholesale prices', null, ScanBarcode],
   ['/admin/settings', 'Settings', null, Settings],
   ['/admin/delete-orders', 'Delete orders', null, Trash2],
 ]
 // Phone: these four sit in the bottom bar, the rest open from "More".
 const BOTTOM = ['/admin', '/admin/orders', '/admin/delivery', '/admin/products']
 // Settings hold the UPI and bank details, fees and the team; delete wipes orders. The owner only.
-const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders']
+const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders', '/admin/survey']
 
 // The owner's dashboard, and the executive's (order desk, update 032) without the owner-only pages and
 // buttons. With the database only these logins open it (demo mode skips the login; try ?as=executive).

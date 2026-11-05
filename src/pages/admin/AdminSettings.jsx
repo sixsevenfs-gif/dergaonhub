@@ -84,7 +84,7 @@ function CostsPerOrder() {
   )
 }
 
-const ROLES = [['rider', 'Rider'], ['executive', 'Executive']]
+const ROLES = [['rider', 'Rider'], ['executive', 'Executive'], ['collector', 'Price collector']]
 
 // The team: riders log in on /partner, executives on /executive (the order desk, update 032).
 // Each has their own email + password. "Remove access" locks them out at once.
@@ -119,7 +119,8 @@ function Riders() {
         <p className="text-sm text-neutral-500">
           <b>Executive</b> opens <b>{window.location.host}/executive</b>: orders, customers, WhatsApp, stock, carts. Never settings,
           payments, Jholzo Money, prices or deleting. <b>Rider</b> opens <b>{window.location.host}/partner</b>: only the orders
-          assigned to them. <b>Deactivate</b> locks someone out at once; <b>Activate</b> gives the access back.
+          assigned to them. <b>Price collector</b> opens <b>{window.location.host}/collect</b>: photos, MRP and wholesaler prices
+          (Wholesale prices in the menu). <b>Deactivate</b> locks someone out at once; <b>Activate</b> gives the access back.
           {!DEMO_MODE && ' First create their login in Supabase → Authentication → Users → Add user (tick Auto confirm), then add the same email here.'}
         </p>
       </div>
@@ -131,7 +132,7 @@ function Riders() {
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 font-semibold">
                   {r.name}
-                  <span className={`rounded px-1.5 text-[11px] font-bold uppercase ${r.role === 'executive' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{r.role === 'executive' ? 'Executive' : 'Rider'}</span>
+                  <span className={`rounded px-1.5 text-[11px] font-bold uppercase ${r.role === 'executive' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>{ROLES.find(([k]) => k === r.role)?.[1] ?? 'Rider'}</span>
                 </span>
                 <span className="block truncate text-xs text-neutral-500">{r.email}{r.phone ? ` · ${r.phone}` : ''}</span>
               </span>
@@ -164,7 +165,7 @@ function Riders() {
 function AutoRider({ riders }) {
   const { data: current, reload } = useData(getAutoRider)
   const [msg, setMsg] = useState('')
-  const options = riders.filter((r) => r.role !== 'executive' && (r.active || r.user_id === current))
+  const options = riders.filter((r) => (r.role ?? 'rider') === 'rider' && (r.active || r.user_id === current))
   if (current === null && !DEMO_MODE) {
     return <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Automatic assigning: run supabase/migrations/039_auto_assign.sql first.</p>
   }
