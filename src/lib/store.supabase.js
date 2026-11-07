@@ -678,6 +678,8 @@ export async function dailySummary(date) {
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
     byRider: cashByRider(done, team),
+    riderMoney: await riderDayMoney(date).catch(() => null),
+    returns: await listRiderReturns(date),
     byCost: await profitOf(done.map(toOrder)),
   }
 }
@@ -950,6 +952,22 @@ export async function uploadShopBill(orderId, photoUrl) {
 export const saveShopBill = (id, paid, photo, note) =>
   partnerCall('partner_shop_bill', { p_order_id: id, p_paid: Number(paid), p_photo: photo, p_note: note ?? '' })
 export const removeShopBill = (id) => partnerCall('partner_shop_bill', { p_order_id: id, p_paid: null, p_photo: '', p_note: '' })
+
+// Each rider's money for a day (update 044): cash collected, paid at the shop, given back, still to give back.
+// The owner gets every rider, a rider only themself. null before update 044.
+export async function riderDayMoney(day) {
+  const res = await sb.rpc('rider_day_money', { p_day: day })
+  if (missingFunction(res.error)) return null
+  return check(res)
+}
+// "I paid": the rider gives money back to the owner (method 'upi' or 'cash').
+export const partnerReturn = (day, amount, method) => partnerCall('partner_return', { p_day: day, p_amount: Number(amount), p_method: method })
+// The owner's list of a day's payments back, with the rider's name (empty before update 044).
+export async function listRiderReturns(day) {
+  const { data, error } = await sb.from('rider_returns').select('*').eq('day', day).order('created_at')
+  return error ? [] : data
+}
+export const deleteRiderReturn = (id) => partnerCall('admin_delete_return', { p_id: id })
 export const logMessage = (id, kind) => partnerCall('log_order_message', { p_order_id: id, p_kind: kind })
 
 // Automatic WhatsApp through the notify-whatsapp Edge Function. Never throws: { sent, error }.

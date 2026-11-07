@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import Field from '../../components/Field.jsx'
 import { lbtnDark, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { dailySummary, setDailyExpense } from '../../lib/store.js'
+import { dailySummary, deleteRiderReturn, setDailyExpense } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { dateStr, dayLabel, rupee } from '../../lib/format.js'
+import { dateStr, dayLabel, fmtClock, rupee } from '../../lib/format.js'
 import { useRole } from '../../lib/role.js'
 
 const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
@@ -14,6 +14,43 @@ function Row({ label, value, strong }) {
       <span className={strong ? '' : 'text-neutral-500'}>{label}</span>
       <span className={strong ? '' : 'font-semibold'}>{value}</span>
     </div>
+  )
+}
+
+// Each rider's money for the day (update 044): cash taken − paid at the shop − given back = still to give back.
+function RiderMoney({ rows, returns }) {
+  const [error, setError] = useState('')
+  return (
+    <section className={`${lcard} p-4`}>
+      <h2 className="font-bold">Money with each rider</h2>
+      <p className="text-xs text-neutral-500">Cash from customers − paid at the shop − already given back.</p>
+      <div className="mt-1 divide-y divide-neutral-100">
+        {rows.map((r) => {
+          const due = Number(r.to_return)
+          const paid = returns.filter((b) => b.rider_id === r.rider_id)
+          return (
+            <div key={r.rider_id} className="py-2.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span><b>{r.name}</b> <span className="text-neutral-500">· {r.delivered} delivered</span></span>
+                <span className={`font-black ${due > 0 ? 'text-orange-700' : due < 0 ? 'text-sky-700' : 'text-green-700'}`}>
+                  {due > 0 ? `To give back ${rupee(due)}` : due < 0 ? `You owe ${rupee(-due)}` : 'Settled ✓'}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Cash {rupee(r.cash)} − shop {rupee(r.shop)}{Number(r.returned) > 0 ? ` − given back ${rupee(r.returned)}` : ''}
+              </p>
+              {paid.map((b) => (
+                <p key={b.id} className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
+                  <span className="flex-1">Gave back {rupee(b.amount)} by {b.method === 'upi' ? 'UPI (check your bank)' : 'cash'} · {fmtClock(b.created_at)}</span>
+                  <button type="button" onClick={() => deleteRiderReturn(b.id).catch((e) => setError(e.message))} className="font-semibold text-neutral-400 underline">Remove</button>
+                </p>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </section>
   )
 }
 
@@ -97,7 +134,9 @@ export default function DailySummary() {
       )}
 
       {/* Evening cash handover: each rider gives this much cash (QR and UPI payments are already in the bank). */}
-      {isOwner && s.byRider?.length > 0 && (
+      {isOwner && s.riderMoney?.length > 0 && <RiderMoney rows={s.riderMoney} returns={s.returns ?? []} />}
+      {/* Before update 044: cash only. */}
+      {isOwner && !s.riderMoney && s.byRider?.length > 0 && (
         <section className={`${lcard} p-4`}>
           <h2 className="font-bold">Cash with each rider</h2>
           <div className="mt-1 divide-y divide-neutral-100">

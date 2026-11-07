@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, LogOut, RefreshCw, ShoppingBasket } from 'lucide-react'
+import { Banknote, Check, ChevronDown, HandCoins, LogOut, QrCode, RefreshCw, ShoppingBasket } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import PartnerLogin from './PartnerLogin.jsx'
 import PartnerOrderCard from './PartnerOrderCard.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
-import { adminSignOut, getStore, partnerOrders, partnerSession } from '../../lib/store.js'
+import { adminSignOut, getStore, partnerOrders, partnerReturn, partnerSession, riderDayMoney } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { addDays, dateStr, rupee } from '../../lib/format.js'
+import { addDays, dateStr, dayLabel, rupee } from '../../lib/format.js'
+import UpiQr from './UpiQr.jsx'
 import { DEMO_MODE } from '../../config.js'
 
 // Delivery partner (rider) page: one day's orders, a shopping list for the trip,
@@ -23,21 +24,96 @@ export default function Partner() {
 
 const ORDER = { arriving: 0, on_the_way: 1, ready: 2, new: 3, done: 4 }
 
+// The day's money the rider gives back to the owner (update 044). Riders are paid a salary, so everything a
+// customer pays belongs to the store: cash collected − paid at the shop − already given back.
+function GiveBack({ money: m, date, store, onError }) {
+  const [showQr, setShowQr] = useState(false)
+  const [cashAsk, setCashAsk] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const due = Math.round(Number(m.to_return) * 100) / 100
+  const pay = async (method) => {
+    setBusy(true)
+    onError('')
+    try {
+      await partnerReturn(date, due, method)
+      setShowQr(false)
+      setCashAsk(false)
+    } catch (err) {
+      onError(err.message)
+    }
+    setBusy(false)
+  }
+  const line = (label, value) => <div className="flex justify-between text-muted"><span>{label}</span><span>{value}</span></div>
+  return (
+    <section className={`${card} mt-3 p-4`}>
+      <div className="flex items-center gap-3">
+        <HandCoins size={22} className={due > 0 ? 'text-orange-600' : 'text-emerald-600'} />
+        <span className="flex-1 font-semibold">{due > 0 ? 'Give back to admin' : due < 0 ? 'Admin owes you' : 'All given back'}</span>
+        <span className={`text-2xl font-black ${due > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>{due === 0 ? <Check size={24} /> : rupee(Math.abs(due))}</span>
+      </div>
+      <div className="mt-2 space-y-1 text-sm">
+        {line(`Cash from customers (${m.delivered} delivered)`, rupee(m.cash))}
+        {line('Paid at the shop', `− ${rupee(m.shop)}`)}
+        {Number(m.returned) > 0 && line('Already given back', `− ${rupee(m.returned)}`)}
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        {due < 0
+          ? 'You paid the shop for orders the customer paid by UPI or QR (that money went to the store). Ask the admin for it.'
+          : 'Everything customers pay goes to the store, delivery and packaging charges too. Give back the rest every day.'}
+      </p>
+      {due > 0 && (
+        <div className="mt-3 space-y-2">
+          {store.upi_id && store.upi_on !== false && (
+            <button type="button" disabled={busy} onClick={() => setShowQr(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 text-[15px] font-semibold text-white disabled:opacity-50">
+              <QrCode size={18} /> Pay {rupee(due)} to admin by UPI
+            </button>
+          )}
+          {cashAsk ? (
+            <div className="flex gap-2">
+              <button type="button" disabled={busy} onClick={() => pay('cash')} className="h-11 flex-1 rounded-xl bg-orange-500 text-sm font-semibold text-ink disabled:opacity-50">Yes, gave {rupee(due)} cash</button>
+              <button type="button" onClick={() => setCashAsk(false)} className="h-11 flex-1 rounded-xl border border-line text-sm font-semibold">Go back</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setCashAsk(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-muted">
+              <Banknote size={16} /> Gave cash to the admin instead
+            </button>
+          )}
+        </div>
+      )}
+      {showQr && (
+        <UpiQr
+          order={{ total: due, upi_note: `Jholzo return ${m.name} ${date}` }} store={store}
+          footnote={`Money back · ${m.name} · ${dayLabel(date)}`}
+          tip={`Pay ${rupee(due)} from your UPI app, then tap “I paid”. The admin checks it in the bank.`}
+          paidLabel={`I paid ${rupee(due)}`} apps
+          onPaid={() => pay('upi')} onClose={() => setShowQr(false)}
+        />
+      )}
+    </section>
+  )
+}
+
 function PartnerRun({ session }) {
   const [date, setDate] = useState(dateStr())
   const { data: orders, error, reload } = useData(() => partnerOrders(date), [date])
   const { data: store } = useData(getStore)
+  const { data: money, reload: reloadMoney } = useData(() => riderDayMoney(date), [date])
   const [showList, setShowList] = useState(false)
+  const [moneyError, setMoneyError] = useState('')
 
   // New orders come in while the rider is out: check again every 30 seconds and on return to the page.
   useEffect(() => {
-    const t = setInterval(reload, 30000)
-    window.addEventListener('focus', reload)
+    const again = () => {
+      reload()
+      reloadMoney()
+    }
+    const t = setInterval(again, 30000)
+    window.addEventListener('focus', again)
     return () => {
       clearInterval(t)
-      window.removeEventListener('focus', reload)
+      window.removeEventListener('focus', again)
     }
-  }, [reload])
+  }, [reload, reloadMoney])
 
   const all = (orders ?? []).slice().sort((a, b) => ORDER[stageOf(a)] - ORDER[stageOf(b)])
   // A rider: only the orders assigned to them (updates 032, 033). The owner: every order.
@@ -105,6 +181,13 @@ function PartnerRun({ session }) {
           </div>
         ))}
       </section>
+
+      {/* This rider's own money for the day (the owner's own deliveries too); every rider's is in Daily summary. */}
+      {(() => {
+        const mine = money?.find((r) => r.rider_id === session.userId)
+        return mine && (mine.delivered > 0 || Number(mine.returned) > 0) && <GiveBack money={mine} date={date} store={store ?? {}} onError={setMoneyError} />
+      })()}
+      {moneyError && <p className="mt-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{moneyError}</p>}
 
       {shopping.length > 0 && (
         <section className={`${card} mt-3 overflow-hidden`}>

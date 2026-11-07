@@ -7,7 +7,7 @@ function upiQuery(order, store) {
     pn: store.upi_name || store.name || 'Jholzo',
     am: Number(order.total).toFixed(2),
     cu: 'INR',
-    tn: `Jholzo ${order.order_number}`,
+    tn: order.upi_note ?? `Jholzo ${order.order_number}`,
   })
   return q.toString().replace(/\+/g, '%20').replace(/%40/g, '@')
 }

@@ -833,6 +833,8 @@ export async function dailySummary(date) {
     spent, spentNote: expense?.note ?? '',
     profit: cash + upi - spent,
     byRider: cashByRider(done),
+    riderMoney: await riderDayMoney(date),
+    returns: await listRiderReturns(date),
     byCost: dayProfit(done, withItemCosts(db.order_items.filter((i) => done.some((o) => o.id === i.order_id))), db.product_costs ?? {}, costRules()),
   }
 }
@@ -1074,6 +1076,37 @@ export async function setPicked(orderId, itemId, picked) {
 }
 
 export const uploadShopBill = async (orderId, photoUrl) => photoUrl
+
+// Like rider_day_money() in update 044: cash collected − paid at the shop (bill, else ticked items) − given back.
+export async function riderDayMoney(day) {
+  const rider = demoAs().startsWith('rider')
+  const me = demoUser()
+  const team = demoTeam()
+  const rows = {}
+  const row = (id) => (rows[id] ??= { rider_id: id, name: team.find((t) => t.user_id === id)?.name ?? 'Owner', delivered: 0, cash: 0, shop: 0, returned: 0 })
+  for (const o of db.orders.filter((x) => x.delivery_date === day && x.status === 'completed' && x.delivered_by && (!rider || x.delivered_by === me))) {
+    const r = row(o.delivered_by)
+    r.delivered += 1
+    if (o.payment_method === 'cash') r.cash += Number(o.cash_collected ?? o.total)
+    const bill = db.shop_bills?.[o.id]
+    r.shop += bill ? Number(bill.paid) : itemsOf(o.id).filter((i) => i.picked).reduce((s, i) => { const p = shopPriceOf(i); return s + i.quantity * Number(p.buy_price ?? p.mrp) }, 0)
+  }
+  for (const b of (db.rider_returns ?? []).filter((x) => x.day === day && (!rider || x.rider_id === me))) row(b.rider_id).returned += b.amount
+  return Object.values(rows).map((r) => ({ ...r, to_return: r.cash - r.shop - r.returned })).sort((a, b) => b.to_return - a.to_return)
+}
+
+export async function partnerReturn(day, amount, method) {
+  if (!(Number(amount) > 0)) fail('Write the amount you gave back.')
+  db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: demoUser(), day, amount: Math.round(Number(amount) * 100) / 100, method, created_at: now() }]
+  commit()
+}
+
+export const listRiderReturns = async (day) => clone((db.rider_returns ?? []).filter((x) => x.day === day))
+
+export async function deleteRiderReturn(id) {
+  db.rider_returns = (db.rider_returns ?? []).filter((x) => x.id !== id)
+  commit()
+}
 
 export async function saveShopBill(id, paid, photo, note) {
   const o = orderOrFail(id)

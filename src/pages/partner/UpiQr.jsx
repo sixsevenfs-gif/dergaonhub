@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { Check } from 'lucide-react'
-import { upiLink } from '../../lib/upi.js'
+import { upiApps, upiLink } from '../../lib/upi.js'
 import { rupee } from '../../lib/format.js'
 
 // Full-screen UPI QR the rider shows at the door: the exact order total and order number are filled in,
 // so ₹82.80 arrives as ₹82.80 (no rounding like with cash), straight to the store's UPI ID from Settings.
-export default function UpiQr({ order, store, onPaid, onClose }) {
+// The rider also uses it to give the day's money back to the owner: then `order` is { total, upi_note } and the
+// texts below say so, and `apps` adds a button per UPI app: the rider pays from this same phone, which can't scan
+// its own screen.
+export default function UpiQr({ order, store, onPaid, onClose, footnote, tip, paidLabel = 'Customer paid', apps }) {
   const [qr, setQr] = useState('')
   const link = upiLink(order, store)
   const amount = rupee(order.total)
@@ -28,19 +31,29 @@ export default function UpiQr({ order, store, onPaid, onClose }) {
         <div className="mx-auto mt-4 aspect-square w-full max-w-[260px]">
           {qr ? <img src={qr} alt={`UPI QR code for ${amount}`} className="h-full w-full" /> : <div className="h-full w-full animate-pulse rounded-xl bg-neutral-100" />}
         </div>
-        <div className="mt-3 flex items-center justify-center gap-3">
-          {['phonepe', 'gpay', 'paytm'].map((id) => <img key={id} src={`/upi/${id}.png`} alt="" className="h-7 w-7 rounded-md" />)}
-        </div>
-        <p className="mt-2 text-sm text-neutral-600">Any UPI app · the amount is already filled in</p>
-        <p className="mt-1 text-xs text-neutral-500">Order #{order.order_number} · {store.upi_id}</p>
+        {apps ? (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {upiApps(order, store).map((a) => (
+              <a key={a.id} href={a.href} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-neutral-200 text-sm font-semibold">
+                {a.icon && <img src={a.icon} alt="" className="h-6 w-6 rounded-md" />} {a.name}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-center gap-3">
+            {['phonepe', 'gpay', 'paytm'].map((id) => <img key={id} src={`/upi/${id}.png`} alt="" className="h-7 w-7 rounded-md" />)}
+          </div>
+        )}
+        <p className="mt-2 text-sm text-neutral-600">{apps ? 'Tap your UPI app · the amount is already filled in' : 'Any UPI app · the amount is already filled in'}</p>
+        <p className="mt-1 text-xs text-neutral-500">{footnote ?? `Order #${order.order_number}`} · {store.upi_id}</p>
         <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-          Before you leave, check the customer's phone shows {amount} paid.
+          {tip ?? `Before you leave, check the customer's phone shows ${amount} paid.`}
         </p>
       </div>
       <div className="mt-3 grid w-full max-w-sm grid-cols-2 gap-2">
         <button type="button" onClick={onClose} className="h-12 rounded-xl border border-white/40 font-semibold text-white">Close</button>
         <button type="button" onClick={onPaid} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1FAF54] font-semibold text-white">
-          <Check size={18} /> Customer paid
+          <Check size={18} /> {paidLabel}
         </button>
       </div>
     </div>,

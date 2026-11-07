@@ -105,6 +105,8 @@ telegram-notify again first) and gives the admin home its sales totals for any d
 `migrations/043_rider_shopping.sql` saves the rider's shopping ticks with the order (they stay on another phone),
 shows the rider what to pay the shop for each item (buy price, or MRP to bargain on) and lets them add the shop's
 bill with a photo when it asked for more; the owner sees that bill on the order.
+`migrations/044_rider_returns.sql` (after 043) shows each rider the day's money to give back to the owner
+(cash from customers − paid at the shop − already given back) with a UPI QR to pay it; Daily summary shows every rider.
 
 A new database made from the latest `schema.sql` already has all of them.
 
