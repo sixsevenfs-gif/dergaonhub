@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Repeat, Smartphone, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Receipt, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
 import ItemPhoto from '../../components/ItemPhoto.jsx'
 import {
-  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, sendAutoMessage, setDispatch, uploadDeliveryPhoto,
+  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, removeShopBill, saveShopBill, sendAutoMessage,
+  setDispatch, setPicked, uploadDeliveryPhoto, uploadShopBill,
 } from '../../lib/store.js'
 import { compressImage } from '../../lib/image.js'
 import { fmtClock, isExpress, rupee } from '../../lib/format.js'
@@ -114,26 +115,148 @@ const loadPdf = () => import('../../lib/billPdf.js')
 // Short message that goes with the PDF.
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 
-// Items ticked while shopping, remembered on this phone.
-function usePicked(orderId) {
-  const key = `dergaonhub-picked-${orderId}`
-  const [picked, setPicked] = useState(() => {
+// Items ticked while shopping. Saved with the order (update 043), so they stay after logging out and on
+// another phone; before that update they are kept on this phone only.
+function usePicked(order, onError) {
+  const key = `dergaonhub-picked-${order.id}`
+  const local = () => {
     try {
       return JSON.parse(localStorage.getItem(key)) ?? []
     } catch {
       return []
     }
-  })
-  const toggle = (id) => {
-    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]
-    setPicked(next)
+  }
+  const saved = order.items.filter((i) => i.picked).map((i) => i.id)
+  const savedKey = saved.join()
+  const [picked, setState] = useState(() => [...new Set([...saved, ...local()])])
+  // The list reloads every 30 seconds: follow what is saved (another phone may have ticked).
+  useEffect(() => {
+    setState([...new Set([...savedKey.split(',').filter(Boolean), ...local()])])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey])
+
+  const save = async (next, itemId, on) => {
+    const before = picked
+    setState(next)
     try {
-      localStorage.setItem(key, JSON.stringify(next))
-    } catch {
-      // storage blocked: ticks last until the page reloads
+      if (await setPicked(order.id, itemId, on)) return
+      localStorage.setItem(key, JSON.stringify(next)) // before update 043: this phone only
+    } catch (err) {
+      setState(before)
+      onError(err.message)
     }
   }
-  return [picked, toggle]
+  const toggle = (id) => {
+    const on = !picked.includes(id)
+    save(on ? [...picked, id] : picked.filter((x) => x !== id), id, on)
+  }
+  const clear = () => save([], null, false)
+  return [picked, toggle, clear]
+}
+
+// What the rider pays the shop for one item (update 043): the buy price, or the MRP when there is none yet.
+const shopUnit = (i) => Number(i.buy_price ?? i.mrp ?? i.price_snapshot)
+
+// Price line under an item on the shopping list.
+function ShopPrice({ item: i }) {
+  if (i.buy_price == null && i.mrp == null) return null
+  const unit = shopUnit(i)
+  const line = i.quantity > 1 ? `${rupee(unit)} × ${i.quantity} = ${rupee(unit * i.quantity)}` : rupee(unit)
+  return i.buy_price != null ? (
+    <span className="block text-xs font-semibold text-emerald-700 no-underline">Pay {line}</span>
+  ) : (
+    <span className="block text-xs font-semibold text-amber-700 no-underline">MRP {line} · bargain, pay less</span>
+  )
+}
+
+// The shop asked for more than the prices above: the rider writes what they paid and takes a photo of the
+// shop's bill. The owner sees it on the order.
+function ShopBill({ order: o, expected, onError }) {
+  const bill = o.shop_bill
+  const [open, setOpen] = useState(false)
+  const [paid, setPaid] = useState('')
+  const [note, setNote] = useState('')
+  const [photo, setPhoto] = useState('')
+  const [preview, setPreview] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const take = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    onError('')
+    try {
+      const small = await compressImage(file, 1400, 200) // the bill's numbers must stay readable
+      setPreview(small)
+      setPhoto(await uploadShopBill(o.id, small))
+    } catch (err) {
+      setPhoto('')
+      onError(`Photo not saved: ${err.message}`)
+    }
+    setBusy(false)
+  }
+  const save = async () => {
+    onError('')
+    if (!(Number(paid) > 0)) return onError('Write what you paid at the shop.')
+    if (!photo) return onError("Take a photo of the shop's bill first.")
+    setBusy(true)
+    try {
+      await saveShopBill(o.id, paid, photo, note.trim())
+      setOpen(false)
+    } catch (err) {
+      onError(err.message)
+    }
+    setBusy(false)
+  }
+
+  if (bill && !open) {
+    const extra = Number(bill.paid) - Number(bill.expected)
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-line bg-black/[0.03] px-3 py-2 text-sm">
+        <Receipt size={18} className="shrink-0 text-muted" />
+        <span className="flex-1">
+          Paid <b>{rupee(bill.paid)}</b> at the shop{extra > 0 ? <> · <b className="text-orange-700">{rupee(extra)} more</b></> : ''} · bill photo ✓
+        </span>
+        {o.status === 'confirmed' && (
+          <button type="button" onClick={() => removeShopBill(o.id).catch((err) => onError(err.message))} className="text-xs font-semibold text-muted underline">Remove</button>
+        )}
+      </div>
+    )
+  }
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-orange-700">
+        <Receipt size={16} /> Shop asked for more?
+      </button>
+    )
+  }
+  return (
+    <div className="space-y-2 rounded-xl border border-orange-400/40 bg-orange-500/[0.07] p-3 text-sm">
+      <p>Pay the shop <b>{rupee(expected)}</b>. If they ask for more, pay it, then write what you paid and take a photo of their bill.</p>
+      <input
+        type="number" inputMode="decimal" min="1" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="Paid at the shop (₹)"
+        className="h-12 w-full rounded-xl border border-line bg-white px-3 text-base text-ink"
+      />
+      <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 ${photo ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-line bg-white'}`}>
+        <input type="file" accept="image/*" capture="environment" onChange={take} className="sr-only" />
+        {preview ? (
+          <img src={preview} alt="Shop bill" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-700"><Camera size={24} /></span>
+        )}
+        <span className="flex-1">
+          <span className="block font-semibold">{busy && !photo ? 'Saving photo...' : photo ? 'Bill photo saved ✓' : "Photo of the shop's bill (required)"}</span>
+          <span className="text-xs text-muted">{photo ? 'Tap to take it again' : 'All prices and the total clearly visible'}</span>
+        </span>
+      </label>
+      <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Why more? (optional, e.g. price went up)" className="h-11 w-full rounded-xl border border-line bg-white px-3 text-ink" />
+      <div className="flex gap-2">
+        <button type="button" disabled={busy} onClick={save} className="h-11 flex-1 rounded-xl bg-orange-500 font-semibold text-ink disabled:opacity-50">Save</button>
+        <button type="button" onClick={() => setOpen(false)} className="h-11 flex-1 rounded-xl border border-line font-semibold">Cancel</button>
+      </div>
+    </div>
+  )
 }
 
 // "Customer paid by QR", remembered on this phone until Delivered (taking the photo can reload the page).
@@ -220,10 +343,10 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const mayConfirm = isAdmin || !!store.riders_confirm
   const done = stage === 'done'
   const [open, setOpen] = useState(!done)
-  const [picked, toggle] = usePicked(o.id)
+  const [error, setError] = useState('')
+  const [picked, toggle, untickAll] = usePicked(o, setError)
   const [byQr, setByQr] = usePaidByQr(o.id)
   const [showQr, setShowQr] = useState(false)
-  const [error, setError] = useState('')
   const [photo, setPhoto] = useState('') // storage path of the delivery photo
   useEffect(() => {
     if (open && !done) loadPdf()
@@ -231,6 +354,10 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const [badge, badgeCls] = STAGES[stage]
   const sent = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).at(-1)
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
+  // Shop prices come with the order from update 043 on; without them the list shows no prices.
+  const priced = o.items.some((i) => i.buy_price != null || i.mrp != null)
+  const shopTotal = o.items.reduce((s, i) => s + shopUnit(i) * i.quantity, 0)
+  const atMrp = o.items.filter((i) => i.buy_price == null)
   const isCash = o.payment_method === 'cash'
   const payNow = o.payment_method === 'upi_now'
   const paidOnline = payNow && o.payment_status === 'paid'
@@ -326,6 +453,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                       <span className={`flex-1 text-sm ${on ? 'text-muted line-through' : ''}`}>
                         {i.name_snapshot}
                         {i.note && <span className="block text-xs text-orange-700 no-underline">“{i.note}”</span>}
+                        {!done && <ShopPrice item={i} />}
                       </span>
                       <span className="text-base font-semibold">×{i.quantity}</span>
                     </label>
@@ -333,8 +461,27 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 )
               })}
             </ul>
-            {allPicked && !done && <p className="mt-1.5 text-xs font-semibold text-emerald-700">All items picked. Ready to go!</p>}
+            {priced && !done && (
+              <div className="mt-2 rounded-xl bg-emerald-500/[0.08] px-3 py-2.5">
+                <div className="flex items-center justify-between text-base font-semibold">
+                  <span>Pay at the shop</span><span>{rupee(shopTotal)}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted">
+                  {atMrp.length === 0
+                    ? 'Fixed shop prices. Pay exactly this.'
+                    : `${atMrp.length === o.items.length ? 'All items' : `${atMrp.length} item${atMrp.length > 1 ? 's' : ''}`} at MRP (no shop price yet): bargain and pay less if you can.`}
+                </p>
+              </div>
+            )}
+            {allPicked && !done && (
+              <div className="mt-1.5 flex items-center justify-between">
+                <p className="text-xs font-semibold text-emerald-700">All items picked. Ready to go!</p>
+                <button type="button" onClick={untickAll} className="text-xs font-semibold text-muted underline">Untick all</button>
+              </div>
+            )}
           </div>
+
+          {priced && (!done || o.shop_bill) && <ShopBill order={o} expected={shopTotal} onError={setError} />}
 
           {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-700">{error}</p>}
 

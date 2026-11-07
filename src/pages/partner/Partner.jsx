@@ -49,14 +49,19 @@ function PartnerRun({ session }) {
   // Cash already taken from delivered orders (what the rider should hand over).
   const inHand = list.filter((o) => o.status === 'completed' && o.payment_method === 'cash').reduce((s, o) => s + (o.cash_collected || o.total), 0)
 
-  // Everything still to buy for confirmed orders, added up.
+  // Everything still to buy for confirmed orders, added up, with what to pay the shop (update 043): the buy
+  // price, or the MRP when there is none yet.
   const shopping = Object.values(
     left.flatMap((o) => o.items).reduce((all, i) => {
-      all[i.name_snapshot] ??= { name: i.name_snapshot, quantity: 0 }
-      all[i.name_snapshot].quantity += i.quantity
+      const unit = i.buy_price ?? i.mrp
+      const key = `${i.name_snapshot}|${unit ?? ''}`
+      all[key] ??= { key, name: i.name_snapshot, quantity: 0, unit: unit == null ? null : Number(unit), atMrp: i.buy_price == null }
+      all[key].quantity += i.quantity
       return all
     }, {}),
   ).sort((a, b) => a.name.localeCompare(b.name))
+  const priced = shopping.some((s) => s.unit != null)
+  const shopTotal = shopping.reduce((t, s) => t + (s.unit ?? 0) * s.quantity, 0)
 
   const today = dateStr()
   const days = [[today, 'Today'], [addDays(today, 1), 'Tomorrow']]
@@ -106,13 +111,27 @@ function PartnerRun({ session }) {
           <button type="button" onClick={() => setShowList(!showList)} className="flex w-full items-center gap-3 p-4 text-left">
             <ShoppingBasket size={20} className="text-brand" />
             <span className="flex-1 font-semibold">Shopping list · {shopping.length} items</span>
+            {priced && <span className="font-semibold">{rupee(shopTotal)}</span>}
             <ChevronDown size={20} className={`text-muted transition-transform ${showList ? 'rotate-180' : ''}`} />
           </button>
           {showList && (
             <ul className="divide-y divide-line/60 border-t border-line px-4 text-sm">
               {shopping.map((s) => (
-                <li key={s.name} className="flex justify-between py-2.5"><span>{s.name}</span><b>×{s.quantity}</b></li>
+                <li key={s.key} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="flex-1">
+                    {s.name}
+                    {s.unit != null && (
+                      <span className={`block text-xs font-semibold ${s.atMrp ? 'text-amber-700' : 'text-emerald-700'}`}>
+                        {s.atMrp ? 'MRP ' : 'Pay '}{rupee(s.unit)}{s.quantity > 1 ? ` × ${s.quantity} = ${rupee(s.unit * s.quantity)}` : ''}{s.atMrp ? ' · bargain, pay less' : ''}
+                      </span>
+                    )}
+                  </span>
+                  <b>×{s.quantity}</b>
+                </li>
               ))}
+              {priced && (
+                <li className="flex justify-between py-3 text-base font-semibold"><span>Total at the shop</span><span>{rupee(shopTotal)}</span></li>
+              )}
             </ul>
           )}
         </section>

@@ -43,9 +43,42 @@ function DeliveryPhoto({ path }) {
 
 const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
 
+// The shop asked the rider for more than the buy prices (update 043): what they paid, with the bill's photo.
+function ShopBillCard({ bill }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    let live = true
+    deliveryPhotoUrl(bill.photo).then((u) => live && setUrl(u))
+    return () => {
+      live = false
+    }
+  }, [bill.photo])
+  const extra = Number(bill.paid) - Number(bill.expected)
+  return (
+    <section className={`${lcard} p-4`}>
+      <h2 className="font-bold">Rider paid the shop <span className="ml-1 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">Only you</span></h2>
+      <div className="mt-2 space-y-1 text-sm">
+        <div className="flex justify-between text-neutral-600"><span>Should pay (buy prices, MRP where none)</span><span>{rupee(bill.expected)}</span></div>
+        <div className="flex justify-between font-semibold"><span>Paid at the shop</span><span>{rupee(bill.paid)}</span></div>
+        {extra !== 0 && (
+          <div className={`flex justify-between font-semibold ${extra > 0 ? 'text-red-600' : 'text-green-700'}`}>
+            <span>{extra > 0 ? 'More than the buy prices' : 'Less than the buy prices'}</span><span>{rupee(Math.abs(extra))}</span>
+          </div>
+        )}
+        {bill.note && <p className="rounded-lg bg-neutral-100 px-3 py-2">“{bill.note}”</p>}
+        <p className="text-xs text-neutral-500">Added {fmtDateTime(bill.created_at)}</p>
+      </div>
+      {url && <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Shop bill" className="mt-2 max-h-96 w-full rounded-xl object-contain" /></a>}
+    </section>
+  )
+}
+
 // What this order earns you: items (selling − buy price) + fees − Jholzo Money − rider and petrol − bag.
-function ProfitCard({ order, items, costs, rules }) {
+function ProfitCard({ order, items, costs, rules, shopBill }) {
   const p = orderProfit(order, items, costs, rules)
+  // The shop took more than the buy prices (rider's bill, update 043): that comes off the profit.
+  const extra = shopBill ? Math.max(0, Number(shopBill.paid) - Number(shopBill.expected)) : 0
+  const profit = p.profit - extra
   const line = (label, value) => <div className="flex justify-between text-neutral-600"><span>{label}</span><span>{value}</span></div>
   return (
     <section className={`${lcard} p-4`}>
@@ -56,8 +89,9 @@ function ProfitCard({ order, items, costs, rules }) {
         {p.discount > 0 && line('Jholzo Money used', `−${rupee(p.discount)}`)}
         {line(`Rider + petrol${order.distance_km != null ? ` (${order.distance_km} km)` : ''}`, `−${rupee(p.rider)}`)}
         {line('Bag / packing', `−${rupee(p.packing)}`)}
+        {extra > 0 && line('Shop asked for more (bill)', `−${rupee(extra)}`)}
         <div className="flex justify-between border-t border-neutral-200 pt-2 text-lg font-black">
-          <span>Profit</span><span className={p.profit >= 0 ? 'text-green-700' : 'text-red-600'}>{money(p.profit)}</span>
+          <span>Profit</span><span className={profit >= 0 ? 'text-green-700' : 'text-red-600'}>{money(profit)}</span>
         </div>
       </div>
       {p.missing.length > 0 && (
@@ -84,7 +118,7 @@ export default function AdminOrderDetail() {
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
-  const { order, items, store, hint, complaints, costs, rules } = data
+  const { order, items, store, hint, complaints, costs, rules, shopBill } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
   // Pay-now UPI order: the owner checks the payment before anyone else may confirm it.
   const payFirst = !isOwner && order.payment_method === 'upi_now' && order.payment_status !== 'paid'
@@ -210,7 +244,8 @@ export default function AdminOrderDetail() {
       </section>
 
       {/* The owner's profit on this order from buy prices (update 034). */}
-      {isOwner && order.status !== 'cancelled' && rules && <ProfitCard order={order} items={items} costs={costs} rules={rules} />}
+      {isOwner && shopBill && <ShopBillCard bill={shopBill} />}
+      {isOwner && order.status !== 'cancelled' && rules && <ProfitCard order={order} items={items} costs={costs} rules={rules} shopBill={shopBill} />}
 
       {complaints.length > 0 && (
         <Link to="/admin/complaints" className={`${lcard} block p-4 text-sm`}>

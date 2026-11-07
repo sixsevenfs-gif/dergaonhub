@@ -652,7 +652,7 @@ export async function getOrderById(orderId) {
   return clone({
     order: o, items: withItemCosts(withPhotos(itemsOf(o.id))), store: db.store, hint: hintFor(o.customer_phone),
     complaints: db.complaints.filter((k) => k.order_id === o.id),
-    costs: db.product_costs ?? {}, rules: costRules(),
+    costs: db.product_costs ?? {}, rules: costRules(), shopBill: db.shop_bills?.[o.id] ?? null,
   })
 }
 
@@ -1019,7 +1019,8 @@ export async function partnerOrders(date) {
       .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
       .map((o) => ({
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
-        items: withPhotos(itemsOf(o.id)), messages: messagesOf(o.id),
+        items: withPhotos(itemsOf(o.id)).map((i) => ({ picked: false, ...i, ...shopPriceOf(i) })), messages: messagesOf(o.id),
+        shop_bill: db.shop_bills?.[o.id] ?? null,
       })),
   )
 }
@@ -1049,6 +1050,44 @@ export async function partnerPaidByQr(id) {
   const o = orderOrFail(id)
   checkRiderOrder(o)
   if (o.status === 'confirmed' && o.payment_method === 'cash') o.payment_method = 'upi'
+  commit()
+}
+
+// What the rider pays the shop for an item, like shop_price_of() in update 043.
+function shopPriceOf(i) {
+  const p = db.products.find((x) => x.id === i.product_id)
+  return { buy_price: db.order_item_costs?.[i.id] ?? db.product_costs?.[i.product_id] ?? null, mrp: p?.compare_price ?? i.price_snapshot }
+}
+
+export async function setPicked(orderId, itemId, picked) {
+  const o = orderOrFail(orderId)
+  checkRiderOrder(o)
+  if (o.status !== 'confirmed') fail('Only confirmed orders can be ticked.')
+  for (const i of itemsOf(orderId)) if (!itemId || i.id === itemId) db.order_items.find((x) => x.id === i.id).picked = !!picked
+  // Saved without notify(), like the real store: the card already shows the tick, no page reload.
+  try {
+    localStorage.setItem(KEY, JSON.stringify(db))
+  } catch {
+    // storage full: ticks last until the page reloads
+  }
+  return true
+}
+
+export const uploadShopBill = async (orderId, photoUrl) => photoUrl
+
+export async function saveShopBill(id, paid, photo, note) {
+  const o = orderOrFail(id)
+  checkRiderOrder(o)
+  if (!(Number(paid) > 0)) fail('Write what you paid at the shop.')
+  if (!photo) fail("Take a photo of the shop's bill first.")
+  const expected = itemsOf(id).reduce((s, i) => { const p = shopPriceOf(i); return s + i.quantity * Number(p.buy_price ?? p.mrp) }, 0)
+  db.shop_bills = { ...db.shop_bills, [id]: { order_id: id, expected, paid: Number(paid), photo, note: note ?? '', created_at: now() } }
+  commit()
+}
+
+export async function removeShopBill(id) {
+  checkRiderOrder(orderOrFail(id))
+  if (db.shop_bills) delete db.shop_bills[id]
   commit()
 }
 
