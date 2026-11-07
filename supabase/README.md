@@ -111,6 +111,8 @@ bill with a photo when it asked for more; the owner sees that bill on the order.
 to hand over by 9 PM; the owner taps "Got it" in Daily summary when the cash arrives.
 `migrations/046_money_rider.sql` (after 045) counts orders marked delivered from the admin panel for the rider they
 are assigned to, so that rider sees the money and the pay button.
+`migrations/047_pay_rider.sql` (after 046) lets the owner record paying a rider who is owed money (they paid the shop
+for orders the customer paid online): Daily summary → "I paid Ravi ₹X".
 
 A new database made from the latest `schema.sql` already has all of them.
 

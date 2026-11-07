@@ -5,6 +5,7 @@ import { confirmRiderReturn, dailySummary, deleteRiderReturn, setDailyExpense } 
 import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, fmtClock, rupee } from '../../lib/format.js'
 import { useRole } from '../../lib/role.js'
+import PayRider from '../../components/PayRider.jsx'
 
 const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
 
@@ -18,7 +19,7 @@ function Row({ label, value, strong }) {
 }
 
 // Each rider's money for the day (update 044): cash taken − paid at the shop − given back = still to give back.
-function RiderMoney({ rows, returns }) {
+function RiderMoney({ rows, returns, date }) {
   const [error, setError] = useState('')
   return (
     <section className={`${lcard} p-4`}>
@@ -38,13 +39,21 @@ function RiderMoney({ rows, returns }) {
               </div>
               <p className="mt-0.5 text-xs text-neutral-500">
                 This day: cash {rupee(r.cash)} − shop {rupee(r.shop)}{Number(r.returned) > 0 ? ` − given back ${rupee(r.returned)}` : ''}
+                {Number(r.paid_to_rider) > 0 ? ` + you paid ${rupee(r.paid_to_rider)}` : ''}
                 {Number(r.earlier) !== 0 && ` · earlier days ${Number(r.earlier) > 0 ? '+' : '−'} ${rupee(Math.abs(r.earlier))}`}
               </p>
+              <PayRider row={r} date={date} onError={setError} />
               {paid.map((b) => (
                 <p key={b.id} className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
                   <span className="flex-1">
-                    {b.method === 'upi' ? 'UPI' : 'Cash'} {rupee(b.amount)}{b.order_id ? ' (one order)' : ''} · {fmtClock(b.created_at)}
-                    {b.confirmed_at ? <b className="text-green-700"> · received ✓</b> : b.method === 'cash' ? <b className="text-orange-700"> · to hand over by 9 PM</b> : ' · check your bank'}
+                    {Number(b.amount) < 0 ? (
+                      <>You paid {r.name} {rupee(-b.amount)} by {b.method === 'upi' ? 'UPI' : 'cash'} · {fmtClock(b.created_at)}</>
+                    ) : (
+                      <>
+                        {b.method === 'upi' ? 'UPI' : 'Cash'} {rupee(b.amount)}{b.order_id ? ' (one order)' : ''} · {fmtClock(b.created_at)}
+                        {b.confirmed_at ? <b className="text-green-700"> · received ✓</b> : b.method === 'cash' ? <b className="text-orange-700"> · to hand over by 9 PM</b> : ' · check your bank'}
+                      </>
+                    )}
                   </span>
                   {!b.confirmed_at && 'confirmed_at' in b && (
                     <button type="button" onClick={() => confirmRiderReturn(b.id).catch((e) => setError(e.message))} className="rounded-lg bg-neutral-900 px-2 py-1 font-semibold text-white">Got it</button>
@@ -141,7 +150,7 @@ export default function DailySummary() {
       )}
 
       {/* Evening cash handover: each rider gives this much cash (QR and UPI payments are already in the bank). */}
-      {isOwner && s.riderMoney?.length > 0 && <RiderMoney rows={s.riderMoney} returns={s.returns ?? []} />}
+      {isOwner && s.riderMoney?.length > 0 && <RiderMoney rows={s.riderMoney} returns={s.returns ?? []} date={date} />}
       {/* Before update 044: cash only. */}
       {isOwner && !s.riderMoney && s.byRider?.length > 0 && (
         <section className={`${lcard} p-4`}>

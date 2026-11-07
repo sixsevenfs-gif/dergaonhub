@@ -973,6 +973,9 @@ export async function partnerReturn(day, amount, method, orderId = null) {
 }
 // The owner: "Got it" when a rider's cash arrives, or after checking a UPI payment in the bank (update 045).
 export const confirmRiderReturn = (id) => partnerCall('admin_confirm_return', { p_id: id })
+// The owner paid a rider who was owed money (update 047).
+export const adminPayRider = (riderId, day, amount, method) =>
+  partnerCall('admin_pay_rider', { p_rider: riderId, p_day: day, p_amount: Number(amount), p_method: method })
 // The owner's list of a day's payments back, with the rider's name (empty before update 044).
 export async function listRiderReturns(day) {
   const { data, error } = await sb.from('rider_returns').select('*').eq('day', day).order('created_at')

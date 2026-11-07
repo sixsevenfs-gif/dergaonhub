@@ -9,6 +9,7 @@ import { card } from '../../components/ui.js'
 import { adminSignOut, getStore, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { addDays, dateStr, rupee } from '../../lib/format.js'
+import PayRider from '../../components/PayRider.jsx'
 import PayBack, { CASH_BY } from './PayBack.jsx'
 import { DEMO_MODE } from '../../config.js'
 
@@ -48,6 +49,7 @@ function GiveBack({ money: m, date, store, onError }) {
         {line(`Cash from customers today (${m.delivered} delivered)`, rupee(m.cash))}
         {line('Paid at the shop today', `− ${rupee(m.shop)}`)}
         {Number(m.returned) > 0 && line('Given back today', `− ${rupee(m.returned)}`)}
+        {Number(m.paid_to_rider) > 0 && line('Admin paid you today', `+ ${rupee(m.paid_to_rider)}`)}
         {Number(m.earlier) !== 0 && line(Number(m.earlier) > 0 ? 'Still to give back from earlier days' : 'Admin owed you from earlier days', Number(m.earlier) > 0 ? `+ ${rupee(m.earlier)}` : `− ${rupee(-m.earlier)}`)}
       </div>
       {pending > 0 && (
@@ -72,7 +74,8 @@ function GiveBack({ money: m, date, store, onError }) {
 }
 
 // The owner on the rider page: what each rider holds right now (details in Admin → Daily summary).
-function RidersMoney({ rows }) {
+function RidersMoney({ rows, date }) {
+  const [error, setError] = useState('')
   return (
     <section className={`${card} mt-3 p-4`}>
       <div className="flex items-center gap-3">
@@ -92,6 +95,7 @@ function RidersMoney({ rows }) {
                     {due > 0 ? `Gives you ${rupee(due)}` : due < 0 ? `You owe ${rupee(-due)}` : 'Settled ✓'}
                   </span>
                   {Number(r.cash_pending) > 0 && <span className="block text-xs text-orange-700">{rupee(r.cash_pending)} cash coming by {CASH_BY}</span>}
+                  <PayRider row={r} date={date} onError={setError} />
                 </span>
               </li>
             )
@@ -100,6 +104,7 @@ function RidersMoney({ rows }) {
       ) : (
         <p className="mt-1 text-sm text-muted">No rider deliveries yet. Each rider's money to give back shows here.</p>
       )}
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
     </section>
   )
 }
@@ -200,7 +205,7 @@ function PartnerRun({ session }) {
           date={date} store={store ?? {}} onError={setMoneyError}
         />
       ) : (
-        <RidersMoney rows={money} />
+        <RidersMoney rows={money} date={date} />
       ))}
       {moneyError && <p className="mt-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{moneyError}</p>}
 

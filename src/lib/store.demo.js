@@ -1104,15 +1104,18 @@ export async function riderDayMoney(day) {
     if (bill) move(bill.created_by, o.delivery_date, { shop: Number(bill.paid) })
     else for (const i of itemsOf(o.id).filter((x) => x.picked && x.picked_by)) { const p = shopPriceOf(i); move(i.picked_by, o.delivery_date, { shop: i.quantity * Number(p.buy_price ?? p.mrp) }) }
   }
-  for (const r of (db.rider_returns ?? []).filter((x) => x.day <= day)) move(r.rider_id, r.day, { returned: r.amount, pending: r.method === 'cash' && !r.confirmed_at ? r.amount : 0 })
+  for (const r of (db.rider_returns ?? []).filter((x) => x.day <= day)) move(r.rider_id, r.day, { returned: r.amount, pending: r.method === 'cash' && r.amount > 0 && !r.confirmed_at ? r.amount : 0 })
   const rows = {}
   for (const m of moves.filter((x) => (!rider || x.rider_id === me) && team.some((t) => t.user_id === x.rider_id))) {
-    const r = (rows[m.rider_id] ??= { rider_id: m.rider_id, name: team.find((t) => t.user_id === m.rider_id).name, delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0, cash_pending: 0 })
+    const r = (rows[m.rider_id] ??= { rider_id: m.rider_id, name: team.find((t) => t.user_id === m.rider_id).name, delivered: 0, cash: 0, shop: 0, returned: 0, paid_to_rider: 0, earlier: 0, to_return: 0, cash_pending: 0 })
     r.cash_pending += m.pending ?? 0
     const net = m.cash - m.shop - m.returned
     r.to_return += net
-    if (m.day === day) for (const k of ['delivered', 'cash', 'shop', 'returned']) r[k] += m[k]
-    else r.earlier += net
+    if (m.day === day) {
+      for (const k of ['delivered', 'cash', 'shop']) r[k] += m[k]
+      if (m.returned > 0) r.returned += m.returned
+      else r.paid_to_rider -= m.returned
+    } else r.earlier += net
   }
   return Object.values(rows).sort((x, y) => y.to_return - x.to_return)
 }
@@ -1121,6 +1124,13 @@ export async function partnerReturn(day, amount, method, orderId = null) {
   if (!(Number(amount) > 0)) fail('Write the amount you gave back.')
   if (orderId && !db.orders.some((o) => o.id === orderId && o.status === 'completed' && moneyRiderOf(o) === demoUser())) fail('Only an order you delivered.')
   db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: demoUser(), day, amount: Math.round(Number(amount) * 100) / 100, method, order_id: orderId, confirmed_at: null, created_at: now() }]
+  commit()
+}
+
+// Like admin_pay_rider() in update 047: a negative, already confirmed entry.
+export async function adminPayRider(riderId, day, amount, method) {
+  if (!(Number(amount) > 0)) fail('Write the amount you paid.')
+  db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: riderId, day, amount: -Math.round(Number(amount) * 100) / 100, method, order_id: null, confirmed_at: now(), created_at: now() }]
   commit()
 }
 

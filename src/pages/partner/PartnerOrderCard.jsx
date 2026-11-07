@@ -203,7 +203,7 @@ function OrderPayBack({ order: o, money, date, store, riderName, onError }) {
   return (
     <div className="space-y-2 rounded-xl border border-line p-3 text-sm">
       <div className="flex items-center justify-between font-semibold">
-        <span>Admin's money from this order</span>
+        <span>{due > 0 ? 'Delivered ✓ Now send the admin this order\'s money' : "Admin's money from this order"}</span>
         <span className={due > 0 ? 'text-orange-700' : 'text-emerald-700'}>{due > 0 ? rupee(due) : own < 0 ? `Admin owes you ${rupee(-own)}` : 'Given ✓'}</span>
       </div>
       <div className="space-y-0.5 text-xs text-muted">
@@ -472,6 +472,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
 
       {open && (
         <div className="space-y-4 border-t border-line px-4 pb-4 pt-3">
+          {/* Right after "Delivered": this order's money for the admin, paid by UPI or as cash by 9 PM (update 045),
+              for the rider the money is with: who marked it delivered, or the assigned rider (update 046). */}
+          {money && <OrderPayBack order={o} money={money} date={date} store={store} riderName={riderName} onError={setError} />}
           <p className="flex gap-2 text-sm"><MapPinned size={16} className="mt-0.5 shrink-0 text-brand" /> {o.address}</p>
           {o.location ? (
             !done && <MapPreview point={o.location} home={store.location} />
@@ -634,9 +637,6 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             </div>
           )}
 
-          {/* Per-order pay back (update 045 adds o.returns) for the rider the money is with: who marked it delivered,
-              or the assigned rider when the admin marked it (update 046 sends money_rider). */}
-          {money && <OrderPayBack order={o} money={money} date={date} store={store} riderName={riderName} onError={setError} />}
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
           {done && showBillButton && (
             <a
