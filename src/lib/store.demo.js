@@ -1023,6 +1023,7 @@ export async function partnerOrders(date) {
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
         items: withPhotos(itemsOf(o.id)).map((i) => ({ picked: false, ...i, ...shopPriceOf(i) })), messages: messagesOf(o.id),
         shop_bill: db.shop_bills?.[o.id] ?? null,
+        money_rider: moneyRiderOf(o),
         returns: (db.rider_returns ?? []).filter((x) => x.order_id === o.id && (!rider || x.rider_id === me))
           .map((x) => ({ amount: x.amount, method: x.method, at: x.created_at, confirmed_at: x.confirmed_at ?? null })),
       })),
@@ -1086,6 +1087,9 @@ export async function setPicked(orderId, itemId, picked) {
 
 export const uploadShopBill = async (orderId, photoUrl) => photoUrl
 
+// Like money_rider_of() in update 046: the team rider who marked it delivered, else the rider it is assigned to.
+const moneyRiderOf = (o) => (demoTeam().some((t) => t.user_id === o.delivered_by && t.role === 'rider') ? o.delivered_by : o.rider_id)
+
 // Like rider_day_money() in update 044: each team rider's running balance (cash − shop − given back) up to the day.
 export async function riderDayMoney(day) {
   const rider = demoAs().startsWith('rider')
@@ -1094,7 +1098,8 @@ export async function riderDayMoney(day) {
   const moves = []
   const move = (rider_id, d, m) => moves.push({ rider_id, day: d, delivered: 0, cash: 0, shop: 0, returned: 0, ...m })
   for (const o of db.orders.filter((x) => x.status === 'completed' && x.delivery_date <= day)) {
-    if (o.delivered_by) move(o.delivered_by, o.delivery_date, { delivered: 1, cash: o.payment_method === 'cash' ? Number(o.cash_collected ?? o.total) : 0 })
+    const who = moneyRiderOf(o)
+    if (who) move(who, o.delivery_date, { delivered: 1, cash: o.payment_method === 'cash' ? Number(o.cash_collected ?? o.total) : 0 })
     const bill = db.shop_bills?.[o.id]
     if (bill) move(bill.created_by, o.delivery_date, { shop: Number(bill.paid) })
     else for (const i of itemsOf(o.id).filter((x) => x.picked && x.picked_by)) { const p = shopPriceOf(i); move(i.picked_by, o.delivery_date, { shop: i.quantity * Number(p.buy_price ?? p.mrp) }) }
@@ -1114,7 +1119,7 @@ export async function riderDayMoney(day) {
 
 export async function partnerReturn(day, amount, method, orderId = null) {
   if (!(Number(amount) > 0)) fail('Write the amount you gave back.')
-  if (orderId && !db.orders.some((o) => o.id === orderId && o.status === 'completed' && o.delivered_by === demoUser())) fail('Only an order you delivered.')
+  if (orderId && !db.orders.some((o) => o.id === orderId && o.status === 'completed' && moneyRiderOf(o) === demoUser())) fail('Only an order you delivered.')
   db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: demoUser(), day, amount: Math.round(Number(amount) * 100) / 100, method, order_id: orderId, confirmed_at: null, created_at: now() }]
   commit()
 }

@@ -109,6 +109,8 @@ bill with a photo when it asked for more; the owner sees that bill on the order.
 (cash from customers − paid at the shop − already given back) with a UPI QR to pay it; Daily summary shows every rider.
 `migrations/045_order_returns.sql` (after 044) lets the rider pay that back per order or all at once, by UPI or as cash
 to hand over by 9 PM; the owner taps "Got it" in Daily summary when the cash arrives.
+`migrations/046_money_rider.sql` (after 045) counts orders marked delivered from the admin panel for the rider they
+are assigned to, so that rider sees the money and the pay button.
 
 A new database made from the latest `schema.sql` already has all of them.
 

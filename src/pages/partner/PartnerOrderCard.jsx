@@ -184,15 +184,21 @@ function ShopPrice({ item: i }) {
 // The owner's money from one delivered order (update 045): the customer's cash minus what this rider paid the
 // shop for it, minus what was already given back for it. Paid from here by UPI, or as cash to hand over by 9 PM.
 // balance: the rider's whole balance; once it is paid (or the owner owes the rider) nothing is asked per order.
-function OrderPayBack({ order: o, userId, balance, date, store, riderName, onError }) {
+// What the rider owes the owner for one delivered order (null if its money isn't with this rider).
+function orderMoney(o, userId, balance) {
+  if (o.status !== 'completed' || (o.money_rider ?? o.delivered_by) !== userId || balance == null || !Array.isArray(o.returns)) return null
   const cash = o.payment_method === 'cash' ? Number(o.cash_collected || o.total) : 0
   const bill = o.shop_bill
   const shop = bill
     ? (bill.created_by === userId ? Number(bill.paid) : 0)
     : o.items.filter((i) => i.picked && i.picked_by === userId).reduce((s, i) => s + shopUnit(i) * i.quantity, 0)
-  const back = (o.returns ?? []).reduce((s, r) => s + Number(r.amount), 0)
+  const back = o.returns.reduce((s, r) => s + Number(r.amount), 0)
   const own = Math.round((cash - shop - back) * 100) / 100
-  const due = Math.min(own, Math.max(0, balance))
+  return { cash, shop, own, due: Math.min(own, Math.max(0, balance)) }
+}
+
+function OrderPayBack({ order: o, money, date, store, riderName, onError }) {
+  const { cash, shop, own, due } = money
   const line = (label, value, key) => <div key={key} className="flex justify-between gap-3"><span>{label}</span><span className="shrink-0">{value}</span></div>
   return (
     <div className="space-y-2 rounded-xl border border-line p-3 text-sm">
@@ -386,7 +392,14 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
   const stage = stageOf(o)
   const mayConfirm = isAdmin || !!store.riders_confirm
   const done = stage === 'done'
-  const [open, setOpen] = useState(!done)
+  const money = isAdmin ? null : orderMoney(o, userId, balance)
+  // Delivered orders fold up, except one whose money the rider still has to give the admin.
+  const [open, setOpen] = useState(!done || money?.due > 0)
+  // The money list loads after the orders: open the card once it shows money due.
+  const owesAdmin = money?.due > 0
+  useEffect(() => {
+    if (owesAdmin) setOpen(true)
+  }, [owesAdmin])
   const [error, setError] = useState('')
   // Items someone else ticked (the owner bought them): a rider can't change those ticks or pay for them.
   const locked = isAdmin ? [] : o.items.filter((i) => i.picked && i.picked_by && i.picked_by !== userId).map((i) => i.id)
@@ -446,6 +459,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             {isAdmin && !done && <> · {o.rider_id ? <>🛵 <b className="text-ink">{o.rider_name || 'Rider'}</b></> : 'No rider'}</>}
           </p>
           {isExpress(o) && <p className="mt-1 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · deliver by {fmtClock(o.express_by)}</p>}
+          {money?.due > 0 && <p className="mt-1 w-fit rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-bold text-orange-700">Pay admin {rupee(money.due)}</p>}
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold">{rupee(o.total)}</div>
@@ -620,10 +634,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             </div>
           )}
 
-          {/* Per-order pay back (update 045 adds o.returns): the rider who delivered it, once the money card is in. */}
-          {done && !isAdmin && o.delivered_by === userId && balance != null && Array.isArray(o.returns) && (
-            <OrderPayBack order={o} userId={userId} balance={balance} date={date} store={store} riderName={riderName} onError={setError} />
-          )}
+          {/* Per-order pay back (update 045 adds o.returns) for the rider the money is with: who marked it delivered,
+              or the assigned rider when the admin marked it (update 046 sends money_rider). */}
+          {money && <OrderPayBack order={o} money={money} date={date} store={store} riderName={riderName} onError={setError} />}
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
           {done && showBillButton && (
             <a

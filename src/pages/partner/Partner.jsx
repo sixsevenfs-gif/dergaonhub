@@ -37,7 +37,9 @@ function GiveBack({ money: m, date, store, onError }) {
     <section className={`${card} mt-3 p-4`}>
       <div className="flex items-center gap-3">
         <HandCoins size={22} className={due > 0 || cashLeft ? 'text-orange-600' : 'text-emerald-600'} />
-        <span className="flex-1 font-semibold">{due < 0 ? 'Admin owes you' : cashLeft ? `Hand cash to admin by ${CASH_BY}` : settled ? 'All given back' : 'Give back to admin'}</span>
+        <span className="flex-1 font-semibold">
+          {due < 0 ? 'Admin owes you' : cashLeft ? `Hand cash to admin by ${CASH_BY}` : settled ? 'All given back' : due > 0 ? 'Give back to admin' : 'Money for the admin'}
+        </span>
         <span className={`text-2xl font-black ${due > 0 || cashLeft ? 'text-orange-700' : 'text-emerald-700'}`}>
           {settled ? <Check size={24} /> : rupee(cashLeft ? pending : Math.abs(due))}
         </span>
