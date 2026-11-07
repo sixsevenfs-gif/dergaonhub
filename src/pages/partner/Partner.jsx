@@ -43,13 +43,14 @@ function GiveBack({ money: m, date, store, onError }) {
     }
     setBusy(false)
   }
-  const line = (label, value) => <div className="flex justify-between text-muted"><span>{label}</span><span>{value}</span></div>
+  const line = (label, value) => <div className="flex justify-between gap-3 text-muted"><span>{label}</span><span className="shrink-0">{value}</span></div>
+  const settled = due === 0 && (m.delivered > 0 || Number(m.returned) > 0)
   return (
     <section className={`${card} mt-3 p-4`}>
       <div className="flex items-center gap-3">
         <HandCoins size={22} className={due > 0 ? 'text-orange-600' : 'text-emerald-600'} />
-        <span className="flex-1 font-semibold">{due > 0 ? 'Give back to admin' : due < 0 ? 'Admin owes you' : 'All given back'}</span>
-        <span className={`text-2xl font-black ${due > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>{due === 0 ? <Check size={24} /> : rupee(Math.abs(due))}</span>
+        <span className="flex-1 font-semibold">{due < 0 ? 'Admin owes you' : settled ? 'All given back' : 'Give back to admin'}</span>
+        <span className={`text-2xl font-black ${due > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>{settled ? <Check size={24} /> : rupee(Math.abs(due))}</span>
       </div>
       <div className="mt-2 space-y-1 text-sm">
         {line(`Cash from customers today (${m.delivered} delivered)`, rupee(m.cash))}
@@ -60,11 +61,13 @@ function GiveBack({ money: m, date, store, onError }) {
       <p className="mt-2 text-xs text-muted">
         {due < 0
           ? 'You paid the shop for orders the customer paid by UPI or QR (that money went to the store). Ask the admin for it.'
-          : 'Everything customers pay goes to the store, delivery and packaging charges too. Give back the rest every day.'}
+          : due === 0 && !settled
+            ? 'Nothing to give back yet. When you deliver, the cash from customers minus what you paid at the shop shows here, with a button to pay it to the admin.'
+            : 'Everything customers pay goes to the store, delivery and packaging charges too. Give back the rest every day.'}
       </p>
       {due > 0 && (
         <div className="mt-3 space-y-2">
-          {store.upi_id && store.upi_on !== false && (
+          {store.upi_id && (
             <button type="button" disabled={busy} onClick={() => setShowQr(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 text-[15px] font-semibold text-white disabled:opacity-50">
               <QrCode size={18} /> Pay {rupee(due)} to admin by UPI
             </button>
@@ -89,6 +92,36 @@ function GiveBack({ money: m, date, store, onError }) {
           paidLabel={`I paid ${rupee(due)}`} apps
           onPaid={() => pay('upi')} onClose={() => setShowQr(false)}
         />
+      )}
+    </section>
+  )
+}
+
+// The owner on the rider page: what each rider holds right now (details in Admin → Daily summary).
+function RidersMoney({ rows }) {
+  return (
+    <section className={`${card} mt-3 p-4`}>
+      <div className="flex items-center gap-3">
+        <HandCoins size={22} className="text-brand" />
+        <span className="flex-1 font-semibold">Money with riders</span>
+        <Link to="/admin/summary" className="text-xs font-semibold text-muted underline">Details</Link>
+      </div>
+      {rows.length ? (
+        <ul className="mt-2 divide-y divide-line/60 text-sm">
+          {rows.map((r) => {
+            const due = Number(r.to_return)
+            return (
+              <li key={r.rider_id} className="flex justify-between py-2">
+                <span><b>{r.name}</b> <span className="text-muted">· {r.delivered} delivered</span></span>
+                <span className={`font-semibold ${due > 0 ? 'text-orange-700' : due < 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
+                  {due > 0 ? `Gives you ${rupee(due)}` : due < 0 ? `You owe ${rupee(-due)}` : 'Settled ✓'}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="mt-1 text-sm text-muted">No rider deliveries yet. Each rider's money to give back shows here.</p>
       )}
     </section>
   )
@@ -183,11 +216,15 @@ function PartnerRun({ session }) {
         ))}
       </section>
 
-      {/* This rider's own money for the day (the owner's own deliveries too); every rider's is in Daily summary. */}
-      {(() => {
-        const mine = money?.find((r) => r.rider_id === session.userId)
-        return mine && (mine.delivered > 0 || Number(mine.returned) > 0 || Number(mine.to_return) !== 0) && <GiveBack money={mine} date={date} store={store ?? {}} onError={setMoneyError} />
-      })()}
+      {/* Update 044 in: a rider always sees their money card (₹0 until a delivery); the owner sees every rider. */}
+      {Array.isArray(money) && (rider ? (
+        <GiveBack
+          money={money.find((r) => r.rider_id === session.userId) ?? { name: 'Rider', delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0 }}
+          date={date} store={store ?? {}} onError={setMoneyError}
+        />
+      ) : (
+        <RidersMoney rows={money} />
+      ))}
       {moneyError && <p className="mt-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{moneyError}</p>}
 
       {shopping.length > 0 && (
