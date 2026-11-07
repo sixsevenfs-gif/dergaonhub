@@ -1061,11 +1061,18 @@ function shopPriceOf(i) {
   return { buy_price: db.order_item_costs?.[i.id] ?? db.product_costs?.[i.product_id] ?? null, mrp: p?.compare_price ?? i.price_snapshot }
 }
 
+// Like partner_set_picked() in update 043: remembers who ticked; a rider leaves the owner's ticks alone.
 export async function setPicked(orderId, itemId, picked) {
   const o = orderOrFail(orderId)
   checkRiderOrder(o)
   if (o.status !== 'confirmed') fail('Only confirmed orders can be ticked.')
-  for (const i of itemsOf(orderId)) if (!itemId || i.id === itemId) db.order_items.find((x) => x.id === i.id).picked = !!picked
+  const me = demoUser()
+  const owner = !demoAs().startsWith('rider')
+  for (const i of db.order_items.filter((x) => x.order_id === orderId && (!itemId || x.id === itemId))) {
+    if (!!i.picked === !!picked || !(owner || !i.picked_by || i.picked_by === me)) continue
+    i.picked = !!picked
+    i.picked_by = picked ? me : null
+  }
   // Saved without notify(), like the real store: the card already shows the tick, no page reload.
   try {
     localStorage.setItem(KEY, JSON.stringify(db))
@@ -1077,22 +1084,29 @@ export async function setPicked(orderId, itemId, picked) {
 
 export const uploadShopBill = async (orderId, photoUrl) => photoUrl
 
-// Like rider_day_money() in update 044: cash collected − paid at the shop (bill, else ticked items) − given back.
+// Like rider_day_money() in update 044: each team rider's running balance (cash − shop − given back) up to the day.
 export async function riderDayMoney(day) {
   const rider = demoAs().startsWith('rider')
   const me = demoUser()
   const team = demoTeam()
-  const rows = {}
-  const row = (id) => (rows[id] ??= { rider_id: id, name: team.find((t) => t.user_id === id)?.name ?? 'Owner', delivered: 0, cash: 0, shop: 0, returned: 0 })
-  for (const o of db.orders.filter((x) => x.delivery_date === day && x.status === 'completed' && x.delivered_by && (!rider || x.delivered_by === me))) {
-    const r = row(o.delivered_by)
-    r.delivered += 1
-    if (o.payment_method === 'cash') r.cash += Number(o.cash_collected ?? o.total)
+  const moves = []
+  const move = (rider_id, d, m) => moves.push({ rider_id, day: d, delivered: 0, cash: 0, shop: 0, returned: 0, ...m })
+  for (const o of db.orders.filter((x) => x.status === 'completed' && x.delivery_date <= day)) {
+    if (o.delivered_by) move(o.delivered_by, o.delivery_date, { delivered: 1, cash: o.payment_method === 'cash' ? Number(o.cash_collected ?? o.total) : 0 })
     const bill = db.shop_bills?.[o.id]
-    r.shop += bill ? Number(bill.paid) : itemsOf(o.id).filter((i) => i.picked).reduce((s, i) => { const p = shopPriceOf(i); return s + i.quantity * Number(p.buy_price ?? p.mrp) }, 0)
+    if (bill) move(bill.created_by, o.delivery_date, { shop: Number(bill.paid) })
+    else for (const i of itemsOf(o.id).filter((x) => x.picked && x.picked_by)) { const p = shopPriceOf(i); move(i.picked_by, o.delivery_date, { shop: i.quantity * Number(p.buy_price ?? p.mrp) }) }
   }
-  for (const b of (db.rider_returns ?? []).filter((x) => x.day === day && (!rider || x.rider_id === me))) row(b.rider_id).returned += b.amount
-  return Object.values(rows).map((r) => ({ ...r, to_return: r.cash - r.shop - r.returned })).sort((a, b) => b.to_return - a.to_return)
+  for (const r of (db.rider_returns ?? []).filter((x) => x.day <= day)) move(r.rider_id, r.day, { returned: r.amount })
+  const rows = {}
+  for (const m of moves.filter((x) => (!rider || x.rider_id === me) && team.some((t) => t.user_id === x.rider_id))) {
+    const r = (rows[m.rider_id] ??= { rider_id: m.rider_id, name: team.find((t) => t.user_id === m.rider_id).name, delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0 })
+    const net = m.cash - m.shop - m.returned
+    r.to_return += net
+    if (m.day === day) for (const k of ['delivered', 'cash', 'shop', 'returned']) r[k] += m[k]
+    else r.earlier += net
+  }
+  return Object.values(rows).sort((x, y) => y.to_return - x.to_return)
 }
 
 export async function partnerReturn(day, amount, method) {
@@ -1113,8 +1127,10 @@ export async function saveShopBill(id, paid, photo, note) {
   checkRiderOrder(o)
   if (!(Number(paid) > 0)) fail('Write what you paid at the shop.')
   if (!photo) fail("Take a photo of the shop's bill first.")
-  const expected = itemsOf(id).reduce((s, i) => { const p = shopPriceOf(i); return s + i.quantity * Number(p.buy_price ?? p.mrp) }, 0)
-  db.shop_bills = { ...db.shop_bills, [id]: { order_id: id, expected, paid: Number(paid), photo, note: note ?? '', created_at: now() } }
+  const me = demoUser()
+  const expected = itemsOf(id).filter((i) => !(i.picked && i.picked_by && i.picked_by !== me))
+    .reduce((s, i) => { const p = shopPriceOf(i); return s + i.quantity * Number(p.buy_price ?? p.mrp) }, 0)
+  db.shop_bills = { ...db.shop_bills, [id]: { order_id: id, expected, paid: Number(paid), photo, note: note ?? '', created_at: now(), created_by: me } }
   commit()
 }
 

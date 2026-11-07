@@ -115,25 +115,34 @@ const loadPdf = () => import('../../lib/billPdf.js')
 // Short message that goes with the PDF.
 const clock = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
 
-// Items ticked while shopping. Saved with the order (update 043), so they stay after logging out and on
-// another phone; before that update they are kept on this phone only.
-function usePicked(order, onError) {
+// Items ticked while shopping. A tick means "I bought this". From update 043 on they are saved with the order
+// (they stay after logging out and on another phone) and only the saved ticks count: ticks a phone kept before
+// that update are forgotten. Before update 043 they stay on this phone only.
+function usePicked(order, locked, onError) {
   const key = `dergaonhub-picked-${order.id}`
+  const onServer = order.items.some((i) => 'picked' in i)
   const local = () => {
+    if (onServer) return []
     try {
       return JSON.parse(localStorage.getItem(key)) ?? []
     } catch {
       return []
     }
   }
-  const saved = order.items.filter((i) => i.picked).map((i) => i.id)
-  const savedKey = saved.join()
-  const [picked, setState] = useState(() => [...new Set([...saved, ...local()])])
+  const savedKey = order.items.filter((i) => i.picked).map((i) => i.id).join()
+  const [picked, setState] = useState(() => [...savedKey.split(',').filter(Boolean), ...local()])
   // The list reloads every 30 seconds: follow what is saved (another phone may have ticked).
   useEffect(() => {
-    setState([...new Set([...savedKey.split(',').filter(Boolean), ...local()])])
+    setState([...savedKey.split(',').filter(Boolean), ...local()])
+    if (onServer) {
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        // storage blocked: nothing kept there anyway
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedKey])
+  }, [savedKey, onServer])
 
   const save = async (next, itemId, on) => {
     const before = picked
@@ -147,10 +156,12 @@ function usePicked(order, onError) {
     }
   }
   const toggle = (id) => {
+    if (locked.includes(id)) return
     const on = !picked.includes(id)
     save(on ? [...picked, id] : picked.filter((x) => x !== id), id, on)
   }
-  const clear = () => save([], null, false)
+  // The owner's ticks stay: the database does not let a rider change them.
+  const clear = () => save(picked.filter((id) => locked.includes(id)), null, false)
   return [picked, toggle, clear]
 }
 
@@ -338,13 +349,15 @@ export function MessageButton({ order, store, kind, auto, before, label, icon: I
 
 // A rider sees only the orders the order desk assigned to them; the owner sees every order with its
 // rider (updates 032, 033). Riders confirm new orders only when the owner allows it in Settings.
-export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
+export default function PartnerOrderCard({ order: o, store, isAdmin, userId, auto }) {
   const stage = stageOf(o)
   const mayConfirm = isAdmin || !!store.riders_confirm
   const done = stage === 'done'
   const [open, setOpen] = useState(!done)
   const [error, setError] = useState('')
-  const [picked, toggle, untickAll] = usePicked(o, setError)
+  // Items someone else ticked (the owner bought them): a rider can't change those ticks or pay for them.
+  const locked = isAdmin ? [] : o.items.filter((i) => i.picked && i.picked_by && i.picked_by !== userId).map((i) => i.id)
+  const [picked, toggle, untickAll] = usePicked(o, locked, setError)
   const [byQr, setByQr] = usePaidByQr(o.id)
   const [showQr, setShowQr] = useState(false)
   const [photo, setPhoto] = useState('') // storage path of the delivery photo
@@ -356,8 +369,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
   // Shop prices come with the order from update 043 on; without them the list shows no prices.
   const priced = o.items.some((i) => i.buy_price != null || i.mrp != null)
-  const shopTotal = o.items.reduce((s, i) => s + shopUnit(i) * i.quantity, 0)
-  const atMrp = o.items.filter((i) => i.buy_price == null)
+  const toBuy = o.items.filter((i) => !locked.includes(i.id))
+  const shopTotal = toBuy.reduce((s, i) => s + shopUnit(i) * i.quantity, 0)
+  const atMrp = toBuy.filter((i) => i.buy_price == null)
   const isCash = o.payment_method === 'cash'
   const payNow = o.payment_method === 'upi_now'
   const paidOnline = payNow && o.payment_status === 'paid'
@@ -442,10 +456,11 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
             <ul className="mt-2 divide-y divide-line/60 rounded-xl border border-line">
               {o.items.map((i) => {
                 const on = picked.includes(i.id) || done
+                const byAdmin = locked.includes(i.id)
                 return (
                   <li key={i.id}>
                     <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
-                      <input type="checkbox" checked={on} disabled={done} onChange={() => toggle(i.id)} className="peer sr-only" />
+                      <input type="checkbox" checked={on} disabled={done || byAdmin} onChange={() => toggle(i.id)} className="peer sr-only" />
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${on ? 'border-brand bg-brand text-white' : 'border-line'}`}>
                         {on && <Check size={15} strokeWidth={3} />}
                       </span>
@@ -453,7 +468,11 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                       <span className={`flex-1 text-sm ${on ? 'text-muted line-through' : ''}`}>
                         {i.name_snapshot}
                         {i.note && <span className="block text-xs text-orange-700 no-underline">“{i.note}”</span>}
-                        {!done && <ShopPrice item={i} />}
+                        {byAdmin ? (
+                          <span className="block text-xs font-semibold text-sky-700 no-underline">Bought by the admin · don't pay for it</span>
+                        ) : (
+                          !done && <ShopPrice item={i} />
+                        )}
                       </span>
                       <span className="text-base font-semibold">×{i.quantity}</span>
                     </label>
@@ -469,7 +488,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, auto }) {
                 <p className="mt-0.5 text-xs text-muted">
                   {atMrp.length === 0
                     ? 'Fixed shop prices. Pay exactly this.'
-                    : `${atMrp.length === o.items.length ? 'All items' : `${atMrp.length} item${atMrp.length > 1 ? 's' : ''}`} at MRP (no shop price yet): bargain and pay less if you can.`}
+                    : `${atMrp.length === toBuy.length ? 'All items' : `${atMrp.length} item${atMrp.length > 1 ? 's' : ''}`} at MRP (no shop price yet): bargain and pay less if you can.`}
+                  {locked.length > 0 && ' Items the admin bought are left out.'}
                 </p>
               </div>
             )}

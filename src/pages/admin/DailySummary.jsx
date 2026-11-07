@@ -23,7 +23,7 @@ function RiderMoney({ rows, returns }) {
   return (
     <section className={`${lcard} p-4`}>
       <h2 className="font-bold">Money with each rider</h2>
-      <p className="text-xs text-neutral-500">Cash from customers − paid at the shop − already given back.</p>
+      <p className="text-xs text-neutral-500">What each rider still holds for you: cash from customers − paid at the shop − given back, with the balance from earlier days.</p>
       <div className="mt-1 divide-y divide-neutral-100">
         {rows.map((r) => {
           const due = Number(r.to_return)
@@ -37,7 +37,8 @@ function RiderMoney({ rows, returns }) {
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-neutral-500">
-                Cash {rupee(r.cash)} − shop {rupee(r.shop)}{Number(r.returned) > 0 ? ` − given back ${rupee(r.returned)}` : ''}
+                This day: cash {rupee(r.cash)} − shop {rupee(r.shop)}{Number(r.returned) > 0 ? ` − given back ${rupee(r.returned)}` : ''}
+                {Number(r.earlier) !== 0 && ` · earlier days ${Number(r.earlier) > 0 ? '+' : '−'} ${rupee(Math.abs(r.earlier))}`}
               </p>
               {paid.map((b) => (
                 <p key={b.id} className="mt-1 flex items-center gap-2 text-xs text-neutral-600">

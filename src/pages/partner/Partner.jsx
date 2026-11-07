@@ -52,9 +52,10 @@ function GiveBack({ money: m, date, store, onError }) {
         <span className={`text-2xl font-black ${due > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>{due === 0 ? <Check size={24} /> : rupee(Math.abs(due))}</span>
       </div>
       <div className="mt-2 space-y-1 text-sm">
-        {line(`Cash from customers (${m.delivered} delivered)`, rupee(m.cash))}
-        {line('Paid at the shop', `− ${rupee(m.shop)}`)}
-        {Number(m.returned) > 0 && line('Already given back', `− ${rupee(m.returned)}`)}
+        {line(`Cash from customers today (${m.delivered} delivered)`, rupee(m.cash))}
+        {line('Paid at the shop today', `− ${rupee(m.shop)}`)}
+        {Number(m.returned) > 0 && line('Given back today', `− ${rupee(m.returned)}`)}
+        {Number(m.earlier) !== 0 && line(Number(m.earlier) > 0 ? 'Still to give back from earlier days' : 'Admin owed you from earlier days', Number(m.earlier) > 0 ? `+ ${rupee(m.earlier)}` : `− ${rupee(-m.earlier)}`)}
       </div>
       <p className="mt-2 text-xs text-muted">
         {due < 0
@@ -185,7 +186,7 @@ function PartnerRun({ session }) {
       {/* This rider's own money for the day (the owner's own deliveries too); every rider's is in Daily summary. */}
       {(() => {
         const mine = money?.find((r) => r.rider_id === session.userId)
-        return mine && (mine.delivered > 0 || Number(mine.returned) > 0) && <GiveBack money={mine} date={date} store={store ?? {}} onError={setMoneyError} />
+        return mine && (mine.delivered > 0 || Number(mine.returned) > 0 || Number(mine.to_return) !== 0) && <GiveBack money={mine} date={date} store={store ?? {}} onError={setMoneyError} />
       })()}
       {moneyError && <p className="mt-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{moneyError}</p>}
 
@@ -226,7 +227,7 @@ function PartnerRun({ session }) {
         {rider && <h2 className="mb-2 text-sm font-semibold text-muted">My orders · {list.length}</h2>}
         <div className="space-y-3">
           {list.map((o) => (
-            <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} auto={!!store?.whatsapp_auto} />
+            <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto} />
           ))}
           {orders && !list.length && (
             <p className={`${card} p-8 text-center text-muted`}>

@@ -2,12 +2,15 @@
 -- Run once in Supabase → SQL Editor (after update 034, buy prices). Safe to run again; nothing is deleted.
 --
 -- 1. Ticks ("picked") are saved with the order, not on one phone: they stay after logging out or on another phone.
+--    A tick means "I bought this" and remembers who ticked (picked_by): the owner ticks what the owner bought, and
+--    a rider cannot change someone else's tick (update 044 counts each rider's own ticks as money they spent).
 -- 2. The rider sees what to pay the shop for each item of their orders: the buy price (update 034), or the MRP
 --    when there is no buy price yet, and the total. Only for orders assigned to them; customers never see it.
 -- 3. The shop asked for more? The rider writes what they paid and adds a photo of the shop's bill. The owner sees
 --    it on the order (expected vs paid, with the photo) and the profit uses what was really paid.
 
 alter table public.order_items add column if not exists picked boolean not null default false;
+alter table public.order_items add column if not exists picked_by uuid references auth.users on delete set null;
 
 -- One per order. A separate table so customers (who can read their own orders) never see shop prices.
 create table if not exists public.order_shop_bills (
@@ -34,10 +37,12 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke execute on function public.shop_price_of(order_items) from public, anon, authenticated;
 
+-- What the calling rider should pay the shop for an order: every item except those someone else (the owner) bought.
 create or replace function public.shop_expected(p_order_id uuid) returns numeric
 language sql stable security definer set search_path = public as $$
   select coalesce(sum(i.quantity * coalesce((shop_price_of(i) ->> 'buy_price')::numeric, (shop_price_of(i) ->> 'mrp')::numeric)), 0)
   from order_items i where i.order_id = p_order_id
+    and not (i.picked and i.picked_by is not null and i.picked_by <> auth.uid())
 $$;
 revoke execute on function public.shop_expected(uuid) from public, anon, authenticated;
 
@@ -64,16 +69,20 @@ begin
 end
 $$;
 
--- Tick one item, or every item of the order (p_item_id null), while the order is out for shopping.
+-- Tick one item, or every item of the order (p_item_id null), while the order is out for shopping. Only items
+-- whose tick changes are touched, so "tick all" keeps who bought the others. A rider leaves the owner's ticks alone.
 create or replace function public.partner_set_picked(p_order_id uuid, p_item_id uuid, p_picked boolean) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_on boolean := coalesce(p_picked, false);
 begin
   perform check_my_order(p_order_id);
   if not exists (select 1 from orders where id = p_order_id and status = 'confirmed') then
     raise exception 'Only confirmed orders can be ticked.';
   end if;
-  update order_items set picked = coalesce(p_picked, false)
-  where order_id = p_order_id and (p_item_id is null or id = p_item_id);
+  update order_items set picked = v_on, picked_by = case when v_on then auth.uid() end
+  where order_id = p_order_id and (p_item_id is null or id = p_item_id) and picked <> v_on
+    and (is_admin() or picked_by is null or picked_by = auth.uid());
 end
 $$;
 
