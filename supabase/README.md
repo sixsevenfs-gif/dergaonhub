@@ -113,6 +113,8 @@ to hand over by 9 PM; the owner taps "Got it" in Daily summary when the cash arr
 are assigned to, so that rider sees the money and the pay button.
 `migrations/047_pay_rider.sql` (after 046) lets the owner record paying a rider who is owed money (they paid the shop
 for orders the customer paid online): Daily summary → "I paid Ravi ₹X".
+`migrations/048_riders_buy_switch.sql` (after 047) adds Settings → "Riders buy the items at the shop". Off (default):
+you buy the items, riders see no shop prices or money to pay back. On: everything from 043–047.
 
 A new database made from the latest `schema.sql` already has all of them.
 

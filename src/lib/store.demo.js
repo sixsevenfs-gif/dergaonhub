@@ -80,10 +80,10 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 /* ---------- store settings ---------- */
 
 export async function getStore() {
-  return clone({ riders_confirm: false, upi_on: true, ...db.store }) // older demo stores don't have these yet
+  return clone({ riders_confirm: false, upi_on: true, riders_buy: false, ...db.store }) // older demo stores don't have these yet
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm', 'upi_on']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm', 'upi_on', 'riders_buy']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')
@@ -833,7 +833,7 @@ export async function dailySummary(date) {
     spent, spentNote: expense?.note ?? '',
     profit: cash + upi - spent,
     byRider: cashByRider(done),
-    riderMoney: await riderDayMoney(date),
+    riderMoney: db.store.riders_buy ? await riderDayMoney(date) : null,
     returns: await listRiderReturns(date),
     byCost: dayProfit(done, withItemCosts(db.order_items.filter((i) => done.some((o) => o.id === i.order_id))), db.product_costs ?? {}, costRules()),
   }
@@ -1060,6 +1060,7 @@ export async function partnerPaidByQr(id) {
 
 // What the rider pays the shop for an item, like shop_price_of() in update 043.
 function shopPriceOf(i) {
+  if (demoAs().startsWith('rider') && !db.store.riders_buy) return { buy_price: null, mrp: null } // like update 048
   const p = db.products.find((x) => x.id === i.product_id)
   return { buy_price: db.order_item_costs?.[i.id] ?? db.product_costs?.[i.product_id] ?? null, mrp: p?.compare_price ?? i.price_snapshot }
 }
@@ -1093,6 +1094,7 @@ const moneyRiderOf = (o) => (demoTeam().some((t) => t.user_id === o.delivered_by
 // Like rider_day_money() in update 044: each team rider's running balance (cash − shop − given back) up to the day.
 export async function riderDayMoney(day) {
   const rider = demoAs().startsWith('rider')
+  if (rider && !db.store.riders_buy) return [] // like update 048: off while the owner buys
   const me = demoUser()
   const team = demoTeam()
   const moves = []

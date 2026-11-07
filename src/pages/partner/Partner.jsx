@@ -134,6 +134,7 @@ function PartnerRun({ session }) {
   const all = (orders ?? []).slice().sort((a, b) => ORDER[stageOf(a)] - ORDER[stageOf(b)])
   // A rider: only the orders assigned to them (updates 032, 033). The owner: every order.
   const rider = session.role === 'rider'
+  const buying = store?.riders_buy !== false
   const list = rider ? all.filter((o) => o.rider_id === session.userId || o.delivered_by === session.userId) : all
   const left = list.filter((o) => o.status === 'confirmed')
   const delivered = list.filter((o) => o.status === 'completed').length
@@ -198,8 +199,9 @@ function PartnerRun({ session }) {
         ))}
       </section>
 
-      {/* Update 044 in: a rider always sees their money card (₹0 until a delivery); the owner sees every rider. */}
-      {Array.isArray(money) && (rider ? (
+      {/* Riders buy at the shop (Settings, update 048): a rider always sees their money card (₹0 until a delivery);
+          the owner sees every rider. Off (missing before 048 = on): the owner buys, no money card. */}
+      {buying && Array.isArray(money) && (rider ? (
         <GiveBack
           money={money.find((r) => r.rider_id === session.userId) ?? { name: 'Rider', delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0 }}
           date={date} store={store ?? {}} onError={setMoneyError}
@@ -248,7 +250,7 @@ function PartnerRun({ session }) {
           {list.map((o) => (
             <PartnerOrderCard
               key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto}
-              date={date} balance={Array.isArray(money) ? Number(money.find((r) => r.rider_id === session.userId)?.to_return ?? 0) : null}
+              date={date} balance={buying && Array.isArray(money) ? Number(money.find((r) => r.rider_id === session.userId)?.to_return ?? 0) : null}
               riderName={money?.find?.((r) => r.rider_id === session.userId)?.name}
             />
           ))}

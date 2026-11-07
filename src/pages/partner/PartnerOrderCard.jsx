@@ -401,6 +401,8 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
     if (owesAdmin) setOpen(true)
   }, [owesAdmin])
   const [error, setError] = useState('')
+  // Riders buy at the shop (Settings, update 048; missing before it = on). Off: the owner buys everything.
+  const buying = store.riders_buy !== false
   // Items someone else ticked (the owner bought them): a rider can't change those ticks or pay for them.
   const locked = isAdmin ? [] : o.items.filter((i) => i.picked && i.picked_by && i.picked_by !== userId).map((i) => i.id)
   const [picked, toggle, untickAll] = usePicked(o, locked, setError)
@@ -519,7 +521,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
                         {i.name_snapshot}
                         {i.note && <span className="block text-xs text-orange-700 no-underline">“{i.note}”</span>}
                         {byAdmin ? (
-                          <span className="block text-xs font-semibold text-sky-700 no-underline">Bought by the admin · don't pay for it</span>
+                          <span className="block text-xs font-semibold text-sky-700 no-underline">{buying ? "Bought by the admin · don't pay for it" : 'Ticked by the admin'}</span>
                         ) : (
                           !done && <ShopPrice item={i} />
                         )}

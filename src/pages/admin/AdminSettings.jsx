@@ -490,6 +490,28 @@ function SettingsForm({ store }) {
         )}
       </section>
 
+      <section className={`${lcard} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold">Riders buy the items at the shop</h2>
+            <p className="text-sm text-neutral-500">
+              Off: you buy the items and hand them to the rider. Riders don't see shop prices or anything to pay back.
+            </p>
+            <p className="mt-1 text-sm text-neutral-500">
+              On: the rider buys at the shop. They see what to pay for each item, add the shop's bill when it asks for more, and
+              give you the rest of the customer's money (UPI or cash by 9 PM). Their money is counted from the day you turn it on,
+              so turn it on before that day's deliveries start.
+            </p>
+          </div>
+          {v.riders_buy !== undefined && (
+            <Toggle checked={!!v.riders_buy} onChange={(on) => setV({ ...v, riders_buy: on })} label="Riders buy the items at the shop" />
+          )}
+        </div>
+        {v.riders_buy === undefined && (
+          <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/048_riders_buy_switch.sql in the Supabase SQL Editor to use this.</p>
+        )}
+      </section>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm font-semibold text-green-700">{msg}</p>}
       <button type="submit" className={`${lbtnDark} h-12 w-full`}>Save changes</button>

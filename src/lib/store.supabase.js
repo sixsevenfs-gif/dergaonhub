@@ -158,6 +158,7 @@ export async function saveStore(data) {
     ...(data.small_order_below === undefined ? {} : { small_order_below: Number(data.small_order_below) || 0, small_order_fee: Number(data.small_order_fee) || 0 }), // after 007
     ...(data.riders_confirm === undefined ? {} : { riders_confirm: !!data.riders_confirm }), // after 032
     ...(data.upi_on === undefined ? {} : { upi_on: !!data.upi_on }), // after 035
+    ...(data.riders_buy === undefined ? {} : { riders_buy: !!data.riders_buy }), // after 048
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()
@@ -678,7 +679,8 @@ export async function dailySummary(date) {
     value: sum(done, (o) => o.total), cash, upi, collected: cash + upi,
     fees: sum(done, (o) => o.delivery_fee), packaging: sum(done, (o) => o.packaging_fee ?? 0), spent, spentNote: expense?.note ?? '', profit: cash + upi - spent,
     byRider: cashByRider(done, team),
-    riderMoney: await riderDayMoney(date).catch(() => null),
+    // Riders' money only while they buy at the shop (Settings, update 048; before it the column is missing = on).
+    riderMoney: (await getStore()).riders_buy === false ? null : await riderDayMoney(date).catch(() => null),
     returns: await listRiderReturns(date),
     byCost: await profitOf(done.map(toOrder)),
   }
