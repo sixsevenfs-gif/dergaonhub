@@ -111,11 +111,13 @@ export const POLICIES = {
         <H>What we collect</H>
         <UL items={[
           'Your name, phone number, delivery address and area, which you enter at checkout.',
+          'The delivery pin on the map. If you tap "Use current location", your phone\'s location is read once to place the pin.',
           'Your orders: items, amounts, payment method (cash or UPI), delivery status and any notes.',
+          'For a UPI payment, the transaction reference (UTR) you give us, to match the payment.',
           'Complaints you report and our replies.',
           'Your phone number when you log in to see your orders.',
         ]} />
-        <P>We do not collect card or bank details. You pay us directly on delivery.</P>
+        <P>We do not collect card or bank details. You pay cash or UPI on delivery, or by UPI straight to our account.</P>
         <H>How we use it</H>
         <UL items={[
           'To confirm, prepare and deliver your order, and to call or WhatsApp you about it.',
@@ -125,8 +127,10 @@ export const POLICIES = {
         ]} />
         <H>Who we share it with</H>
         <P>
-          We do not sell your information. The person delivering your order sees your name, phone and address. We may
-          share information if the law requires it.
+          We do not sell your information, and we do not use it for ads or tracking. The person delivering your order
+          sees your name, phone and address. Companies that run parts of the service for us handle it only for that:
+          our database and hosting provider, the SMS service that sends login codes, and WhatsApp (Meta) for order
+          messages. We may share information if the law requires it.
         </P>
         <H>WhatsApp and phone</H>
         <P>
@@ -136,11 +140,20 @@ export const POLICIES = {
         </P>
         <H>Stored on your phone</H>
         <P>
-          The website remembers your cart, your login and your last delivery details on your phone so you don't have
-          to type them again. You can clear them by logging out or clearing your browser data.
+          The website and the Jholzo app remember your cart, your login and your last delivery details on your phone
+          so you don't have to type them again. You can clear them by logging out, or by clearing your browser data or
+          deleting the app.
         </P>
         <H>How long we keep it</H>
         <P>We keep order records for as long as needed for accounts and legal reasons, then delete them.</P>
+        <H>Deleting your account</H>
+        <P>
+          In the Jholzo app, go to Account → Delete my account. We then remove your name, phone number, addresses,
+          notes and UPI references from your past orders and complaints, and delete your login records. Order amounts
+          stay, without your details, for our accounts. Any Jholzo Money on the account is lost. If cash orders on
+          your number were cancelled or not taken, we keep the number and that count, so our cash-on-delivery rule
+          still applies. You can also ask us to delete your account at {contactLine(store)}.
+        </P>
         <H>Your choices</H>
         <P>
           You can ask us to show, correct or delete your information at {contactLine(store)}. Some order records may

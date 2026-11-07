@@ -97,6 +97,10 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 21. `migrations/022_manual_address.sql`: customers can order without a map pin (map or location not working): they type the address and pick an area, and you call to confirm.
 22. `migrations/023_upi_pay_timer.sql`: "Pay now by UPI" orders not paid within 15 minutes (Admin → Settings) are cancelled; paying late and entering the UTR brings the order back.
 
+Later updates (024 onwards) are in the same folder; run each new one once, in order. For example
+`migrations/041_delete_account.sql` lets customers delete their own account in the iPhone app
+(Account → Delete my account), which the App Store requires.
+
 A new database made from the latest `schema.sql` already has all of them.
 
 ## Adding a rider
@@ -197,6 +201,17 @@ The same `phone-otp` function sends through MSG91's OTP widget when the secret `
 calls MSG91, not the browser) and give the token a throttle that fits the whole site (all calls come from
 Supabase's IP). Remove `MSG91_WIDGET_TOKEN` to go back to Message Central. Until MSG91 KYC is done, MSG91
 sends its own demo text instead of the real message.
+
+### App Review login (iPhone app)
+
+Apple's reviewers can't receive an SMS on an Indian number. While the app is in review, set a number you own
+and a 4-digit code; that number then logs in with that code and no SMS is sent:
+```
+npx supabase secrets set REVIEW_PHONE=<a number you own> REVIEW_OTP=<4 digits> --project-ref <project ref>
+npx supabase functions deploy phone-otp --project-ref <project ref>
+```
+Give the same number and code in App Store Connect → App Review Information. After approval remove them:
+`npx supabase secrets unset REVIEW_PHONE REVIEW_OTP --project-ref <project ref>`.
 
 ## App notifications (Android app)
 

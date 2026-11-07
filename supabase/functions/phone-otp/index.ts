@@ -13,6 +13,9 @@
 //   In MSG91 the widget's Captcha must be OFF (calls come from this server, not the browser), and the
 //   token's throttle limit must allow the whole site (all calls come from Supabase's IP).
 // Secrets (Message Central, used when MSG91_WIDGET_TOKEN is not set): MC_CUSTOMER_ID, MC_PASSWORD.
+// App Review (iPhone app): Apple's reviewers can't get an SMS on an Indian number. While the secrets
+//   REVIEW_PHONE and REVIEW_OTP are set, that one number logs in with that code and no SMS is sent.
+//   Set them only while the app is in review:  npx supabase secrets unset REVIEW_PHONE REVIEW_OTP
 import { createClient } from 'npm:@supabase/supabase-js@2.75.0'
 
 const API = 'https://cpaas.messagecentral.com'
@@ -28,6 +31,10 @@ const cors = {
 }
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+
+// The App Review number (see the top). With a code: is it the review code?
+const isReview = (phone: string) => !!Deno.env.get('REVIEW_PHONE') && !!Deno.env.get('REVIEW_OTP') && phone === Deno.env.get('REVIEW_PHONE')
+const reviewCodeOk = (code: unknown) => String(code) === Deno.env.get('REVIEW_OTP')
 
 // Message Central login token (cached while this function instance is warm).
 let token = ''
@@ -142,6 +149,10 @@ Deno.serve(async (req) => {
       if ((byUser ?? 0) >= MAX_PER_HOUR || (byPhone ?? 0) >= MAX_PER_HOUR) {
         return json({ error: 'Too many OTPs. Please try again after some time, or call us.' }, 429)
       }
+      if (isReview(phone)) {
+        await db.from('otp_requests').insert({ user_id: userId, phone, verification_id: 'review' })
+        return json({ sent: true, timeout: 30 })
+      }
       // OTP switched itself off earlier (service down): let the customer through without an SMS.
       const { data: store } = await db.from('store_settings').select('otp_required').eq('id', 1).maybeSingle()
       if (store && !store.otp_required) return json({ skip: true })
@@ -176,6 +187,11 @@ Deno.serve(async (req) => {
         .eq('user_id', userId).eq('phone', phone).gte('created_at', new Date(Date.now() - 15 * 60_000).toISOString())
         .order('created_at', { ascending: false }).limit(1).maybeSingle()
       if (!last) return json({ error: 'The OTP has expired. Please send a new one.' }, 400)
+      if (last.verification_id === 'review' && isReview(phone)) {
+        if (!reviewCodeOk(code)) return json({ verified: false, error: 'Wrong OTP. Please check and try again.' }, 400)
+        await db.from('verified_phones').upsert({ user_id: userId, phone })
+        return json({ verified: true })
+      }
       if (useMsg91()) {
         const body = await msg91('widget/verifyOtp', { reqId: last.verification_id, otp: String(code) })
         const accessToken = body?.['access-token'] ?? body?.message
