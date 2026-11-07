@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Banknote, Check, ChevronDown, HandCoins, LogOut, QrCode, RefreshCw, ShoppingBasket } from 'lucide-react'
+import { Check, ChevronDown, HandCoins, LogOut, RefreshCw, ShoppingBasket } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import PartnerLogin from './PartnerLogin.jsx'
 import PartnerOrderCard from './PartnerOrderCard.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
-import { adminSignOut, getStore, partnerOrders, partnerReturn, partnerSession, riderDayMoney } from '../../lib/store.js'
+import { adminSignOut, getStore, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { addDays, dateStr, dayLabel, rupee } from '../../lib/format.js'
-import UpiQr from './UpiQr.jsx'
+import { addDays, dateStr, rupee } from '../../lib/format.js'
+import PayBack, { CASH_BY } from './PayBack.jsx'
 import { DEMO_MODE } from '../../config.js'
 
 // Delivery partner (rider) page: one day's orders, a shopping list for the trip,
@@ -27,30 +27,20 @@ const ORDER = { arriving: 0, on_the_way: 1, ready: 2, new: 3, done: 4 }
 // The day's money the rider gives back to the owner (update 044). Riders are paid a salary, so everything a
 // customer pays belongs to the store: cash collected − paid at the shop − already given back.
 function GiveBack({ money: m, date, store, onError }) {
-  const [showQr, setShowQr] = useState(false)
-  const [cashAsk, setCashAsk] = useState(false)
-  const [busy, setBusy] = useState(false)
   const due = Math.round(Number(m.to_return) * 100) / 100
-  const pay = async (method) => {
-    setBusy(true)
-    onError('')
-    try {
-      await partnerReturn(date, due, method)
-      setShowQr(false)
-      setCashAsk(false)
-    } catch (err) {
-      onError(err.message)
-    }
-    setBusy(false)
-  }
+  const pending = Number(m.cash_pending || 0)
   const line = (label, value) => <div className="flex justify-between gap-3 text-muted"><span>{label}</span><span className="shrink-0">{value}</span></div>
-  const settled = due === 0 && (m.delivered > 0 || Number(m.returned) > 0)
+  // Paid in full but the cash is still in the rider's pocket: that is what the card is about until the admin has it.
+  const cashLeft = due === 0 && pending > 0
+  const settled = due === 0 && !cashLeft && (m.delivered > 0 || Number(m.returned) > 0)
   return (
     <section className={`${card} mt-3 p-4`}>
       <div className="flex items-center gap-3">
-        <HandCoins size={22} className={due > 0 ? 'text-orange-600' : 'text-emerald-600'} />
-        <span className="flex-1 font-semibold">{due < 0 ? 'Admin owes you' : settled ? 'All given back' : 'Give back to admin'}</span>
-        <span className={`text-2xl font-black ${due > 0 ? 'text-orange-700' : 'text-emerald-700'}`}>{settled ? <Check size={24} /> : rupee(Math.abs(due))}</span>
+        <HandCoins size={22} className={due > 0 || cashLeft ? 'text-orange-600' : 'text-emerald-600'} />
+        <span className="flex-1 font-semibold">{due < 0 ? 'Admin owes you' : cashLeft ? `Hand cash to admin by ${CASH_BY}` : settled ? 'All given back' : 'Give back to admin'}</span>
+        <span className={`text-2xl font-black ${due > 0 || cashLeft ? 'text-orange-700' : 'text-emerald-700'}`}>
+          {settled ? <Check size={24} /> : rupee(cashLeft ? pending : Math.abs(due))}
+        </span>
       </div>
       <div className="mt-2 space-y-1 text-sm">
         {line(`Cash from customers today (${m.delivered} delivered)`, rupee(m.cash))}
@@ -58,40 +48,22 @@ function GiveBack({ money: m, date, store, onError }) {
         {Number(m.returned) > 0 && line('Given back today', `− ${rupee(m.returned)}`)}
         {Number(m.earlier) !== 0 && line(Number(m.earlier) > 0 ? 'Still to give back from earlier days' : 'Admin owed you from earlier days', Number(m.earlier) > 0 ? `+ ${rupee(m.earlier)}` : `− ${rupee(-m.earlier)}`)}
       </div>
+      {pending > 0 && (
+        <p className="mt-2 rounded-lg bg-orange-500/10 px-3 py-2 text-sm font-semibold text-orange-700">
+          Cash {rupee(pending)}: hand it to the admin by {CASH_BY}. It shows here until the admin marks it received.
+        </p>
+      )}
       <p className="mt-2 text-xs text-muted">
         {due < 0
           ? 'You paid the shop for orders the customer paid by UPI or QR (that money went to the store). Ask the admin for it.'
-          : due === 0 && !settled
-            ? 'Nothing to give back yet. When you deliver, the cash from customers minus what you paid at the shop shows here, with a button to pay it to the admin.'
-            : 'Everything customers pay goes to the store, delivery and packaging charges too. Give back the rest every day.'}
+          : due === 0 && !settled && !cashLeft
+            ? 'Nothing to give back yet. After each delivery, pay that order from its card below, or everything at once here.'
+            : 'Everything customers pay goes to the store, delivery and packaging charges too. Pay each order from its card below, or everything at once here.'}
       </p>
       {due > 0 && (
-        <div className="mt-3 space-y-2">
-          {store.upi_id && (
-            <button type="button" disabled={busy} onClick={() => setShowQr(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-3 text-[15px] font-semibold text-white disabled:opacity-50">
-              <QrCode size={18} /> Pay {rupee(due)} to admin by UPI
-            </button>
-          )}
-          {cashAsk ? (
-            <div className="flex gap-2">
-              <button type="button" disabled={busy} onClick={() => pay('cash')} className="h-11 flex-1 rounded-xl bg-orange-500 text-sm font-semibold text-ink disabled:opacity-50">Yes, gave {rupee(due)} cash</button>
-              <button type="button" onClick={() => setCashAsk(false)} className="h-11 flex-1 rounded-xl border border-line text-sm font-semibold">Go back</button>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setCashAsk(true)} className="flex h-10 w-full items-center justify-center gap-2 text-sm font-semibold text-muted">
-              <Banknote size={16} /> Gave cash to the admin instead
-            </button>
-          )}
+        <div className="mt-3">
+          <PayBack amount={due} date={date} store={store} riderName={m.name} onError={onError} />
         </div>
-      )}
-      {showQr && (
-        <UpiQr
-          order={{ total: due, upi_note: `Jholzo return ${m.name} ${date}` }} store={store}
-          footnote={`Money back · ${m.name} · ${dayLabel(date)}`}
-          tip={`Pay ${rupee(due)} from your UPI app, then tap “I paid”. The admin checks it in the bank.`}
-          paidLabel={`I paid ${rupee(due)}`} apps
-          onPaid={() => pay('upi')} onClose={() => setShowQr(false)}
-        />
       )}
     </section>
   )
@@ -113,8 +85,11 @@ function RidersMoney({ rows }) {
             return (
               <li key={r.rider_id} className="flex justify-between py-2">
                 <span><b>{r.name}</b> <span className="text-muted">· {r.delivered} delivered</span></span>
-                <span className={`font-semibold ${due > 0 ? 'text-orange-700' : due < 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
-                  {due > 0 ? `Gives you ${rupee(due)}` : due < 0 ? `You owe ${rupee(-due)}` : 'Settled ✓'}
+                <span className="text-right">
+                  <span className={`block font-semibold ${due > 0 ? 'text-orange-700' : due < 0 ? 'text-sky-700' : 'text-emerald-700'}`}>
+                    {due > 0 ? `Gives you ${rupee(due)}` : due < 0 ? `You owe ${rupee(-due)}` : 'Settled ✓'}
+                  </span>
+                  {Number(r.cash_pending) > 0 && <span className="block text-xs text-orange-700">{rupee(r.cash_pending)} cash coming by {CASH_BY}</span>}
                 </span>
               </li>
             )
@@ -264,7 +239,11 @@ function PartnerRun({ session }) {
         {rider && <h2 className="mb-2 text-sm font-semibold text-muted">My orders · {list.length}</h2>}
         <div className="space-y-3">
           {list.map((o) => (
-            <PartnerOrderCard key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto} />
+            <PartnerOrderCard
+              key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto}
+              date={date} balance={Array.isArray(money) ? Number(money.find((r) => r.rider_id === session.userId)?.to_return ?? 0) : null}
+              riderName={money?.find?.((r) => r.rider_id === session.userId)?.name}
+            />
           ))}
           {orders && !list.length && (
             <p className={`${card} p-8 text-center text-muted`}>

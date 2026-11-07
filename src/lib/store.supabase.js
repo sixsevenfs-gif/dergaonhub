@@ -960,8 +960,19 @@ export async function riderDayMoney(day) {
   if (missingFunction(res.error)) return null
   return check(res)
 }
-// "I paid": the rider gives money back to the owner (method 'upi' or 'cash').
-export const partnerReturn = (day, amount, method) => partnerCall('partner_return', { p_day: day, p_amount: Number(amount), p_method: method })
+// "I paid": the rider gives money back to the owner (method 'upi' or 'cash'), for one order (update 045) or for the
+// whole balance (orderId null). Before update 045 only the whole balance can be paid.
+export async function partnerReturn(day, amount, method, orderId = null) {
+  const args = { p_day: day, p_amount: Number(amount), p_method: method }
+  const res = await sb.rpc('partner_return', { ...args, p_order_id: orderId })
+  if (missingFunction(res.error)) {
+    if (orderId) fail('Run update 045 in the Supabase SQL Editor first to pay per order.')
+    check(await sb.rpc('partner_return', args))
+  } else check(res)
+  notify()
+}
+// The owner: "Got it" when a rider's cash arrives, or after checking a UPI payment in the bank (update 045).
+export const confirmRiderReturn = (id) => partnerCall('admin_confirm_return', { p_id: id })
 // The owner's list of a day's payments back, with the rider's name (empty before update 044).
 export async function listRiderReturns(day) {
   const { data, error } = await sb.from('rider_returns').select('*').eq('day', day).order('created_at')

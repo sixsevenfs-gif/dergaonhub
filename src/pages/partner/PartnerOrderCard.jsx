@@ -14,6 +14,7 @@ import { mapsLink } from '../../lib/delivery.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { stageOf } from './stage.js'
 import UpiQr from './UpiQr.jsx'
+import PayBack, { CASH_BY } from './PayBack.jsx'
 
 const STAGES = {
   new: ['Waiting for confirm', 'bg-orange-500/15 text-orange-700'],
@@ -177,6 +178,38 @@ function ShopPrice({ item: i }) {
     <span className="block text-xs font-semibold text-emerald-700 no-underline">Pay {line}</span>
   ) : (
     <span className="block text-xs font-semibold text-amber-700 no-underline">MRP {line} · bargain, pay less</span>
+  )
+}
+
+// The owner's money from one delivered order (update 045): the customer's cash minus what this rider paid the
+// shop for it, minus what was already given back for it. Paid from here by UPI, or as cash to hand over by 9 PM.
+// balance: the rider's whole balance; once it is paid (or the owner owes the rider) nothing is asked per order.
+function OrderPayBack({ order: o, userId, balance, date, store, riderName, onError }) {
+  const cash = o.payment_method === 'cash' ? Number(o.cash_collected || o.total) : 0
+  const bill = o.shop_bill
+  const shop = bill
+    ? (bill.created_by === userId ? Number(bill.paid) : 0)
+    : o.items.filter((i) => i.picked && i.picked_by === userId).reduce((s, i) => s + shopUnit(i) * i.quantity, 0)
+  const back = (o.returns ?? []).reduce((s, r) => s + Number(r.amount), 0)
+  const own = Math.round((cash - shop - back) * 100) / 100
+  const due = Math.min(own, Math.max(0, balance))
+  const line = (label, value, key) => <div key={key} className="flex justify-between gap-3"><span>{label}</span><span className="shrink-0">{value}</span></div>
+  return (
+    <div className="space-y-2 rounded-xl border border-line p-3 text-sm">
+      <div className="flex items-center justify-between font-semibold">
+        <span>Admin's money from this order</span>
+        <span className={due > 0 ? 'text-orange-700' : 'text-emerald-700'}>{due > 0 ? rupee(due) : own < 0 ? `Admin owes you ${rupee(-own)}` : 'Given ✓'}</span>
+      </div>
+      <div className="space-y-0.5 text-xs text-muted">
+        {line(o.payment_method === 'cash' ? 'Cash from the customer' : 'Customer paid the store by UPI', rupee(cash))}
+        {line('You paid the shop', `− ${rupee(shop)}`)}
+        {(o.returns ?? []).map((r, n) => line(
+          r.method === 'cash' ? (r.confirmed_at ? 'Cash given to admin ✓' : `Cash to give the admin by ${CASH_BY}`) : 'Paid to admin by UPI',
+          `− ${rupee(r.amount)}`, n,
+        ))}
+      </div>
+      {due > 0 && <PayBack amount={due} date={date} store={store} riderName={riderName} orderId={o.id} orderNumber={o.order_number} onError={onError} />}
+    </div>
   )
 }
 
@@ -349,7 +382,7 @@ export function MessageButton({ order, store, kind, auto, before, label, icon: I
 
 // A rider sees only the orders the order desk assigned to them; the owner sees every order with its
 // rider (updates 032, 033). Riders confirm new orders only when the owner allows it in Settings.
-export default function PartnerOrderCard({ order: o, store, isAdmin, userId, auto }) {
+export default function PartnerOrderCard({ order: o, store, isAdmin, userId, auto, date, balance, riderName }) {
   const stage = stageOf(o)
   const mayConfirm = isAdmin || !!store.riders_confirm
   const done = stage === 'done'
@@ -587,6 +620,10 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             </div>
           )}
 
+          {/* Per-order pay back (update 045 adds o.returns): the rider who delivered it, once the money card is in. */}
+          {done && !isAdmin && o.delivered_by === userId && balance != null && Array.isArray(o.returns) && (
+            <OrderPayBack order={o} userId={userId} balance={balance} date={date} store={store} riderName={riderName} onError={setError} />
+          )}
           {done && o.delivery_photo && <SavedPhoto path={o.delivery_photo} />}
           {done && showBillButton && (
             <a

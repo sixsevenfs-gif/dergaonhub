@@ -1023,6 +1023,8 @@ export async function partnerOrders(date) {
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
         items: withPhotos(itemsOf(o.id)).map((i) => ({ picked: false, ...i, ...shopPriceOf(i) })), messages: messagesOf(o.id),
         shop_bill: db.shop_bills?.[o.id] ?? null,
+        returns: (db.rider_returns ?? []).filter((x) => x.order_id === o.id && (!rider || x.rider_id === me))
+          .map((x) => ({ amount: x.amount, method: x.method, at: x.created_at, confirmed_at: x.confirmed_at ?? null })),
       })),
   )
 }
@@ -1097,10 +1099,11 @@ export async function riderDayMoney(day) {
     if (bill) move(bill.created_by, o.delivery_date, { shop: Number(bill.paid) })
     else for (const i of itemsOf(o.id).filter((x) => x.picked && x.picked_by)) { const p = shopPriceOf(i); move(i.picked_by, o.delivery_date, { shop: i.quantity * Number(p.buy_price ?? p.mrp) }) }
   }
-  for (const r of (db.rider_returns ?? []).filter((x) => x.day <= day)) move(r.rider_id, r.day, { returned: r.amount })
+  for (const r of (db.rider_returns ?? []).filter((x) => x.day <= day)) move(r.rider_id, r.day, { returned: r.amount, pending: r.method === 'cash' && !r.confirmed_at ? r.amount : 0 })
   const rows = {}
   for (const m of moves.filter((x) => (!rider || x.rider_id === me) && team.some((t) => t.user_id === x.rider_id))) {
-    const r = (rows[m.rider_id] ??= { rider_id: m.rider_id, name: team.find((t) => t.user_id === m.rider_id).name, delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0 })
+    const r = (rows[m.rider_id] ??= { rider_id: m.rider_id, name: team.find((t) => t.user_id === m.rider_id).name, delivered: 0, cash: 0, shop: 0, returned: 0, earlier: 0, to_return: 0, cash_pending: 0 })
+    r.cash_pending += m.pending ?? 0
     const net = m.cash - m.shop - m.returned
     r.to_return += net
     if (m.day === day) for (const k of ['delivered', 'cash', 'shop', 'returned']) r[k] += m[k]
@@ -1109,9 +1112,16 @@ export async function riderDayMoney(day) {
   return Object.values(rows).sort((x, y) => y.to_return - x.to_return)
 }
 
-export async function partnerReturn(day, amount, method) {
+export async function partnerReturn(day, amount, method, orderId = null) {
   if (!(Number(amount) > 0)) fail('Write the amount you gave back.')
-  db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: demoUser(), day, amount: Math.round(Number(amount) * 100) / 100, method, created_at: now() }]
+  if (orderId && !db.orders.some((o) => o.id === orderId && o.status === 'completed' && o.delivered_by === demoUser())) fail('Only an order you delivered.')
+  db.rider_returns = [...(db.rider_returns ?? []), { id: newId(), rider_id: demoUser(), day, amount: Math.round(Number(amount) * 100) / 100, method, order_id: orderId, confirmed_at: null, created_at: now() }]
+  commit()
+}
+
+export async function confirmRiderReturn(id) {
+  const r = (db.rider_returns ?? []).find((x) => x.id === id)
+  if (r) r.confirmed_at ??= now()
   commit()
 }
 

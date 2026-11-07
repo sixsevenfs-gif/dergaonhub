@@ -85,6 +85,9 @@ end
 $$;
 
 -- "I paid": the rider gives back money for a day, by the store's UPI QR or in cash.
+-- Update 045 replaces it with a version that also takes an order; if this file is run again after 045, drop that one
+-- first so there are never two partner_return functions (the app couldn't tell them apart). Run 045 again after.
+drop function if exists public.partner_return(date, numeric, text, uuid);
 create or replace function public.partner_return(p_day date, p_amount numeric, p_method text) returns void
 language plpgsql security definer set search_path = public as $$
 begin

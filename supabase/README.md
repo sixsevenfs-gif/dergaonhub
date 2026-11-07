@@ -107,6 +107,8 @@ shows the rider what to pay the shop for each item (buy price, or MRP to bargain
 bill with a photo when it asked for more; the owner sees that bill on the order.
 `migrations/044_rider_returns.sql` (after 043) shows each rider the day's money to give back to the owner
 (cash from customers − paid at the shop − already given back) with a UPI QR to pay it; Daily summary shows every rider.
+`migrations/045_order_returns.sql` (after 044) lets the rider pay that back per order or all at once, by UPI or as cash
+to hand over by 9 PM; the owner taps "Got it" in Daily summary when the cash arrives.
 
 A new database made from the latest `schema.sql` already has all of them.
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Field from '../../components/Field.jsx'
 import { lbtnDark, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { dailySummary, deleteRiderReturn, setDailyExpense } from '../../lib/store.js'
+import { confirmRiderReturn, dailySummary, deleteRiderReturn, setDailyExpense } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { dateStr, dayLabel, fmtClock, rupee } from '../../lib/format.js'
 import { useRole } from '../../lib/role.js'
@@ -42,7 +42,13 @@ function RiderMoney({ rows, returns }) {
               </p>
               {paid.map((b) => (
                 <p key={b.id} className="mt-1 flex items-center gap-2 text-xs text-neutral-600">
-                  <span className="flex-1">Gave back {rupee(b.amount)} by {b.method === 'upi' ? 'UPI (check your bank)' : 'cash'} · {fmtClock(b.created_at)}</span>
+                  <span className="flex-1">
+                    {b.method === 'upi' ? 'UPI' : 'Cash'} {rupee(b.amount)}{b.order_id ? ' (one order)' : ''} · {fmtClock(b.created_at)}
+                    {b.confirmed_at ? <b className="text-green-700"> · received ✓</b> : b.method === 'cash' ? <b className="text-orange-700"> · to hand over by 9 PM</b> : ' · check your bank'}
+                  </span>
+                  {!b.confirmed_at && 'confirmed_at' in b && (
+                    <button type="button" onClick={() => confirmRiderReturn(b.id).catch((e) => setError(e.message))} className="rounded-lg bg-neutral-900 px-2 py-1 font-semibold text-white">Got it</button>
+                  )}
                   <button type="button" onClick={() => deleteRiderReturn(b.id).catch((e) => setError(e.message))} className="font-semibold text-neutral-400 underline">Remove</button>
                 </p>
               ))}
