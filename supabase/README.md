@@ -100,6 +100,8 @@ Run each file once, in order, in **SQL Editor → New query** (each is safe to r
 Later updates (024 onwards) are in the same folder; run each new one once, in order. For example
 `migrations/041_delete_account.sql` lets customers delete their own account in the iPhone app
 (Account → Delete my account), which the App Store requires.
+`migrations/042_cancel_alert_sales.sql` sends a Telegram message when an order is cancelled (deploy
+telegram-notify again first) and gives the admin home its sales totals for any dates, since launch.
 
 A new database made from the latest `schema.sql` already has all of them.
 

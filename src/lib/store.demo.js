@@ -9,6 +9,7 @@ import { parseCSV } from './csv.js'
 import { walletRules } from './wallet.js'
 import { cartRows } from './carts.js'
 import { COST_DEFAULTS, dayProfit } from './profit.js'
+import { salesTotals } from './report.js'
 
 const KEY = 'dergaonhub-demo-v9' // bump to load fresh demo data
 const CUSTOMER_KEY = 'dergaonhub-customer'
@@ -857,6 +858,11 @@ export async function salesReport(from, to) {
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((o) => ({ ...o, items: itemsOf(o.id) }))
   return clone({ orders, expenses: db.daily_expenses.filter((e) => e.date >= from && e.date <= to) })
+}
+
+export async function adminSales(from, to) {
+  const r = await salesReport(from, to)
+  return salesTotals(r.orders, r.expenses)
 }
 
 export async function setDailyExpense(date, amount, note = '') {

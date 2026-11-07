@@ -7,6 +7,7 @@ import { packagingFee, validPoint } from './delivery.js'
 import { walletReport } from './walletReport.js'
 import { cartRows } from './carts.js'
 import { COST_DEFAULTS, dayProfit } from './profit.js'
+import { salesTotals } from './report.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -711,6 +712,36 @@ export async function salesReport(from, to) {
     sb.from('daily_expenses').select('*').gte('date', from).lte('date', to).then(check),
   ])
   return { orders: rows.map(({ order_items, ...o }) => ({ ...toOrder(o), items: order_items })), expenses }
+}
+
+// Sales for a date range: delivered orders by delivery day, one database call for a day or since launch
+// (update 042). Before 042 the totals are worked out here from the orders.
+export async function adminSales(from, to) {
+  const res = await sb.rpc('admin_sales', { p_from: from, p_to: to })
+  if (missingFunction(res.error)) {
+    const r = await salesReport(from, to)
+    return salesTotals(r.orders, r.expenses)
+  }
+  const s = check(res)
+  const n = (v) => Number(v) || 0
+  return {
+    orders: s.orders,
+    delivered: s.delivered,
+    cancelled: s.cancelled,
+    pending: s.pending,
+    sales: n(s.sales),
+    cash: n(s.cash),
+    upi: n(s.upi),
+    deliveryFees: n(s.delivery_fees),
+    packaging: n(s.packaging),
+    walletUsed: n(s.wallet_used),
+    customers: s.customers,
+    itemsSold: n(s.items_sold),
+    avgOrder: s.delivered ? Math.round(n(s.sales) / s.delivered) : 0,
+    spent: n(s.spent),
+    byDay: s.by_day.map((d) => ({ date: d.date, delivered: d.delivered, sales: n(d.sales) })),
+    topItems: s.top_items.map((i) => ({ name: i.name, quantity: n(i.quantity), amount: n(i.amount) })),
+  }
 }
 
 export async function setDailyExpense(date, amount, note = '') {

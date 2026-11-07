@@ -81,3 +81,26 @@ export function utrMessage(o: Order) {
     '👉 Check it in the bank app, then mark Paid in Admin.',
   ].join('\n')
 }
+
+// Why it was cancelled, in plain words (cancel_reason is free text when the store cancels).
+function cancelReason(o: Order) {
+  const r = String(o.cancel_reason ?? '').trim()
+  if (r === 'Cancelled by customer') return '🙋 By the customer'
+  if (r === 'Not paid in time') return '⏱️ UPI not paid in time'
+  if (r === 'Expired') return '🗓️ Expired (not delivered for days)'
+  if (r === 'No-show') return '📵 Customer not answering (no-show)'
+  return r ? `🏪 By the store: ${esc(r)}` : '🏪 By the store'
+}
+
+export function cancelMessage(o: Order, items: Item[]) {
+  const lines = [
+    `❌ <b>Order cancelled — ${esc(o.order_number)}</b>`,
+    cancelReason(o),
+    `👤 ${esc(o.customer_name)} · 📞 ${esc(o.customer_phone)}`,
+    `💰 ${rupee(o.total)} · ${o.payment_method === 'cash' ? 'Cash on delivery' : 'UPI'} · ordered ${stamp(o.created_at)}`,
+  ]
+  if (items.length) lines.push(`🛒 ${items.map((i) => `${esc(i.name_snapshot)} × ${i.quantity}`).join(', ')}`)
+  if (o.payment_status === 'paid') lines.push('⚠️ <b>Paid by UPI: refund the customer.</b>')
+  if (o.dispatch) lines.push('🛵 The rider was already on the way.')
+  return lines.join('\n')
+}

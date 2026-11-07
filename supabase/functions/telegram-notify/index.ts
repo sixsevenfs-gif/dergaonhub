@@ -1,11 +1,11 @@
-// Sends the admin a Telegram message when an order comes in, and again when a customer submits a UPI UTR.
-// Called by database triggers (migrations/019_telegram_notify.sql), not by the site, so no order is missed
+// Sends the admin a Telegram message when an order comes in, when a customer submits a UPI UTR, and when an
+// order is cancelled (update 042). Called by database triggers (migrations/019_telegram_notify.sql), not by the site, so no order is missed
 // even if the customer closes the page. Express orders are marked URGENT and pinned in the chat.
 //
 // Deploy:  npx supabase functions deploy telegram-notify --no-verify-jwt --project-ref <your project ref>
 // Secrets: npx supabase secrets set TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... --project-ref <your project ref>
 //          (TELEGRAM_CHAT_ID can be several ids separated by commas, e.g. you and a rider.)
-import { orderMessage, utrMessage } from './message.ts'
+import { cancelMessage, orderMessage, utrMessage } from './message.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
   try {
     const { order_id, kind } = await req.json()
-    if (!['placed', 'utr'].includes(kind)) return json({ error: 'Unknown message.' }, 400)
+    if (!['placed', 'utr', 'cancelled'].includes(kind)) return json({ error: 'Unknown message.' }, 400)
 
     if (!UUID.test(String(order_id ?? ''))) return json({ error: 'Order not found.' }, 404)
     const [o] = await rows(`orders?id=eq.${order_id}&select=*`)
@@ -58,10 +58,12 @@ Deno.serve(async (req) => {
     // fresh events: a new order from the last 15 minutes, or an order that has a UTR on it.
     if (kind === 'placed' && Date.now() - new Date(o.created_at).getTime() > 15 * 60_000) return json({ sent: false, reason: 'old' })
     if (kind === 'utr' && !o.upi_ref) return json({ sent: false, reason: 'no utr' })
+    if (kind === 'cancelled' && o.status !== 'cancelled') return json({ sent: false, reason: 'not cancelled' })
 
     // Once per event: a repeat call (or someone replaying it) sends nothing.
-    const claimed = kind === 'placed'
-      ? await claim(`id=eq.${o.id}&tg_placed_sent=eq.false`, { tg_placed_sent: true })
+    const flag = { placed: 'tg_placed_sent', cancelled: 'tg_cancel_sent' }[kind as string]
+    const claimed = flag
+      ? await claim(`id=eq.${o.id}&${flag}=eq.false`, { [flag]: true })
       : await claim(`id=eq.${o.id}&tg_utr_sent=neq.${encodeURIComponent(o.upi_ref)}`, { tg_utr_sent: o.upi_ref })
     if (!claimed) return json({ sent: false, reason: 'already sent' })
 
@@ -70,6 +72,9 @@ Deno.serve(async (req) => {
       const items = await rows(`order_items?order_id=eq.${o.id}&select=name_snapshot,quantity,line_total,note`)
       const [store] = await rows('store_settings?id=eq.1&select=slot_start,slot_end')
       text = orderMessage(o, items, store ?? { slot_start: '17:00', slot_end: '20:00' })
+    } else if (kind === 'cancelled') {
+      const items = await rows(`order_items?order_id=eq.${o.id}&select=name_snapshot,quantity,line_total`)
+      text = cancelMessage(o, items)
     } else {
       text = utrMessage(o)
     }
@@ -87,7 +92,7 @@ Deno.serve(async (req) => {
     }
     const sent = results.some((r) => r.ok)
     // Nothing reached Telegram: release the claim so a retry can send it.
-    if (!sent) await claim(`id=eq.${o.id}`, kind === 'placed' ? { tg_placed_sent: false } : { tg_utr_sent: '' })
+    if (!sent) await claim(`id=eq.${o.id}`, flag ? { [flag]: false } : { tg_utr_sent: '' })
     return json({ sent, results })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)

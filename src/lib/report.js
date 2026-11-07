@@ -30,6 +30,21 @@ export function summarize(orders, expenses = []) {
   }
 }
 
+// Totals for a date range, in the same shape as adminSales (update 042), from a list of orders.
+export function salesTotals(orders, expenses = []) {
+  const days = {}
+  for (const o of orders.filter((x) => x.status === 'completed')) {
+    const d = (days[o.delivery_date] ??= { date: o.delivery_date, delivered: 0, sales: 0 })
+    d.delivered += 1
+    d.sales += Number(o.total) || 0
+  }
+  return {
+    ...summarize(orders, expenses),
+    byDay: Object.values(days).sort((a, b) => a.date.localeCompare(b.date)),
+    topItems: itemsSold(orders).slice(0, 10).map(({ name, quantity, amount }) => ({ name, quantity, amount })),
+  }
+}
+
 // What sold, most first (delivered orders only): pieces, how many orders had it, money, customers, last day.
 export function itemsSold(orders) {
   const map = {}
