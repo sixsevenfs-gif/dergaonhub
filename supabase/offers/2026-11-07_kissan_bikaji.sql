@@ -2,6 +2,10 @@
 -- Manbhavan Soan Papdi 200 g. Sold at MRP; the shop price is saved as the buy price (owner only, update 034).
 -- Safe to run again (adds each name + size only once). Photos are files of the website (public/products/): they
 -- show once the new build is live.
+-- Kissan Mixed Fruit Jam is already in the store: swap its photo for the clean pack shot.
+update public.products set photo_url = '/products/kissan-mixed-fruit-jam-200g.jpg', updated_at = now()
+where lower(name) = 'kissan mixed fruit jam' and size = '200 g';
+
 insert into public.products (name, size, category_id, keywords, price, photo_url, available, status)
 select v.name, v.size, v.cat, v.keywords, v.price, v.photo, true, 'active'
 from (values

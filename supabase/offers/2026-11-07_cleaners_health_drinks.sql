@@ -2,6 +2,10 @@
 -- mustard oil 200 ml, Lizol Citrus and Jasmine, Harpic Power Plus, Horlicks, Bournvita, Junior Horlicks, Colin.
 -- Sold at MRP; the shop price is saved as the buy price (owner only, update 034). Safe to run again (adds each
 -- name + size only once). Photos are files of the website (public/products/): they show once the new build is live.
+-- Harpic is already in the store: show the 10X Total Clean pack the shop sells.
+update public.products set photo_url = '/products/harpic-power-plus-original-500ml.jpg', updated_at = now()
+where lower(name) = 'harpic power plus toilet cleaner (original)' and size = '500 ml';
+
 insert into public.products (name, size, category_id, keywords, price, photo_url, available, status)
 select v.name, v.size, v.cat, v.keywords, v.price, v.photo, true, 'active'
 from (values
@@ -10,7 +14,7 @@ from (values
   ('Pubali Kachchi Ghani Mustard Oil', '200 ml', 'oil', 'pubali kachchi ghani mustard oil sarson tel sorioh', 45, '/products/pubali-mustard-oil-200ml.jpg'),
   ('Lizol Floor Cleaner Citrus', '500 ml', 'cleaning', 'lizol disinfectant surface floor cleaner citrus lemon pocha phenyl', 129, '/products/lizol-citrus-500ml.jpg'),
   ('Lizol Floor Cleaner Jasmine', '500 ml', 'cleaning', 'lizol disinfectant surface floor cleaner jasmine pocha phenyl', 129, '/products/lizol-jasmine-500ml.jpg'),
-  ('Harpic Power Plus Toilet Cleaner', '500 ml', 'cleaning', 'harpic power plus 10x toilet cleaner original disinfectant bathroom', 110, '/products/harpic-power-plus-original-500ml.jpg'),
+  ('Harpic Power Plus Toilet Cleaner (Original)', '500 ml', 'cleaning', 'harpic power plus 10x toilet cleaner original disinfectant bathroom', 110, '/products/harpic-power-plus-original-500ml.jpg'),
   ('Horlicks Classic Malt (Jar)', '500 g', 'beverages', 'horlicks classic malt health drink nutrition milk powder jar', 264, '/products/horlicks-classic-malt-500g.jpg'),
   ('Cadbury Bournvita (Jar)', '500 g', 'beverages', 'cadbury bournvita bournvita chocolate health drink nutrition milk jar', 263, '/products/bournvita-500g.jpg'),
   ('Junior Horlicks Vanilla (Jar)', '500 g', 'beverages', 'junior horlicks vanilla kids health drink nutrition 2 to 6 years jar', 329, '/products/junior-horlicks-vanilla-500g.jpg'),
