@@ -512,6 +512,26 @@ function SettingsForm({ store }) {
         )}
       </section>
 
+      <section className={`${lcard} space-y-3 p-4`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold">App orders are real</h2>
+            <p className="text-sm text-neutral-500">
+              Off: the Android and iPhone apps are in test mode. Testers and Play Store / App Store reviewers can try the whole
+              checkout, but the order is not sent: nothing comes to Admin, the rider page, Telegram or WhatsApp. The website
+              is not affected.
+            </p>
+            <p className="mt-1 text-sm text-neutral-500">On: orders from the apps are real, like website orders. Turn it on when the app is public.</p>
+          </div>
+          {v.app_orders_live !== undefined && (
+            <Toggle checked={!!v.app_orders_live} onChange={(on) => setV({ ...v, app_orders_live: on })} label="App orders are real" />
+          )}
+        </div>
+        {v.app_orders_live === undefined && (
+          <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/050_app_orders_switch.sql in the Supabase SQL Editor to use this.</p>
+        )}
+      </section>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm font-semibold text-green-700">{msg}</p>}
       <button type="submit" className={`${lbtnDark} h-12 w-full`}>Save changes</button>

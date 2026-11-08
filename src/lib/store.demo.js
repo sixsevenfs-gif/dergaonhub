@@ -80,10 +80,10 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 /* ---------- store settings ---------- */
 
 export async function getStore() {
-  return clone({ riders_confirm: false, upi_on: true, riders_buy: false, ...db.store }) // older demo stores don't have these yet
+  return clone({ riders_confirm: false, upi_on: true, riders_buy: false, app_orders_live: false, ...db.store }) // older demo stores don't have these yet
 }
 
-const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm', 'upi_on', 'riders_buy']
+const STORE_FIELDS = ['name', 'phone', 'whatsapp', 'open_time', 'close_time', 'cutoff_time', 'slot_start', 'slot_end', 'min_order', 'delivery_area', 'paused', 'location', 'per_km_fee', 'min_delivery_fee', 'max_delivery_km', 'pack_fee_low', 'pack_fee_mid', 'pack_fee_high', 'pack_mid_from', 'pack_high_from', 'whatsapp_auto', 'free_delivery', 'small_order_below', 'small_order_fee', 'show_powered_by', 'upi_id', 'upi_name', 'cod_limit', 'otp_required', 'referral_on', 'referrer_reward', 'friend_reward', 'referral_min_order', 'wallet_max_per_order', 'mid_order_fee', 'free_delivery_above', 'express_on', 'express_fee', 'express_minutes', 'express_from', 'express_until', 'upi_pay_minutes', 'riders_confirm', 'upi_on', 'riders_buy', 'app_orders_live']
 
 export async function saveStore(data) {
   if (!data.name?.trim()) fail('Enter the store name.')

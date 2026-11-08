@@ -117,6 +117,8 @@ for orders the customer paid online): Daily summary → "I paid Ravi ₹X".
 you buy the items, riders see no shop prices or money to pay back. On: everything from 043–047.
 `migrations/049_whatsapp_once.sql` makes each automatic WhatsApp message go out once per order even with two taps at
 once (deploy notify-whatsapp again after it).
+`migrations/050_app_orders_switch.sql` adds Settings → "App orders are real". Off (default): the phone apps are in test
+mode, orders from them are not sent (nothing in Admin, Telegram or WhatsApp). Turn it on when the app is public.
 
 A new database made from the latest `schema.sql` already has all of them.
 

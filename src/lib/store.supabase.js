@@ -159,6 +159,7 @@ export async function saveStore(data) {
     ...(data.riders_confirm === undefined ? {} : { riders_confirm: !!data.riders_confirm }), // after 032
     ...(data.upi_on === undefined ? {} : { upi_on: !!data.upi_on }), // after 035
     ...(data.riders_buy === undefined ? {} : { riders_buy: !!data.riders_buy }), // after 048
+    ...(data.app_orders_live === undefined ? {} : { app_orders_live: !!data.app_orders_live }), // after 050
     updated_at: now(),
   }).eq('id', 1).select().single())
   notify()

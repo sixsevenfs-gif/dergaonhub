@@ -152,7 +152,8 @@ export const POLICIES = {
           notes and UPI references from your past orders and complaints, and delete your login records. Order amounts
           stay, without your details, for our accounts. Any Jholzo Money on the account is lost. If cash orders on
           your number were cancelled or not taken, we keep the number and that count, so our cash-on-delivery rule
-          still applies. You can also ask us to delete your account at {contactLine(store)}.
+          still applies. You can also ask us to delete your account at {contactLine(store)}. All the ways to delete it are on
+          jholzo.com/policy/delete-account.
         </P>
         <H>Your choices</H>
         <P>
@@ -278,5 +279,46 @@ export const POLICIES = {
         <P>See the status any time on the order page, or from "My orders".</P>
       </>
     ),
+  },
+
+  // The account deletion page Google Play asks for (a web link where anyone can ask for deletion, no app needed).
+  'delete-account': {
+    title: 'Delete your Jholzo account',
+    body: (store) => {
+      const wa = `https://wa.me/${store.whatsapp}?text=${encodeURIComponent('Please delete my Jholzo account. My phone number is: ')}`
+      return (
+        <>
+          <P>You can delete your Jholzo account and its data at any time, in the app or by asking us.</P>
+          <H>In the Jholzo app</H>
+          <UL items={[
+            'Open the Jholzo app and log in with your phone number.',
+            'Go to Account → Delete my account, and confirm.',
+            'Your account is deleted at once.',
+          ]} />
+          <H>Without the app</H>
+          <P>
+            Send us your request with the phone number of the account. We may call that number to check it is you, and we
+            delete the account within 7 days.
+          </P>
+          <UL items={[
+            <a key="wa" href={wa} className="font-semibold text-brand underline">Ask on WhatsApp (+91 {store.phone})</a>,
+            <a key="mail" href={`mailto:${LEGAL.EMAIL}?subject=${encodeURIComponent('Delete my Jholzo account')}`} className="font-semibold text-brand underline">Email {LEGAL.EMAIL}</a>,
+          ]} />
+          <H>What is deleted</H>
+          <UL items={[
+            'Your name, phone number and saved addresses.',
+            'Names, addresses, notes and UPI references on your past orders and complaints.',
+            'Your login records and app notification settings.',
+            'Any Jholzo Money on the account.',
+          ]} />
+          <H>What we keep</H>
+          <UL items={[
+            'Order amounts and dates, without your details, for our accounts and tax records.',
+            'If cash orders on your number were cancelled or not taken, we keep the number and that count, so our cash-on-delivery rule still applies.',
+          ]} />
+          <P>An order that is not delivered yet has to be delivered or cancelled first.</P>
+        </>
+      )
+    },
   },
 }

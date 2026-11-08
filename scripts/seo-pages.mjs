@@ -11,6 +11,7 @@ const PAGES = {
   refund: ['Refund & cancellation', 'Jholzo refund and cancellation policy: how to cancel an order, report a damaged or missing item, and get a refund.'],
   privacy: ['Privacy policy', 'Jholzo privacy policy: what details we collect when you order (name, phone, address), how we use them and keep them safe.'],
   terms: ['Terms & conditions', 'Jholzo terms and conditions for ordering groceries online in Dergaon, Assam: orders, prices, payments and delivery.'],
+  'delete-account': ['Delete your Jholzo account', 'How to delete your Jholzo account and data: in the app (Account → Delete my account) or by asking on WhatsApp or email.'],
 }
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
