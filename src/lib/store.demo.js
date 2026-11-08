@@ -652,7 +652,7 @@ export async function getOrderById(orderId) {
   return clone({
     order: o, items: withItemCosts(withPhotos(itemsOf(o.id))), store: db.store, hint: hintFor(o.customer_phone),
     complaints: db.complaints.filter((k) => k.order_id === o.id),
-    costs: db.product_costs ?? {}, rules: costRules(), shopBill: db.shop_bills?.[o.id] ?? null,
+    costs: db.product_costs ?? {}, rules: costRules(), shopBill: db.shop_bills?.[o.id] ?? null, messages: messagesOf(o.id),
   })
 }
 

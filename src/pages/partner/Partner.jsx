@@ -123,11 +123,15 @@ function PartnerRun({ session }) {
       reload()
       reloadMoney()
     }
-    const t = setInterval(again, 30000)
+    // Every 10 seconds, and when the page comes back to the front (switching apps on a phone fires no "focus").
+    const t = setInterval(again, 10000)
+    const back = () => document.visibilityState === 'visible' && again()
     window.addEventListener('focus', again)
+    document.addEventListener('visibilitychange', back)
     return () => {
       clearInterval(t)
       window.removeEventListener('focus', again)
+      document.removeEventListener('visibilitychange', back)
     }
   }, [reload, reloadMoney])
 

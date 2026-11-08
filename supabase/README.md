@@ -115,6 +115,8 @@ are assigned to, so that rider sees the money and the pay button.
 for orders the customer paid online): Daily summary → "I paid Ravi ₹X".
 `migrations/048_riders_buy_switch.sql` (after 047) adds Settings → "Riders buy the items at the shop". Off (default):
 you buy the items, riders see no shop prices or money to pay back. On: everything from 043–047.
+`migrations/049_whatsapp_once.sql` makes each automatic WhatsApp message go out once per order even with two taps at
+once (deploy notify-whatsapp again after it).
 
 A new database made from the latest `schema.sql` already has all of them.
 

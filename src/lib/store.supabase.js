@@ -506,7 +506,7 @@ export async function getOrderById(orderId) {
   await expireOld()
   const o = check(await sb.from('orders').select('*').eq('id', orderId).maybeSingle())
   if (!o) return null
-  const [items, complaints, store, hint, costs, rules, shopBill] = await Promise.all([
+  const [items, complaints, store, hint, costs, rules, shopBill, messages] = await Promise.all([
     sb.from('order_items').select('*').eq('order_id', orderId).then(check).then(withPhotos),
     sb.from('complaints').select('*').eq('order_id', orderId).then(check),
     getStore(),
@@ -515,9 +515,12 @@ export async function getOrderById(orderId) {
     getCostRules(),
     // The rider's shop bill (update 043, the owner only); nothing before that update.
     sb.from('order_shop_bills').select('*').eq('order_id', orderId).maybeSingle().then((r) => (r.error ? null : r.data)),
+    // Messages that went to the customer (automatic and by hand), so nobody sends one twice.
+    sb.from('order_messages').select('kind, channel, ok, error, created_at').eq('order_id', orderId).order('created_at')
+      .then((r) => (r.error ? [] : r.data.map((m) => ({ ...m, at: m.created_at })))),
   ])
   const itemCosts = await orderItemCosts(items.map((i) => i.id))
-  return { order: toOrder(o), items: items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), store, complaints, hint: hint(o.customer_phone), costs, rules, shopBill }
+  return { order: toOrder(o), items: items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), store, complaints, hint: hint(o.customer_phone), costs, rules, shopBill, messages }
 }
 
 async function updateOrder(id, change, onlyFrom, message) {

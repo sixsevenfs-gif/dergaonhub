@@ -414,6 +414,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
   }, [open, done])
   const [badge, badgeCls] = STAGES[stage]
   const sent = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).at(-1)
+  // How many times each message reached the customer (automatic and by hand), shown so nobody sends it twice.
+  const sentCount = (kind) => o.messages?.filter((m) => m.kind === kind && m.ok).length ?? 0
+  const onWaySent = sent('on_the_way')
   const allPicked = o.items.length > 0 && o.items.every((i) => picked.includes(i.id))
   // Shop prices come with the order from update 043 on; without them the list shows no prices.
   const priced = o.items.some((i) => i.buy_price != null || i.mrp != null)
@@ -462,6 +465,15 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
           </p>
           {isExpress(o) && <p className="mt-1 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · deliver by {fmtClock(o.express_by)}</p>}
           {money?.due > 0 && <p className="mt-1 w-fit rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-bold text-orange-700">Pay admin {rupee(money.due)}</p>}
+          {(sentCount('on_the_way') > 0 || sentCount('delivered') > 0) && (
+            <p className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-semibold">
+              {[['on_the_way', 'On the way msg'], ['delivered', 'Bill msg']].filter(([k]) => sentCount(k) > 0).map(([k, label]) => (
+                <span key={k} className={`rounded-full px-2 py-0.5 ${sentCount(k) > 1 ? 'bg-orange-500/15 text-orange-700' : 'bg-emerald-500/12 text-emerald-700'}`}>
+                  ✓ {label}{sentCount(k) > 1 ? ` · sent ${sentCount(k)} times` : ''}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold">{rupee(o.total)}</div>
@@ -571,13 +583,19 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
 
           {(stage === 'ready' || stage === 'on_the_way' || stage === 'arriving') && (
             <div className="space-y-2">
-              <div className="flex gap-2">
-                <MessageButton
-                  order={o} store={store} kind="on_the_way" auto={auto} icon={Bike} primary={stage === 'ready'}
-                  label={stage === 'ready' ? 'On the way' : 'Send "On the way" again'}
-                  before={() => setDispatch(o.id, 'on_the_way')} onError={setError}
-                />
-              </div>
+              {stage !== 'ready' && onWaySent ? (
+                <p className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 text-[15px] font-semibold text-emerald-700">
+                  <Check size={18} /> “On the way” sent to the customer · {clock(onWaySent.at)}
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <MessageButton
+                    order={o} store={store} kind="on_the_way" auto={auto} icon={Bike} primary={stage === 'ready'}
+                    label={stage === 'ready' ? 'On the way' : 'Send “On the way” message'}
+                    before={() => setDispatch(o.id, 'on_the_way')} onError={setError}
+                  />
+                </div>
+              )}
               {stage !== 'ready' && <NoAnswer orderId={o.id} onError={setError} />}
               {/* The amount is fixed: the rider collects exactly the order total (or nothing if paid online). */}
               {paidOnline ? (
@@ -648,7 +666,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
               onClick={() => logMessage(o.id, 'delivered').catch(() => {})}
               className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold active:scale-[.99] ${billSent ? 'border border-[#1FAF54]/60 text-[#3ddc84]' : 'bg-[#1FAF54] text-ink'}`}
             >
-              <WhatsAppIcon size={18} /> {billSent ? 'Send bill again on WhatsApp' : 'Send bill on WhatsApp'}
+              <WhatsAppIcon size={18} /> {billSent ? `Bill already sent ${sentCount('delivered')}× · send again` : 'Send bill on WhatsApp'}
             </a>
           )}
           {done && (

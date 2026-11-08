@@ -100,6 +100,11 @@ Deno.serve(async (req) => {
     const { count } = await db.from('order_messages').select('id', { count: 'exact', head: true })
       .eq('order_id', o.id).eq('kind', kind).eq('channel', 'auto').eq('ok', true)
     if (count) return json({ sent: true, already: true })
+    // Claim it (update 049) so two calls at the same moment (a double tap, two phones) can't both send. Before
+    // update 049 the table is missing and the check above is all there is.
+    const { error: claimErr } = await db.from('wa_auto_claims').insert({ order_id: o.id, kind })
+    if (claimErr?.code === '23505') return json({ sent: true, already: true })
+    const gotClaim = !claimErr
 
     // "Order placed" goes to whoever ordered (for someone else: the orderer); rider messages to the receiver.
     const toOrderer = kind === 'placed' && o.ordered_by_phone
@@ -133,6 +138,7 @@ Deno.serve(async (req) => {
     const error = res.ok ? '' : body?.error?.message ?? `WhatsApp error ${res.status}`
     // Not sent (template not approved yet, wrong number...): free the claim so it can be tried again.
     if (!res.ok && kind === 'placed') await db.from('orders').update({ wa_placed_sent: false }).eq('id', o.id)
+    if (!res.ok && gotClaim) await db.from('wa_auto_claims').delete().eq('order_id', o.id).eq('kind', kind)
     await db.from('order_messages').insert({ order_id: o.id, kind, channel: 'auto', ok: res.ok, error, sent_by: auth.user?.id ?? null })
     return json(res.ok ? { sent: true } : { sent: false, error }, res.ok ? 200 : 502)
   } catch (err) {

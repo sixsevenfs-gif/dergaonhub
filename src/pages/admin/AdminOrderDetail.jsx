@@ -43,6 +43,43 @@ function DeliveryPhoto({ path }) {
 
 const money = (n) => (n < 0 ? `−${rupee(-n)}` : rupee(n))
 
+const MESSAGE_NAMES = { placed: 'Order placed', on_the_way: 'On the way', arriving: 'Arriving soon', delivered: 'Delivered + bill' }
+
+// What the customer was already sent, with how many times, so nobody sends a message twice.
+function SentMessages({ messages }) {
+  if (!messages?.length) return null
+  const kinds = [...new Set(messages.map((m) => m.kind))]
+  return (
+    <section className={`${lcard} p-4`}>
+      <h2 className="font-bold">Messages to the customer</h2>
+      <div className="mt-2 space-y-2 text-sm">
+        {kinds.map((k) => {
+          const ok = messages.filter((m) => m.kind === k && m.ok)
+          const failed = messages.filter((m) => m.kind === k && !m.ok)
+          return (
+            <div key={k}>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{MESSAGE_NAMES[k] ?? k}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${ok.length > 1 ? 'bg-orange-100 text-orange-800' : ok.length ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}`}>
+                  {ok.length ? `Sent ${ok.length}×` : 'Not sent'}
+                </span>
+              </div>
+              <ul className="mt-0.5 space-y-0.5 text-xs text-neutral-500">
+                {[...ok, ...failed].sort((a, b) => String(a.at).localeCompare(String(b.at))).map((m, n) => (
+                  <li key={n}>
+                    {m.ok ? '✓' : '✕'} {m.channel === 'auto' ? 'Automatic' : 'By hand on WhatsApp'} · {fmtClock(m.at)}
+                    {!m.ok && m.error ? ` · ${m.error}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 // The shop asked the rider for more than the buy prices (update 043): what they paid, with the bill's photo.
 function ShopBillCard({ bill }) {
   const [url, setUrl] = useState('')
@@ -105,7 +142,17 @@ function ProfitCard({ order, items, costs, rules, shopBill }) {
 
 export default function AdminOrderDetail() {
   const { orderId } = useParams()
-  const { data } = useData(() => getOrderById(orderId), [orderId])
+  const { data, reload } = useData(() => getOrderById(orderId), [orderId])
+  // A rider marks steps on their own phone: check again every 15 seconds and when the page comes back to the front.
+  useEffect(() => {
+    const t = setInterval(reload, 15000)
+    const back = () => document.visibilityState === 'visible' && reload()
+    document.addEventListener('visibilitychange', back)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', back)
+    }
+  }, [reload])
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
   const [cash, setCash] = useState('')
@@ -118,7 +165,7 @@ export default function AdminOrderDetail() {
 
   if (data === undefined) return null
   if (!data) return <p className="py-10 text-center text-neutral-500">Order not found.</p>
-  const { order, items, store, hint, complaints, costs, rules, shopBill } = data
+  const { order, items, store, hint, complaints, costs, rules, shopBill, messages } = data
   const editable = order.status === 'placed' || order.status === 'confirmed'
   // Pay-now UPI order: the owner checks the payment before anyone else may confirm it.
   const payFirst = !isOwner && order.payment_method === 'upi_now' && order.payment_status !== 'paid'
@@ -202,6 +249,7 @@ export default function AdminOrderDetail() {
 
       {order.payment_method === 'upi_now' && <section className={`${lcard} p-4`}><PaymentCheck order={order} store={store} /></section>}
       {order.delivery_photo && <DeliveryPhoto path={order.delivery_photo} />}
+      <SentMessages messages={messages} />
 
       <section className={`${lcard} p-4`}>
         <h2 className="font-bold">Items</h2>
