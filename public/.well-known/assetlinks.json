@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.jholzo.app",
+      "sha256_cert_fingerprints": [
+        "69:7B:F6:B0:BA:15:BB:DE:3B:61:46:CF:48:81:6B:77:2A:F2:4D:E3:49:4D:52:53:54:46:18:09:2A:CB:20:E3"
+      ]
+    }
+  }
+]
