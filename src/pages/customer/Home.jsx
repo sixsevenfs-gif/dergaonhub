@@ -75,8 +75,7 @@ function BestDeals({ products, categories, onPick, onSeeAll }) {
             <ProductTile p={sample} className="h-full w-[72px] rounded-none rounded-l-2xl" />
             <span className="min-w-0">
               <span className="block truncate text-[12px] font-semibold text-ink">{c.name}</span>
-              {/* Same red as the % OFF badge on product cards. */}
-              <span className="mt-1.5 inline-block whitespace-nowrap rounded-md bg-[#E5322D] px-1.5 py-1 text-[11px] font-extrabold leading-none text-white">Up to {best}% OFF</span>
+              <span className="mt-1 block text-[11px] text-muted">Up to {best}% OFF</span>
             </span>
           </button>
         ))}
