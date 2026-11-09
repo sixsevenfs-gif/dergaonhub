@@ -15,7 +15,9 @@ const same = (a, b) => Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng)
 // here: the phone's own position { lat, lng, accuracy }, drawn as a blue dot.
 // focus: changes when the map must fly to value again, even if value did not change.
 // radiusKm: draws the delivery area around the pin as a radar circle (road km, so the circle is radiusKm / ROAD_FACTOR).
-export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, className = 'h-56' }) {
+// twoFinger: for a map inside a scrolling page (checkout). On a phone one finger scrolls the page and two fingers
+// move the map, so scrolling past the map never moves the pin; a tap doesn't move it either.
+export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, twoFinger = false, className = 'h-56' }) {
   const box = useRef(null)
   const map = useRef(null)
   const pin = useRef(null)
@@ -27,10 +29,22 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
   const valueRef = useRef(value)
   valueRef.current = value
   const [moving, setMoving] = useState(false)
+  const [twoFingerHint, setTwoFingerHint] = useState(false)
 
   useEffect(() => {
     const first = value ?? start
-    const m = L.map(box.current, { attributionControl: true, zoomControl: !fixedPin }).setView([first.lat, first.lng], value ? 17 : 15)
+    const phone = twoFinger && window.matchMedia?.('(pointer: coarse)').matches
+    // With the pin fixed in the middle, zooming keeps the middle where it is: zooming around the fingers or the
+    // mouse would slide the map under the pin and move the chosen spot.
+    const zoomAt = fixedPin ? 'center' : true
+    const m = L.map(box.current, {
+      attributionControl: true,
+      zoomControl: !fixedPin,
+      dragging: !phone,
+      touchZoom: phone ? true : zoomAt, // two fingers on the checkout map move it as well as zoom it
+      scrollWheelZoom: zoomAt,
+      doubleClickZoom: zoomAt,
+    }).setView([first.lat, first.lng], value ? 17 : 15)
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap',
@@ -45,11 +59,31 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       // Only the customer's own drag, tap, pinch or scroll picks a new place. The map also "moves" when it
       // flies to a GPS reading or the sheet changes size; those must not count as moving the pin by hand
       // (that would stop the GPS from placing the pin, or choose the store's spot by itself).
+      // A move counts as by hand only if it starts during the customer's own gesture: a drag, two fingers on the
+      // map, the mouse wheel or a double tap. Touching the map to scroll the page is not a gesture on the map.
       let byHand = false
-      const hand = () => (byHand = true)
-      box.current.addEventListener('pointerdown', hand)
-      box.current.addEventListener('wheel', hand, { passive: true })
-      m.on('movestart', () => setMoving(true))
+      let fingers = 0
+      let wheelAt = 0
+      let hintTimer = 0
+      const el = box.current
+      const touches = (e) => (fingers = e.touches.length)
+      el.addEventListener('touchstart', touches, { passive: true })
+      el.addEventListener('touchend', touches, { passive: true })
+      el.addEventListener('touchcancel', touches, { passive: true })
+      el.addEventListener('wheel', () => (wheelAt = Date.now()), { passive: true })
+      if (phone) {
+        el.addEventListener('touchmove', (e) => {
+          if (e.touches.length !== 1) return
+          setTwoFingerHint(true)
+          clearTimeout(hintTimer)
+          hintTimer = setTimeout(() => setTwoFingerHint(false), 1500)
+        }, { passive: true })
+      }
+      m.on('dragstart dblclick', () => (byHand = true))
+      m.on('movestart', () => {
+        setMoving(true)
+        if (fingers >= 2 || Date.now() - wheelAt < 600) byHand = true
+      })
       m.on('moveend', () => {
         setMoving(false)
         if (!byHand) return
@@ -58,7 +92,12 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
         const cur = valueRef.current
         if (!(cur && same(cur, c))) report(c)
       })
-      m.on('click', (e) => m.panTo(e.latlng))
+      if (!twoFinger) {
+        m.on('click', (e) => {
+          byHand = true
+          m.panTo(e.latlng)
+        })
+      }
     } else {
       const p = L.marker([first.lat, first.lng], { draggable: true, icon: pinIcon }).addTo(m)
       p.on('dragend', () => report(p.getLatLng()))
@@ -137,6 +176,11 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
       <div ref={box} className="isolate z-0 h-full w-full" />
+      {twoFingerHint && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+          <p className="rounded-lg bg-ink/90 px-3 py-2 text-sm font-semibold text-white">Use two fingers to move the map</p>
+        </div>
+      )}
       {/* The pin is drawn over the map, so its tip always marks the middle of the map. */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-10">
         <span className={`absolute -left-[7px] -top-[3px] h-1.5 w-3.5 rounded-full bg-black/35 transition-transform duration-150 ${moving ? 'scale-50' : ''}`} />

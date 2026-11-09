@@ -37,6 +37,8 @@ const inputCls = 'w-full bg-transparent text-ink placeholder:text-muted/60 focus
 
 // Android Chrome can open the phone's contacts; elsewhere the button is hidden.
 const canPickContact = typeof navigator !== 'undefined' && 'contacts' in navigator && typeof window !== 'undefined' && 'ContactsManager' in window
+// Phone or tablet: the checkout map then moves with two fingers (LocationPicker twoFinger).
+const touchScreen = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
 
 async function pickContact() {
   const [c] = await navigator.contacts.select(['name', 'tel'], { multiple: false })
@@ -141,7 +143,7 @@ export default function Checkout() {
       }
     } catch (err) {
       setAccuracy(null)
-      setLocError(err.denied ? 'Location is off for this site. Move the map to put the pin on the home.' : err.message)
+      setLocError(err.denied ? `Location is off for this site. Move the map${touchScreen ? ' with two fingers' : ''} to put the pin on the home.` : err.message)
     }
     setLocating(false)
   }
@@ -399,10 +401,10 @@ export default function Checkout() {
           <>
           <div className="relative overflow-hidden rounded-2xl border border-line">
             {/* A new map when switching between me and them, so each starts at its own pin. */}
-            <LocationPicker key={forWho} value={location} onChange={setLocationByHand} start={store.location} home={store.location} here={here} focus={focus} fixedPin className="h-60 [&_.leaflet-bottom]:mb-0" />
+            <LocationPicker key={forWho} value={location} onChange={setLocationByHand} start={store.location} home={store.location} here={here} focus={focus} fixedPin twoFinger className="h-60 [&_.leaflet-bottom]:mb-0" />
             <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
               <p className="rounded-lg bg-ink/90 px-3 py-1 text-center text-[11px] text-white shadow-lg">
-                Move the map to place the pin on {other ? 'their' : 'your'} door
+                {touchScreen ? 'Use two fingers to move the map to' : 'Move the map to place the pin on'} {other ? 'their' : 'your'} door
               </p>
             </div>
             <button

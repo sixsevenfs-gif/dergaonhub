@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Receipt, Repeat, Smartphone, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Image as ImageIcon, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Receipt, RefreshCw, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
@@ -24,41 +24,103 @@ const STAGES = {
   done: ['Delivered', 'bg-emerald-500/15 text-emerald-700'],
 }
 
-// Required before "Delivered": a photo of all the items at the customer's door (opens the phone camera).
-function PhotoStep({ orderId, photo, onPhoto, onError }) {
-  const [preview, setPreview] = useState('')
-  const [busy, setBusy] = useState(false)
+// Sends a photo with up to 3 tries: the signal at a customer's door often drops the first one.
+async function withRetry(upload) {
+  for (let i = 1; ; i++) {
+    try {
+      return await upload()
+    } catch (err) {
+      if (i >= 3) throw err
+      await new Promise((r) => setTimeout(r, i * 1500))
+    }
+  }
+}
 
+// The delivery photo, kept on this phone until Delivered as { img, path }: img is the shrunk photo, path is set once
+// it is uploaded. Opening the camera can reload the page, and a photo that could not be sent waits for "Send again".
+function useDeliveryPhoto(orderId) {
+  const key = `dergaonhub-photo-${orderId}`
+  const [shot, setShot] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) ?? {}
+    } catch {
+      return {}
+    }
+  })
+  const set = (v) => {
+    setShot(v)
+    try {
+      if (v.img || v.path) localStorage.setItem(key, JSON.stringify(v))
+      else localStorage.removeItem(key)
+    } catch {
+      // storage full or blocked: it lasts until the page reloads
+    }
+  }
+  return [shot, set]
+}
+
+// Required before "Delivered": a photo of all the items at the customer's door. Camera opens the phone camera;
+// Gallery takes a photo already taken with the camera app (for phones where the camera doesn't come back).
+function PhotoStep({ orderId, shot, onShot, onError }) {
+  const [busy, setBusy] = useState(false)
+  const done = !!shot.path
+
+  const send = async (img) => {
+    setBusy(true)
+    onError('')
+    onShot({ img }) // kept on the phone even if sending fails
+    try {
+      onShot({ img, path: await withRetry(() => uploadDeliveryPhoto(orderId, img)) })
+    } catch (err) {
+      onError(`Photo not sent (${err.message}). Check the internet and tap "Send again".`)
+    }
+    setBusy(false)
+  }
   const take = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setBusy(true)
-    onError('')
+    let img
     try {
-      const small = await compressImage(file, 1000, 100) // proof photo: big enough to see the items, at most 100 KB
-      setPreview(small)
-      onPhoto(await uploadDeliveryPhoto(orderId, small))
+      img = await compressImage(file, 1000, 100) // proof photo: big enough to see the items, at most 100 KB
     } catch (err) {
-      onPhoto('')
-      onError(`Photo not saved: ${err.message}`)
+      return onError(`Photo not saved: ${err.message}`)
     }
-    setBusy(false)
+    send(img)
   }
+  const pick = `flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-white text-sm font-semibold ${busy ? 'pointer-events-none opacity-50' : ''}`
 
   return (
-    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 ${photo ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-brand/60 bg-brand/[0.06]'}`}>
-      <input type="file" accept="image/*" capture="environment" onChange={take} className="sr-only" />
-      {preview ? (
-        <img src={preview} alt="Delivery photo" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-      ) : (
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand"><Camera size={24} /></span>
-      )}
-      <span className="flex-1 text-sm">
-        <span className="block font-semibold">{busy ? 'Saving photo...' : photo ? 'Photo saved ✓' : 'Photo of the items (required)'}</span>
-        <span className="text-xs text-muted">{photo ? 'Tap to take it again' : 'At the door, with all the items clearly visible'}</span>
-      </span>
-    </label>
+    <div className={`rounded-xl border p-2 ${done ? 'border-emerald-500/50 bg-emerald-500/[0.06]' : 'border-brand/60 bg-brand/[0.06]'}`}>
+      <div className="flex items-center gap-3">
+        {shot.img ? (
+          <img src={shot.img} alt="Delivery photo" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand"><Camera size={24} /></span>
+        )}
+        <span className="flex-1 text-sm">
+          <span className="block font-semibold">
+            {busy ? 'Sending photo...' : done ? 'Photo saved ✓' : shot.img ? 'Photo not sent yet' : 'Photo of the items (required)'}
+          </span>
+          <span className="text-xs text-muted">{done ? 'Take it again if needed' : 'At the door, with all the items clearly visible'}</span>
+        </span>
+      </div>
+      <div className="mt-2 flex gap-2">
+        {shot.img && !done && !busy && (
+          <button type="button" onClick={() => send(shot.img)} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand text-sm font-semibold text-white">
+            <RefreshCw size={15} /> Send again
+          </button>
+        )}
+        <label className={pick}>
+          <input type="file" accept="image/*" capture="environment" onChange={take} className="sr-only" />
+          <Camera size={15} /> {shot.img ? 'Retake' : 'Camera'}
+        </label>
+        <label className={pick}>
+          <input type="file" accept="image/*" onChange={take} className="sr-only" />
+          <ImageIcon size={15} /> Gallery
+        </label>
+      </div>
+    </div>
   )
 }
 
@@ -239,7 +301,7 @@ function ShopBill({ order: o, expected, onError }) {
     try {
       const small = await compressImage(file, 1400, 200) // the bill's numbers must stay readable
       setPreview(small)
-      setPhoto(await uploadShopBill(o.id, small))
+      setPhoto(await withRetry(() => uploadShopBill(o.id, small)))
     } catch (err) {
       setPhoto('')
       onError(`Photo not saved: ${err.message}`)
@@ -408,7 +470,12 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
   const [picked, toggle, untickAll] = usePicked(o, locked, setError)
   const [byQr, setByQr] = usePaidByQr(o.id)
   const [showQr, setShowQr] = useState(false)
-  const [photo, setPhoto] = useState('') // storage path of the delivery photo
+  const [shot, setShot] = useDeliveryPhoto(o.id)
+  const photo = shot.path // storage path of the delivery photo
+  useEffect(() => {
+    if (done && (shot.img || shot.path)) setShot({}) // delivered (here or on another phone): free the space
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done])
   useEffect(() => {
     if (open && !done) loadPdf()
   }, [open, done])
@@ -640,7 +707,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
                   }}
                 />
               )}
-              <PhotoStep orderId={o.id} photo={photo} onPhoto={setPhoto} onError={setError} />
+              <PhotoStep orderId={o.id} shot={shot} onShot={setShot} onError={setError} />
               {photo ? (
                 <button
                   type="button"

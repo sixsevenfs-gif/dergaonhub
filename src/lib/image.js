@@ -5,12 +5,7 @@ export async function compressImage(file, maxSize = 600, maxKB = 60) {
   if (!file.type.startsWith('image/')) throw new Error('Please choose a photo (image file).')
   const url = URL.createObjectURL(file)
   try {
-    const img = await new Promise((resolve, reject) => {
-      const el = new Image()
-      el.onload = () => resolve(el)
-      el.onerror = () => reject(new Error('This photo could not be opened. Please try another one.'))
-      el.src = url
-    })
+    const img = await open(file, url)
     let size = maxSize
     for (;;) {
       const canvas = draw(img, size)
@@ -23,6 +18,23 @@ export async function compressImage(file, maxSize = 600, maxKB = 60) {
     }
   } finally {
     URL.revokeObjectURL(url)
+  }
+}
+
+// Some phones can't open a very big camera photo as an <img> (not enough memory); createImageBitmap often still can.
+async function open(file, url) {
+  try {
+    return await new Promise((resolve, reject) => {
+      const el = new Image()
+      el.onload = () => resolve(el)
+      el.onerror = () => reject(new Error('This photo could not be opened. Please try another one.'))
+      el.src = url
+    })
+  } catch (err) {
+    if (typeof createImageBitmap !== 'function') throw err
+    return await createImageBitmap(file).catch(() => {
+      throw err
+    })
   }
 }
 
