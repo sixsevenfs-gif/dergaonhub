@@ -7,7 +7,7 @@ import LocationPicker from '../../components/LocationPicker.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
 import { btnAccent, card, cx } from '../../components/ui.js'
 import { codAllowed, currentCustomer, customerSignIn, myWallet, nextDeliveryDate, phoneVerified, placeOrder } from '../../lib/store.js'
-import { clearRefCode, savedRefCode, walletRules, walletToUse } from '../../lib/wallet.js'
+import { activeGifts, clearRefCode, savedRefCode, validTill, walletPlan, walletRules } from '../../lib/wallet.js'
 import OtpSheet from '../../components/OtpSheet.jsx'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
@@ -207,7 +207,10 @@ export default function Checkout() {
   const fullTotal = Math.round((subtotal + (fee ?? 0) + packaging) * 100) / 100
   const rules = walletRules(store)
   const walletBalance = wallet && !wallet.locked ? wallet.balance : 0
-  const walletUse = useWallet ? walletToUse(walletBalance, store, fullTotal) : 0
+  // Gift money first (items only, from its minimum), then rewards up to the per-order limit (update 051).
+  const plan = walletPlan(wallet, store, subtotal, fullTotal)
+  const walletUse = useWallet ? plan.use : 0
+  const gifts = activeGifts(wallet)
   const total = Math.round((fullTotal - walletUse) * 100) / 100
   // Invite code box: only for a number with no orders yet (the database checks this again).
   const showInvite = !!wallet && rules.on && (wallet.locked || (!wallet.has_orders && !wallet.referred))
@@ -355,12 +358,6 @@ export default function Checkout() {
 
         <section className={`${card} space-y-3 p-3`}>
           <h2 className="px-1 pt-1 font-semibold">{other ? 'Their address' : 'Delivery address'}</h2>
-          {!manual && (
-            <InputRow icon={MapPin} label="Address / Landmark">
-              <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
-            </InputRow>
-          )}
-
           {manual ? (
             <>
               <div className="grid grid-cols-2 gap-3">
@@ -401,22 +398,38 @@ export default function Checkout() {
           <>
           <div className="relative overflow-hidden rounded-2xl border border-line">
             {/* A new map when switching between me and them, so each starts at its own pin. */}
-            <LocationPicker key={forWho} value={location} onChange={setLocationByHand} start={store.location} home={store.location} here={here} focus={focus} fixedPin twoFinger className="h-60 [&_.leaflet-bottom]:mb-0" />
+            <LocationPicker
+              key={forWho}
+              value={location}
+              onChange={setLocationByHand}
+              start={store.location}
+              home={store.location}
+              here={here}
+              focus={focus}
+              fixedPin
+              twoFinger
+              zoomButtons
+              pinLabel={location ? (other ? 'Their order comes here' : 'Your order comes here') : ''}
+              className="h-64 [&_.leaflet-bottom]:mb-0"
+            />
             <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-3">
-              <p className="rounded-lg bg-ink/90 px-3 py-1 text-center text-[11px] text-white shadow-lg">
-                {touchScreen ? 'Use two fingers to move the map to' : 'Move the map to place the pin on'} {other ? 'their' : 'your'} door
+              <p className="rounded-full bg-white/95 px-3 py-1 text-center text-[11px] font-semibold text-ink shadow-md">
+                {touchScreen ? 'Use two fingers to move the map' : `Move the map to place the pin on ${other ? 'their' : 'your'} door`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={locate}
-              disabled={locating}
-              className="absolute bottom-7 left-1/2 z-10 flex h-10 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-brand/70 bg-white px-4 text-xs font-semibold text-brand shadow-[0_6px_20px_rgb(0_0_0/0.35)] disabled:opacity-80"
-            >
-              <LocateFixed size={15} className={locating ? 'animate-pulse' : ''} />{' '}
-              {locating ? (accuracy ? (accuracy <= GPS_WORST_M && location ? `Improving location... ±${accuracy} m` : `Getting location... ±${accuracy} m`) : 'Finding you...') : other ? 'I am at their home' : 'Use current location'}
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={locate}
+            disabled={locating}
+            className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-brand px-4 text-[15px] font-semibold text-white shadow-[0_6px_16px_rgb(31_107_58/0.35)] active:scale-[.99] disabled:opacity-90"
+          >
+            <span className="relative flex h-6 w-6 items-center justify-center">
+              {!locating && <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />}
+              <LocateFixed size={20} className={cx('relative', locating && 'animate-spin [animation-duration:2s]')} />
+            </span>
+            {locating ? (accuracy ? (accuracy <= GPS_WORST_M && location ? `Improving location... ±${accuracy} m` : `Getting location... ±${accuracy} m`) : 'Finding you...') : other ? 'I am at their home: use my location' : 'Use my current location'}
+          </button>
           {locError && <p className="px-1 text-xs text-orange-700">{locError}</p>}
           {!locating && !locError && accuracy != null && (
             <p className={cx('px-1 text-xs', accuracy <= GPS_GOOD_M ? 'text-emerald-700' : 'font-semibold text-orange-700')}>{accuracyText(accuracy)}</p>
@@ -430,6 +443,12 @@ export default function Checkout() {
           </button>
           </>
           )}
+          {!manual && (
+            <InputRow icon={MapPin} label="Address / Landmark">
+              <input required value={addr.address} onChange={setAddr('address')} placeholder="House no., area, landmark..." autoComplete={other ? 'off' : 'street-address'} className={inputCls} />
+            </InputRow>
+          )}
+
 
           {manual ? null : !location ? (
             <p className="rounded-xl bg-black/5 p-3 text-sm text-muted">Set the pin on the map to see the delivery charge.</p>
@@ -547,14 +566,29 @@ export default function Checkout() {
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mint text-brand"><WalletMinimal size={20} /></span>
                 <span className="flex-1">
                   <span className="block font-semibold">Use Jholzo Money</span>
-                  <span className="text-xs text-muted">
-                    Balance {rupee(walletBalance)} · up to {rupee(rules.maxPerOrder)} per order
+                  <span className="block text-xs text-muted">
+                    {plan.use > 0 ? <><b className="text-brand">{rupee(plan.use)} off</b> this order · balance {rupee(walletBalance)}</> : <>Balance {rupee(walletBalance)}</>}
                   </span>
+                  {gifts.length > 0 && (
+                    <span className="block text-[11px] text-muted">Gift money is for items · valid till {validTill(gifts[0].expires_at)}</span>
+                  )}
+                  {Number(wallet?.general_balance) > 0 && (
+                    <span className="block text-[11px] text-muted">Reward money: up to {rupee(rules.maxPerOrder)} per order</span>
+                  )}
                 </span>
                 <span className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', useWallet ? 'bg-brand' : 'bg-black/20')}>
                   <span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white transition-all', useWallet ? 'left-[22px]' : 'left-0.5')} />
                 </span>
               </button>
+            )}
+            {useWallet && plan.nudge && (
+              <Link to="/cart" className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                <Gift size={20} className="shrink-0 text-amber-700" />
+                <span className="flex-1 text-sm">
+                  <span className="block font-semibold text-amber-900">Add {rupee(plan.nudge.need)} more to use your {rupee(plan.nudge.amount)} Jholzo Money</span>
+                  <span className="text-xs text-amber-800">Add a few more items and save {rupee(plan.nudge.amount)} on this order.</span>
+                </span>
+              </Link>
             )}
             {showInvite && (
               <InputRow icon={Ticket} label={`Invite code (first order) · get ${rupee(rules.friendReward)} after delivery`}>

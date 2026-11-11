@@ -7,7 +7,7 @@ import { btnAccent, card } from '../../components/ui.js'
 import { currentCustomer, getStore, myWallet } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { fmtDateTime, rupee } from '../../lib/format.js'
-import { ENTRY_LABEL, inviteLink, inviteMessage, walletRules } from '../../lib/wallet.js'
+import { activeGifts, ENTRY_LABEL, inviteLink, inviteMessage, validTill, walletRules } from '../../lib/wallet.js'
 
 function Header() {
   const navigate = useNavigate()
@@ -81,6 +81,36 @@ const steps = (r) => [
   [Truck, 'Order delivered', 'You both get Jholzo Money in your wallet.'],
 ]
 
+const GIFT_STATE = { used: 'Used', expired: 'Expired', cancelled: 'Ended' }
+
+// Gift money from Jholzo (update 051): what is left, from which order amount, until when.
+function Gifts({ gifts }) {
+  return (
+    <section className="mt-4">
+      <h2 className="text-[17px] font-semibold">Gifts from Jholzo</h2>
+      <div className="mt-3 space-y-2">
+        {gifts.map((g) => {
+          const live = g.status === 'active' && g.left > 0
+          return (
+            <div key={g.id} className={`flex items-center gap-3 rounded-2xl border p-4 ${live ? 'border-amber-300 bg-[#FFF8E6]' : 'border-line bg-black/[0.02] opacity-70'}`}>
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${live ? 'bg-[#F6C343] text-[#7A4B00]' : 'bg-black/10 text-muted'}`}><Gift size={21} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{rupee(g.left)} {live && g.left < g.amount ? `left of ${rupee(g.amount)}` : 'gift'}</span>
+                <span className="block text-xs text-muted">
+                  {live
+                    ? <>{g.min_order > 0 ? `On orders of ${rupee(g.min_order)} or more` : 'On any order'} · valid till {validTill(g.expires_at)}</>
+                    : <>{GIFT_STATE[g.status] ?? 'Ended'} · {validTill(g.expires_at)}</>}
+                </span>
+                {g.note && <span className="block truncate text-xs text-muted">{g.note}</span>}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function Wallet() {
   const me = currentCustomer()
   const { data: store } = useData(getStore)
@@ -100,8 +130,14 @@ export default function Wallet() {
             <WalletMinimal size={120} strokeWidth={1} className="absolute -bottom-6 -right-6 text-white/10" />
             <p className="text-sm text-white/80">Available balance</p>
             <p className="mt-1 text-[34px] font-bold leading-none">{rupee(wallet.locked ? 0 : wallet.balance)}</p>
-            <p className="mt-3 text-[13px] text-white/85">Use up to {rupee(r.maxPerOrder)} on every order at checkout.</p>
+            <p className="mt-3 text-[13px] text-white/85">
+              {activeGifts(wallet).length > 0
+                ? `Includes ${rupee(wallet.gift_balance)} gift money. It comes off your bill at checkout.`
+                : `Use up to ${rupee(r.maxPerOrder)} on every order at checkout.`}
+            </p>
           </section>
+
+          {!wallet.locked && wallet.gifts?.length > 0 && <Gifts gifts={wallet.gifts} />}
 
           {wallet.locked || !wallet.code ? (
             <section className={`${card} mt-4 p-5 text-center`}>

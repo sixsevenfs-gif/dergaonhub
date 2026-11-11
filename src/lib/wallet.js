@@ -20,6 +20,41 @@ export function walletRules(store) {
 export const walletToUse = (balance, store, total) =>
   Math.max(0, Math.min(Number(balance) || 0, walletRules(store).maxPerOrder, total))
 
+// Gift money from the owner (update 051) that has not expired, been taken back or used up, soonest to expire first.
+export const activeGifts = (wallet) =>
+  (wallet && !wallet.locked ? wallet.gifts ?? [] : [])
+    .filter((g) => g.status === 'active' && g.left > 0 && new Date(g.expires_at) > new Date())
+    .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
+
+// Jholzo Money on an order, same rules as place_order (update 051): gifts whose minimum the items total reaches pay
+// for items only (never the charges) with no per-order limit; the other money (rewards, refunds) pays up to the
+// per-order limit of what is left. nudge: the next gift the customer can unlock by adding items.
+export function walletPlan(wallet, store, subtotal, fullTotal) {
+  const gifts = activeGifts(wallet)
+  const usable = gifts.filter((g) => g.min_order <= subtotal)
+  const gift = Math.min(usable.reduce((s, g) => s + g.left, 0), subtotal)
+  const generalBalance = wallet && !wallet.locked ? Number(wallet.general_balance ?? wallet.balance) || 0 : 0
+  const general = walletToUse(generalBalance, store, Math.max(0, fullTotal - gift))
+  const locked = gifts.filter((g) => g.min_order > subtotal).sort((a, b) => a.min_order - b.min_order)[0]
+  return {
+    gift: round2(gift),
+    general: round2(general),
+    use: round2(gift + general),
+    nudge: locked ? { need: round2(locked.min_order - subtotal), amount: locked.left, minOrder: locked.min_order, expires_at: locked.expires_at } : null,
+  }
+}
+const round2 = (n) => Math.round(n * 100) / 100
+
+// "Valid till 15 Nov, 9:00 PM" (India time).
+export const validTill = (iso) =>
+  new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+
+// WhatsApp text for a gift. It never says from which order amount it works: the cart tells them that.
+export function giftMessage(name, amount, expiresAt) {
+  const first = String(name ?? '').trim().split(' ')[0]
+  return `Hi${first ? ` ${first}` : ''} 🎁\nJholzo has added *₹${Number(amount).toLocaleString('en-IN')} Jholzo Money* to your account!\nUse it on your next order before *${validTill(expiresAt)}*. It comes off your bill by itself at checkout.\nOrder now: https://jholzo.com 🛒`
+}
+
 // A link like jholzo.com/?ref=RAHUL482 saves the code until the first order is placed.
 export function captureRefFromUrl() {
   try {
@@ -60,4 +95,5 @@ export const ENTRY_LABEL = {
   order_payment: 'Used on order',
   refund: 'Refund',
   admin: 'From Jholzo',
+  gift: 'Gift from Jholzo',
 }

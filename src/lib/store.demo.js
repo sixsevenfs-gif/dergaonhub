@@ -281,6 +281,23 @@ function addEntry(customerId, amount, kind, orderId = null, note = '') {
   entries().push({ id: newId(), customer_id: customerId, amount, kind, order_id: orderId, note, created_at: now() })
 }
 
+// Gift money (same rules as supabase/migrations/051_gift_money.sql): amount + moves (used is minus, back is plus).
+const gifts = () => (db.gifts ??= [])
+const giftMoves = () => (db.gift_moves ??= [])
+const r2 = (n) => Math.round(n * 100) / 100
+const giftLeft = (g) => r2(g.amount + sum(giftMoves().filter((m) => m.gift_id === g.id), (m) => m.amount))
+const giftActive = (g) => !g.cancelled_at && new Date(g.expires_at) > new Date() && giftLeft(g) > 0
+const giftBalance = (customerId) => r2(sum(gifts().filter((g) => g.customer_id === customerId && giftActive(g)), (g) => giftLeft(g)))
+function addGiftMove(giftId, orderId, amount, kind) {
+  giftMoves().push({ id: newId(), gift_id: giftId, order_id: orderId, amount: r2(amount), kind, created_at: now() })
+}
+// Net gift money still used on an order, per gift.
+function giftUsedOn(orderId) {
+  const per = new Map()
+  for (const m of giftMoves()) if (m.order_id === orderId) per.set(m.gift_id, (per.get(m.gift_id) ?? 0) - m.amount)
+  return [...per].filter(([, v]) => v > 0.004)
+}
+
 // RAHUL482: up to 5 letters of the name + 3 digits, or JHOL + digits.
 function newReferralCode(name) {
   let base = (name ?? '').replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase()
@@ -297,9 +314,11 @@ function walletOnStatus(o, from) {
   if (o.status === from) return
   const rules = walletRules(db.store)
   const meId = ordererId(o)
-  if (o.status === 'cancelled' && o.wallet_used > 0 && !entries().some((e) => e.order_id === o.id && e.kind === 'refund')) {
-    addEntry(meId, o.wallet_used, 'refund', o.id, `Order ${o.order_number} cancelled`)
+  const general = r2((o.wallet_used ?? 0) - (o.gift_used ?? 0))
+  if (o.status === 'cancelled' && general > 0 && !entries().some((e) => e.order_id === o.id && e.kind === 'refund')) {
+    addEntry(meId, general, 'refund', o.id, `Order ${o.order_number} cancelled`)
   }
+  if (o.status === 'cancelled') for (const [giftId, used] of giftUsedOn(o.id)) addGiftMove(giftId, o.id, used, 'refund')
   if (o.status === 'completed' && rules.on) {
     const me = db.customers.find((c) => c.id === meId)
     const firstDelivered = !db.orders.some((x) => x.id !== o.id && x.status === 'completed' && ordererId(x) === meId)
@@ -323,7 +342,7 @@ export async function myWallet(phone) {
   const owns = (db.verified ?? []).includes(ph) || db.orders.some((o) => o.ordered_by_phone === ph || (o.customer_phone === ph && !o.ordered_by_phone))
   if (!owns) return { locked: true }
   // Verified but never ordered: the invite code comes with the first order (with their name).
-  if (!c) return { locked: false, code: null, balance: 0, referred: false, has_orders: false, entries: [], friends: [] }
+  if (!c) return { locked: false, code: null, balance: 0, general_balance: 0, gift_balance: 0, referred: false, has_orders: false, entries: [], friends: [], gifts: [] }
   if (!c.referral_code) {
     c.referral_code = newReferralCode(c.name)
     commit()
@@ -332,7 +351,13 @@ export async function myWallet(phone) {
   return clone({
     locked: false,
     code: c.referral_code,
-    balance: balanceOf(c.id),
+    balance: r2(balanceOf(c.id) + giftBalance(c.id)),
+    general_balance: balanceOf(c.id),
+    gift_balance: giftBalance(c.id),
+    gifts: gifts().filter((g) => g.customer_id === c.id && (giftActive(g) || Date.now() - new Date(g.cancelled_at ?? g.expires_at) < 30 * 86400000))
+      .sort((a, b) => a.expires_at.localeCompare(b.expires_at))
+      .map((g) => ({ id: g.id, amount: g.amount, left: Math.max(0, giftLeft(g)), min_order: g.min_order, expires_at: g.expires_at, note: g.note, created_at: g.created_at,
+        status: g.cancelled_at ? 'cancelled' : giftLeft(g) <= 0 ? 'used' : new Date(g.expires_at) <= new Date() ? 'expired' : 'active' })),
     referred: !!c.referred_by,
     has_orders: db.orders.some((o) => ordererId(o) === c.id || o.customer_id === c.id),
     entries: entries().filter((e) => e.customer_id === c.id).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 50)
@@ -343,6 +368,27 @@ export async function myWallet(phone) {
       earned: entries().some((e) => e.customer_id === c.id && e.kind === 'referral_bonus' && ordererId(db.orders.find((o) => o.id === e.order_id) ?? {}) === f.id),
     })),
   })
+}
+
+export async function adminGiftAdd(customerId, { amount, minOrder, expiresAt, note }) {
+  const value = r2(Number(amount))
+  if (!(value > 0)) fail('Enter how much Jholzo Money to give.')
+  if (value > 10000) fail('That is too much for one gift (₹10,000 at most).')
+  const min = Math.round(Number(minOrder) || 0)
+  if (min < 0) fail('Enter the order amount needed (0 for any order).')
+  const at = new Date(expiresAt)
+  if (!(at > new Date())) fail('Choose a date and time in the future.')
+  db.customers.find((c) => c.id === customerId) ?? fail('Customer not found.')
+  const g = { id: newId(), customer_id: customerId, amount: value, min_order: min, expires_at: at.toISOString(), note: note?.trim() ?? '', created_at: now(), cancelled_at: null }
+  gifts().push(g)
+  commit()
+  return g.id
+}
+
+export async function adminGiftCancel(giftId) {
+  const g = gifts().find((x) => x.id === giftId) ?? fail('Gift not found.')
+  g.cancelled_at ??= now()
+  commit()
 }
 
 export async function adminWalletAdjust(customerId, amount, note) {
@@ -441,9 +487,25 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
       fail('Invite codes work only on your first order. Please remove the code.')
     }
   }
-  // Jholzo Money: up to the per-order limit (the demo has one phone, so it always owns the number).
-  const walletUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
-  total = Math.round((total - walletUsed) * 100) / 100
+  // Jholzo Money (the demo has one phone, so it always owns the number). Gifts first: those whose minimum the items
+  // total reaches, soonest to expire first, on the items only, no per-order limit (update 051). Then the other money
+  // up to the per-order limit.
+  const giftUses = []
+  if (use_wallet && me) {
+    let itemsLeft = subtotal
+    for (const g of gifts().filter((x) => x.customer_id === me.id && giftActive(x) && x.min_order <= subtotal)
+      .sort((a, b) => a.expires_at.localeCompare(b.expires_at) || a.created_at.localeCompare(b.created_at))) {
+      if (itemsLeft <= 0) break
+      const take = r2(Math.min(giftLeft(g), itemsLeft))
+      if (take > 0) giftUses.push([g.id, take])
+      itemsLeft = r2(itemsLeft - take)
+    }
+  }
+  const giftUsed = r2(sum(giftUses, ([, v]) => v))
+  total = r2(total - giftUsed)
+  const generalUsed = use_wallet && me ? Math.max(0, Math.min(balanceOf(me.id), rules.maxPerOrder, total)) : 0
+  const walletUsed = r2(giftUsed + generalUsed)
+  total = r2(total - generalUsed)
 
   // Big orders pay online first while UPI works (update 039).
   if (payment_method !== 'upi_now' && store.upi_on !== false && store.upi_id && total > (store.cod_limit ?? 350)) {
@@ -471,7 +533,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
     address: address.trim(), area, location: location ? { lat: location.lat, lng: location.lng } : null, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, total, payment_method, cash_collected: 0,
+    orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, gift_used: giftUsed, total, payment_method, cash_collected: 0,
     payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
     // Cash orders are confirmed at once (update 037); pay-now UPI orders wait for the payment check.
     delivery_date: express ? dateStr() : pickDate(), status: payment_method === 'upi_now' ? 'placed' : 'confirmed', cancel_reason: '',
@@ -486,7 +548,8 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   db.order_item_costs ??= {}
   for (const i of items) if (db.product_costs?.[i.product_id] != null) db.order_item_costs[i.id] = db.product_costs[i.product_id]
   db.carts = (db.carts ?? []).filter((c) => c.phone !== order.customer_phone && c.phone !== order.ordered_by_phone)
-  if (walletUsed > 0) addEntry(me.id, -walletUsed, 'order_payment', order.id, `Used on order ${order.order_number}`)
+  if (generalUsed > 0) addEntry(me.id, -generalUsed, 'order_payment', order.id, `Used on order ${order.order_number}`)
+  for (const [giftId, v] of giftUses) addGiftMove(giftId, order.id, -v, 'used')
   commit()
   return clone(order)
 }
@@ -734,6 +797,7 @@ export async function adminDeleteOrders(ids) {
     }
   }
   db.wallet = entries().filter((e) => !gone.has(e.order_id))
+  db.gift_moves = giftMoves().filter((m) => !gone.has(m.order_id))
   db.orders = db.orders.filter((o) => !gone.has(o.id))
   db.order_items = db.order_items.filter((i) => !gone.has(i.order_id))
   db.complaints = db.complaints.filter((k) => !gone.has(k.order_id))
@@ -744,6 +808,8 @@ export async function adminDeleteOrders(ids) {
   // Their Jholzo Money goes with them (like "on delete cascade" in the database).
   const alive = new Set(db.customers.map((c) => c.id))
   db.wallet = entries().filter((e) => alive.has(e.customer_id))
+  db.gifts = gifts().filter((g) => alive.has(g.customer_id))
+  db.gift_moves = giftMoves().filter((m) => db.gifts.some((g) => g.id === m.gift_id))
   commit()
   return { orders: orders.length, customers: before - db.customers.length }
 }
@@ -754,7 +820,8 @@ export async function adminCheckDeleteCode(code) {
 }
 
 export async function adminWallets() {
-  return walletReport(db.customers, entries(), db.orders)
+  const orders = db.orders.map((o) => ({ ...o, order_items: itemsOf(o.id) }))
+  return walletReport(db.customers, entries(), orders, gifts(), giftMoves())
 }
 
 // An item was not found at the shop: remove it and recalculate the total.
@@ -766,6 +833,20 @@ export async function removeOrderItem(orderId, itemId) {
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
   o.packaging_fee = packagingFee(db.store, o.subtotal)
+  // Gift money pays for items only: above the new items total it goes back to the gifts, longest-lasting first.
+  let back = r2((o.gift_used ?? 0) - o.subtotal)
+  if (back > 0) {
+    const used = giftUsedOn(o.id).map(([id, v]) => [gifts().find((g) => g.id === id), v]).sort((a, b) => b[0].expires_at.localeCompare(a[0].expires_at))
+    let given = 0
+    for (const [g, v] of used) {
+      const give = r2(Math.min(v, back - given))
+      if (give <= 0) break
+      addGiftMove(g.id, o.id, give, 'returned')
+      given = r2(given + give)
+    }
+    o.gift_used = r2(o.gift_used - given)
+    o.wallet_used = r2(o.wallet_used - given)
+  }
   o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee - (o.wallet_used ?? 0))
   commit()
 }
@@ -882,7 +963,7 @@ export async function adminListCustomers() {
     db.customers
       .map((c) => ({
         ...c, orders: db.orders.filter((o) => o.customer_id === c.id).length, completed: completedCount(c.id),
-        wallet: balanceOf(c.id), referred_by_name: db.customers.find((x) => x.id === c.referred_by)?.name ?? '',
+        wallet: r2(balanceOf(c.id) + giftBalance(c.id)), referred_by_name: db.customers.find((x) => x.id === c.referred_by)?.name ?? '',
       }))
       .sort((a, b) => b.no_show_count - a.no_show_count || a.name.localeCompare(b.name)),
   )
@@ -1394,6 +1475,7 @@ export async function submitUpiRef(orderNumber, ref) {
     if (o.cancel_reason !== 'Not paid in time') fail('This order is cancelled. Please call us.')
     // Paid after the timer: the order comes back, and the Jholzo Money given back is used on it again.
     db.wallet = entries().filter((e) => !(e.order_id === o.id && e.kind === 'refund'))
+    db.gift_moves = giftMoves().filter((m) => !(m.order_id === o.id && m.kind === 'refund'))
     Object.assign(o, { status: 'placed', cancel_reason: '' })
   }
   o.upi_ref = r

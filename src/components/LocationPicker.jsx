@@ -17,7 +17,9 @@ const same = (a, b) => Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng)
 // radiusKm: draws the delivery area around the pin as a radar circle (road km, so the circle is radiusKm / ROAD_FACTOR).
 // twoFinger: for a map inside a scrolling page (checkout). On a phone one finger scrolls the page and two fingers
 // move the map, so scrolling past the map never moves the pin; a tap doesn't move it either.
-export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, twoFinger = false, className = 'h-56' }) {
+// pinLabel: a short note shown above the fixed pin while the map is still. zoomButtons: + and − on the map
+// (they zoom around the middle, so the pin stays put), for people who don't pinch.
+export default function LocationPicker({ value, onChange, start, home, here, focus, radiusKm, fixedPin = false, twoFinger = false, pinLabel = '', zoomButtons = false, className = 'h-56' }) {
   const box = useRef(null)
   const map = useRef(null)
   const pin = useRef(null)
@@ -176,6 +178,13 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
   return (
     <div className={`relative w-full overflow-hidden ${className}`}>
       <div ref={box} className="isolate z-0 h-full w-full" />
+      {zoomButtons && (
+        <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-line bg-white shadow-md">
+          <button type="button" aria-label="Zoom in" onClick={() => map.current?.zoomIn()} className="flex h-10 w-10 items-center justify-center text-xl font-semibold text-ink active:bg-black/5">+</button>
+          <span className="h-px bg-line" />
+          <button type="button" aria-label="Zoom out" onClick={() => map.current?.zoomOut()} className="flex h-10 w-10 items-center justify-center text-xl font-semibold text-ink active:bg-black/5">−</button>
+        </div>
+      )}
       {twoFingerHint && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/35">
           <p className="rounded-lg bg-ink/90 px-3 py-2 text-sm font-semibold text-white">Use two fingers to move the map</p>
@@ -183,6 +192,11 @@ export default function LocationPicker({ value, onChange, start, home, here, foc
       )}
       {/* The pin is drawn over the map, so its tip always marks the middle of the map. */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-10">
+        {pinLabel && (
+          <span className={`absolute -top-[86px] left-0 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg transition-opacity duration-150 after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-[5px] after:border-transparent after:border-t-ink ${moving ? 'opacity-0' : ''}`}>
+            {pinLabel}
+          </span>
+        )}
         <span className={`absolute -left-[7px] -top-[3px] h-1.5 w-3.5 rounded-full bg-black/35 transition-transform duration-150 ${moving ? 'scale-50' : ''}`} />
         <svg width="38" height="50" viewBox="0 0 38 50" className={`absolute -left-[19px] -top-[50px] drop-shadow-md transition-transform duration-150 ${moving ? '-translate-y-2.5' : ''}`}>
           <path d="M19 49C19 49 2 30 2 18.5 2 8.8 9.6 1.5 19 1.5S36 8.8 36 18.5C36 30 19 49 19 49Z" fill="#1F6B3A" />

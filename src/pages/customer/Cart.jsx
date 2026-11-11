@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, ArrowRight, BadgePercent, ChevronRight, FileText, ShoppingCart, Trash2, Truck, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, BadgePercent, ChevronRight, FileText, Gift, ShoppingCart, Trash2, Truck, WalletMinimal, X } from 'lucide-react'
 import Stepper from '../../components/Stepper.jsx'
 import BottomNav from '../../components/BottomNav.jsx'
 import { ProductTile } from '../../components/ProductCard.jsx'
@@ -11,7 +11,8 @@ import OutOfArea from '../../components/OutOfArea.jsx'
 import { useCart } from '../../lib/cart-context.js'
 import { itemsText, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
-import { nextDeliveryDate } from '../../lib/store.js'
+import { currentCustomer, myWallet, nextDeliveryDate } from '../../lib/store.js'
+import { activeGifts, validTill, walletPlan } from '../../lib/wallet.js'
 
 function CartHeader({ onClear }) {
   const navigate = useNavigate()
@@ -37,6 +38,9 @@ export default function Cart() {
   const { location } = useSavedDelivery()
   // Real delivery day: a full evening moves orders to the next free day.
   const { data: deliveryDay } = useData(nextDeliveryDate)
+  // Jholzo Money of the logged-in customer: what comes off at checkout, and a gift they can unlock by adding items.
+  const me = currentCustomer()
+  const { data: wallet } = useData(() => (me ? myWallet(me.phone) : null), [me?.phone])
 
   if (!ready) return null
   if (!lines.length) {
@@ -64,6 +68,8 @@ export default function Cart() {
   const quote = deliveryQuote(store, location)
   const packaging = packagingFee(store, subtotal)
   const itemCount = lines.reduce((s, l) => s + l.qty, 0)
+  const plan = walletPlan(wallet, store, subtotal, subtotal + packaging + delivery)
+  const gifts = activeGifts(wallet)
   const clearCart = () => {
     if (window.confirm('Remove all items from your cart?')) lines.forEach((l) => setQty(l.id, 0))
   }
@@ -142,6 +148,25 @@ export default function Cart() {
         </Link>
       )}
 
+      {plan.nudge && (
+        <Link to="/" className="mt-3 flex items-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-[#FFF7E0] p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700"><Gift size={22} /></span>
+          <span className="flex-1">
+            <span className="block font-semibold text-amber-900">Add {rupee(plan.nudge.need)} more and save {rupee(plan.nudge.amount)}!</span>
+            <span className="text-sm text-amber-800">Your {rupee(plan.nudge.amount)} Jholzo Money is waiting. Add a little more to use it · valid till {validTill(plan.nudge.expires_at)}</span>
+          </span>
+          <ChevronRight size={20} className="text-amber-700" />
+        </Link>
+      )}
+      {plan.use > 0 && (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-brand/30 bg-mint-soft p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mint text-brand"><WalletMinimal size={22} /></span>
+          <span className="flex-1">
+            <span className="block font-semibold text-brand">{rupee(plan.use)} Jholzo Money comes off at checkout 🎉</span>
+            {gifts.length > 0 && plan.gift > 0 && <span className="text-sm text-muted">Gift money valid till {validTill(gifts[0].expires_at)}</span>}
+          </span>
+        </div>
+      )}
       <div className={`${card} mt-3 flex items-center gap-3 p-4`}>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mint text-brand"><Truck size={20} /></span>
         <span className="text-sm">
@@ -157,11 +182,12 @@ export default function Cart() {
         <div className="flex justify-between"><span>Subtotal</span><span>{rupee(subtotal)}</span></div>
         <div className="flex justify-between"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
         <div className="flex justify-between"><span>Delivery charge (evening)</span>{delivery === 0 ? <b className="font-semibold text-brand">FREE</b> : <span>{rupee(delivery)}</span>}</div>
+        {plan.use > 0 && <div className="flex justify-between font-medium text-brand"><span>Jholzo Money</span><span>−{rupee(plan.use)}</span></div>}
       </div>
 
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-mint px-5 py-4">
         <span className="font-medium text-ink">{itemsText(itemCount)}</span>
-        <span className="text-xl font-semibold text-ink">{rupee(subtotal + packaging + delivery)}</span>
+        <span className="text-xl font-semibold text-ink">{rupee(Math.round((subtotal + packaging + delivery - plan.use) * 100) / 100)}</span>
       </div>
       {savings > 0 && (
         <p className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-brand">

@@ -7,6 +7,7 @@ import Footer from '../../components/Footer.jsx'
 import BottomNav from '../../components/BottomNav.jsx'
 import HeroSlider from '../../components/HeroSlider.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
+import GiftBanner from '../../components/GiftBanner.jsx'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import { deliveryQuote, deliveryRules, expressStatus, expressTimeText } from '../../lib/delivery.js'
 import ProductCard, { ProductTile } from '../../components/ProductCard.jsx'
@@ -178,6 +179,8 @@ export default function Home() {
           />
         </div>
       </header>
+
+      <GiftBanner />
 
       {quote?.tooFar && (
         <div className="mt-4"><OutOfArea location={location} label={location.label} km={quote.km} /></div>

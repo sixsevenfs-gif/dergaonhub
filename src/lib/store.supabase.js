@@ -584,18 +584,51 @@ export async function adminCheckDeleteCode(code) {
   return check(await sb.rpc('admin_check_delete_code', { p_code: String(code ?? '') })) === true
 }
 
-// Admin → Jholzo Money: balance and history of every customer who has any.
+// Every row of a select, 1000 at a time (Supabase sends at most 1000 per request). optional: a missing table
+// (an update not run yet) gives no rows instead of an error.
+async function allRows(build, optional = false) {
+  const out = []
+  for (let from = 0; ; from += 1000) {
+    const res = await build().range(from, from + 999)
+    if (res.error && optional) return out
+    const rows = check(res)
+    out.push(...rows)
+    if (rows.length < 1000) return out
+  }
+}
+
+const WALLET_ORDER_COLS = 'id, order_number, created_at, completed_at, status, cancel_reason, subtotal, total, wallet_used, payment_method, customer_id, orderer_id, customer_name, order_items(name_snapshot, quantity, line_total)'
+
+// Admin → Jholzo Money: every customer with a delivered order or any Jholzo Money: balance, history, gifts
+// (update 051) and what they bought.
 export async function adminWallets() {
-  const [customers, entries] = await Promise.all([
-    sb.from('customers').select('id, name, phone, referral_code, referred_by').then(check),
-    // Before update 017 there is no wallet: nothing to show.
-    sb.from('wallet_entries').select('*').order('created_at', { ascending: false }).then((res) => res.data ?? []),
+  const [customers, entries, orders, gifts, moves] = await Promise.all([
+    allRows(() => sb.from('customers').select('id, name, phone, referral_code, referred_by, created_at').order('id')),
+    // Before update 017 there is no wallet, before 051 no gifts: nothing to show for those.
+    allRows(() => sb.from('wallet_entries').select('*').order('id'), true),
+    allRows(() => sb.from('orders').select(WALLET_ORDER_COLS).order('id')),
+    allRows(() => sb.from('wallet_gifts').select('*').order('id'), true),
+    allRows(() => sb.from('wallet_gift_moves').select('*').order('id'), true),
   ])
-  const ids = [...new Set(entries.map((e) => e.order_id).filter(Boolean))]
-  const orders = ids.length
-    ? check(await sb.from('orders').select('id, order_number, customer_id, orderer_id').in('id', ids))
-    : []
-  return walletReport(customers, entries, orders)
+  return walletReport(customers, entries, orders, gifts, moves)
+}
+
+// Owner: give gift money (update 051). minOrder: items total needed to use it (0 = any order).
+export async function adminGiftAdd(customerId, { amount, minOrder, expiresAt, note }) {
+  const res = await sb.rpc('admin_gift_add', {
+    p_customer_id: customerId, p_amount: Number(amount), p_min_order: Math.max(0, Math.round(Number(minOrder) || 0)),
+    p_expires_at: new Date(expiresAt).toISOString(), p_note: note ?? '',
+  })
+  if (missingFunction(res.error)) fail('Run database update 051 first (Supabase → SQL Editor).')
+  const id = check(res)
+  notify()
+  return id
+}
+
+// Owner: take a gift back; what is left of it disappears.
+export async function adminGiftCancel(giftId) {
+  check(await sb.rpc('admin_gift_cancel', { p_gift_id: giftId }))
+  notify()
 }
 
 // An item was not found at the shop: remove it and recalculate the total (in the database after 032).
@@ -764,18 +797,24 @@ export async function setDailyExpense(date, amount, note = '') {
 /* ---------- admin: customers ---------- */
 
 export async function adminListCustomers() {
-  const [customers, orders, money] = await Promise.all([
+  const [customers, orders, money, gifts, moves] = await Promise.all([
     sb.from('customers').select('*').then(check),
     sb.from('orders').select('customer_id, status').then(check),
-    // Before update 017 there is no wallet: everyone shows ₹0.
+    // Before update 017 there is no wallet (everyone shows ₹0), before 051 no gifts.
     sb.from('wallet_entries').select('customer_id, amount').then((res) => res.data ?? []),
+    sb.from('wallet_gifts').select('id, customer_id, amount, expires_at, cancelled_at').then((res) => res.data ?? []),
+    sb.from('wallet_gift_moves').select('gift_id, amount').then((res) => res.data ?? []),
   ])
+  // Gift money still usable (not expired, not taken back) counts in the balance.
+  const giftLeft = (g) => Number(g.amount) + sum(moves.filter((m) => m.gift_id === g.id), (m) => Number(m.amount))
+  const liveGifts = gifts.filter((g) => !g.cancelled_at && new Date(g.expires_at) > new Date())
   return customers
     .map((c) => ({
       ...c,
       orders: orders.filter((o) => o.customer_id === c.id).length,
       completed: orders.filter((o) => o.customer_id === c.id && o.status === 'completed').length,
-      wallet: sum(money.filter((m) => m.customer_id === c.id), (m) => Number(m.amount)),
+      wallet: sum(money.filter((m) => m.customer_id === c.id), (m) => Number(m.amount))
+        + sum(liveGifts.filter((g) => g.customer_id === c.id), (g) => Math.max(0, giftLeft(g))),
       referred_by_name: customers.find((x) => x.id === c.referred_by)?.name ?? '',
     }))
     .sort((a, b) => b.no_show_count - a.no_show_count || a.name.localeCompare(b.name))
@@ -1240,7 +1279,15 @@ export async function myWallet(phone) {
   await session()
   const { data, error } = await sb.rpc('my_wallet', { p_phone: ph })
   if (error) return null
-  return data && { ...data, balance: Number(data.balance ?? 0), entries: (data.entries ?? []).map((e) => ({ ...e, amount: Number(e.amount) })) }
+  // Before update 051 there are no gifts and the whole balance is the other money.
+  return data && {
+    ...data,
+    balance: Number(data.balance ?? 0),
+    general_balance: Number(data.general_balance ?? data.balance ?? 0),
+    gift_balance: Number(data.gift_balance ?? 0),
+    entries: (data.entries ?? []).map((e) => ({ ...e, amount: Number(e.amount) })),
+    gifts: (data.gifts ?? []).map((g) => ({ ...g, amount: Number(g.amount), left: Number(g.left), min_order: Number(g.min_order) })),
+  }
 }
 
 // Admin: add (or, with a minus amount, take back) money by hand, with a reason.
