@@ -50,9 +50,17 @@ export const validTill = (iso) =>
   new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
 
 // WhatsApp text for a gift. It never says from which order amount it works: the cart tells them that.
+// Only emoji from the basic set (⭐ ⏰ ✅ ➜): newer ones like 🎁 break in WhatsApp links on a Mac. No *bold* marks.
 export function giftMessage(name, amount, expiresAt) {
   const first = String(name ?? '').trim().split(' ')[0]
-  return `Hi${first ? ` ${first}` : ''} 🎁\nJholzo has added *₹${Number(amount).toLocaleString('en-IN')} Jholzo Money* to your account!\nUse it on your next order before *${validTill(expiresAt)}*. It comes off your bill by itself at checkout.\nOrder now: https://jholzo.com 🛒`
+  const till = validTill(expiresAt).replace(/\b(am|pm)\b/, (m) => m.toUpperCase())
+  return [
+    `Hi${first ? ` ${first}` : ''} ⭐`,
+    `₹${Number(amount).toLocaleString('en-IN')} Jholzo Money is waiting in your Jholzo account!`,
+    `⏰ Only till ${till}. After that it expires.`,
+    'It comes off your bill by itself at checkout ✅',
+    'Order now ➜ https://jholzo.com',
+  ].join('\n')
 }
 
 // A link like jholzo.com/?ref=RAHUL482 saves the code until the first order is placed.
