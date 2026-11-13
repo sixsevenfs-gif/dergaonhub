@@ -43,17 +43,42 @@ const daysFromNow = (n) => {
 const VALID_FOR = [[0, 'Today'], [3, '3 days'], [7, '7 days'], [15, '15 days'], [30, '30 days']]
 const MIN_PRESETS = [0, 199, 299, 499]
 
+// WhatsApp on a Mac turns emoji in a link's text into "�", so there the message is copied and the chat opens empty:
+// the owner pastes it (Cmd+V) and the emoji stay right. Phones get the message filled in.
+const isMacDesktop = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform ?? '') && !(navigator.maxTouchPoints > 1)
+
 function WhatsAppButton({ customer, amount, expiresAt, label = 'Send on WhatsApp', small = false }) {
-  if (cleanPhone(customer.phone).length !== 10) return null
+  const [copied, setCopied] = useState(false)
+  const phone = cleanPhone(customer.phone)
+  if (phone.length !== 10) return null
+  const text = giftMessage(customer.name, amount, expiresAt)
+  const open = async (e) => {
+    if (!isMacDesktop) return // the link fills in the message
+    e.preventDefault()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 6000)
+    } catch {
+      // clipboard blocked: open with the text filled in after all
+      window.open(waLink(toWa(phone), text), '_blank', 'noreferrer')
+      return
+    }
+    window.open(waLink(toWa(phone)), '_blank', 'noreferrer')
+  }
   return (
-    <a
-      href={waLink(toWa(cleanPhone(customer.phone)), giftMessage(customer.name, amount, expiresAt))}
-      target="_blank"
-      rel="noreferrer"
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] font-semibold text-white ${small ? 'h-8 px-2.5 text-xs' : 'min-h-11 w-full px-4 text-sm'}`}
-    >
-      <WhatsAppIcon size={small ? 15 : 18} /> {label}
-    </a>
+    <span className={`inline-flex flex-col gap-1 ${small ? '' : 'w-full'}`}>
+      <a
+        href={waLink(toWa(phone), text)}
+        onClick={open}
+        target="_blank"
+        rel="noreferrer"
+        className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] font-semibold text-white ${small ? 'h-8 px-2.5 text-xs' : 'min-h-11 w-full px-4 text-sm'}`}
+      >
+        <WhatsAppIcon size={small ? 15 : 18} /> {label}
+      </a>
+      {copied && <span className="text-[11px] font-semibold text-green-800">Message copied. In WhatsApp press Cmd + V, then send.</span>}
+    </span>
   )
 }
 
