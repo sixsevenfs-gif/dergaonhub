@@ -42,6 +42,8 @@ const daysFromNow = (n) => {
 }
 const VALID_FOR = [[0, 'Today'], [3, '3 days'], [7, '7 days'], [15, '15 days'], [30, '30 days']]
 const MIN_PRESETS = [0, 199, 299, 499]
+// Ready notes for the gift (the customer sees it in their wallet); "other" opens a box for any occasion.
+const NOTE_PRESETS = [['', 'No note'], ["Children's Day special 🎈", "Children's Day special 🎈"], ['other', 'Others']]
 
 // WhatsApp on a Mac turns emoji in a link's text into "�", so there the message is copied and the chat opens empty:
 // the owner pastes it (Cmd+V) and the emoji stay right. Phones get the message filled in.
@@ -87,7 +89,8 @@ function GiveMoney({ customer }) {
   const [amount, setAmount] = useState('')
   const [minOrder, setMinOrder] = useState('0')
   const [until, setUntil] = useState(() => daysFromNow(7))
-  const [note, setNote] = useState('')
+  const [noteChoice, setNoteChoice] = useState('')
+  const [note, setNote] = useState('') // the occasion typed under Others
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [given, setGiven] = useState(null)
@@ -99,9 +102,10 @@ function GiveMoney({ customer }) {
     setError('')
     if (!(value > 0)) return setError('Enter how much Jholzo Money to give.')
     if (!until || !(new Date(until) > new Date())) return setError('Choose a date and time in the future.')
+    if (noteChoice === 'other' && !note.trim()) return setError('Write the occasion name, or choose No note.')
     setBusy(true)
     try {
-      await adminGiftAdd(customer.id, { amount: value, minOrder: min, expiresAt: new Date(until), note: note.trim() })
+      await adminGiftAdd(customer.id, { amount: value, minOrder: min, expiresAt: new Date(until), note: noteChoice === 'other' ? note.trim() : noteChoice })
       setGiven({ amount: value, expiresAt: new Date(until).toISOString() })
       setAmount('')
       setNote('')
@@ -158,8 +162,15 @@ function GiveMoney({ customer }) {
       </div>
       <input id={`until-${customer.id}`} type="datetime-local" value={until} onChange={(e) => setUntil(e.target.value)} className={`${lfield} mt-2`} />
 
-      <label className="mt-3 block text-xs font-semibold text-neutral-600" htmlFor={`note-${customer.id}`}>Note (optional, the customer sees it)</label>
-      <input id={`note-${customer.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Diwali gift" className={`${lfield} mt-1`} />
+      <p className="mt-3 text-xs font-semibold text-neutral-600">Occasion (the customer sees it)</p>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {NOTE_PRESETS.map(([v, label]) => (
+          <button key={v} type="button" onClick={() => setNoteChoice(v)} className={chip(noteChoice === v)}>{label}</button>
+        ))}
+      </div>
+      {noteChoice === 'other' && (
+        <input id={`note-${customer.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Occasion name, e.g. Diwali special" autoFocus className={`${lfield} mt-2`} />
+      )}
 
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       <button type="submit" disabled={busy} className={`${lbtnDark} mt-3 w-full`}>
