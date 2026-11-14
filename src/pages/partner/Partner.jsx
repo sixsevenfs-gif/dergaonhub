@@ -4,6 +4,7 @@ import { Check, ChevronDown, HandCoins, LogOut, RefreshCw, ShoppingBasket } from
 import Wordmark from '../../components/Wordmark.jsx'
 import PartnerLogin from './PartnerLogin.jsx'
 import PartnerOrderCard from './PartnerOrderCard.jsx'
+import StockButton from './StockSheet.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
 import { adminSignOut, getStore, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
@@ -245,6 +246,8 @@ function PartnerRun({ session }) {
           )}
         </section>
       )}
+
+      <StockButton />
 
       {error && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{error.message}</p>}
 

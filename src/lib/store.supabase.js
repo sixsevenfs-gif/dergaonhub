@@ -8,6 +8,7 @@ import { walletReport } from './walletReport.js'
 import { cartRows } from './carts.js'
 import { COST_DEFAULTS, dayProfit } from './profit.js'
 import { salesTotals } from './report.js'
+import { linkPartnerApp, partnerAppSignedOut, partnerAppUser } from './partnerApp.js'
 
 const CUSTOMER_KEY = 'dergaonhub-customer'
 const listeners = new Set()
@@ -74,6 +75,7 @@ export async function adminSignIn(email, password) {
 
 export async function adminSignOut() {
   await sb.auth.signOut()
+  partnerAppSignedOut()
   ready = null
   notify()
 }
@@ -927,14 +929,18 @@ export async function partnerSession() {
   const user = data.session?.user
   if (!user || user.is_anonymous) return { email: '', role: '' }
   const [isAdmin, isRider] = await Promise.all([sb.rpc('is_admin').then(check), sb.rpc('is_rider').then(check)])
-  return { email: user.email, userId: user.id, role: isAdmin ? 'admin' : isRider ? 'rider' : '' }
+  const role = isAdmin ? 'admin' : isRider ? 'rider' : ''
+  partnerAppUser(role ? user.id : '') // Jholzo Partner app: its order alerts must belong to this login
+  return { email: user.email, userId: user.id, role }
 }
 
 export async function partnerSignIn(email, password) {
   check(await sb.auth.signInWithPassword({ email: email.trim(), password }))
+  await linkPartnerApp(email.trim(), password) // only inside the Jholzo Partner app: its login for order alerts
   const s = await partnerSession()
   if (!s.role) {
     await sb.auth.signOut()
+    partnerAppSignedOut()
     ready = null
     fail('This login is not a delivery partner.')
   }

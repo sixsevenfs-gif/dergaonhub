@@ -2,6 +2,7 @@
 // so amounts are written as "Rs. 285".
 import { jsPDF } from 'jspdf'
 import { LEGAL } from '../config.js'
+import { inPartnerApp, partnerAppShare } from './partnerApp.js'
 
 const rs = (n) => {
   const v = Math.round((Number(n) || 0) * 100) / 100
@@ -134,7 +135,10 @@ export function downloadBill(data) {
 // "Can't send empty message". Returns false where sharing files does not work (most computers,
 // or the share failed): the caller then downloads it or opens WhatsApp with the text bill.
 export async function shareBill(data) {
-  const file = new File([billPdf(data).output('blob')], billFileName(data.order), { type: 'application/pdf' })
+  const blob = billPdf(data).output('blob')
+  // Inside the Jholzo Partner app the page cannot share files itself; the app opens the share sheet.
+  if (inPartnerApp()) return partnerAppShare(blob, billFileName(data.order))
+  const file = new File([blob], billFileName(data.order), { type: 'application/pdf' })
   if (!navigator.canShare?.({ files: [file] })) return false
   try {
     await navigator.share({ files: [file] })
