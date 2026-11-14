@@ -270,6 +270,17 @@ export default function AdminOrderDetail() {
               )}
             </div>
           ))}
+          {(data.removed ?? []).map((r) => (
+            <div key={r.id} className="flex items-center gap-2 py-2 text-neutral-500">
+              <span className="flex-1">
+                <span className="block line-through">{r.name_snapshot}</span>
+                <span className="text-sm font-semibold text-red-700">
+                  Removed · not at the shop · {team.find((t) => t.user_id === r.removed_by)?.name ?? 'Owner'}, {fmtDateTime(r.removed_at)}
+                </span>
+              </span>
+              <span className="line-through">{rupee(r.line_total)}</span>
+            </div>
+          ))}
         </div>
         <div className="mt-2 space-y-1 border-t border-neutral-200 pt-2 text-sm">
           <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{rupee(order.subtotal)}</span></div>

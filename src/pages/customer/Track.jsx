@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Phone, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, PackageX, Phone, X } from 'lucide-react'
 import TopBar from '../../components/TopBar.jsx'
 import BottomNav from '../../components/BottomNav.jsx'
 import AddToHomeSheet from '../../components/AddToHomeSheet.jsx'
@@ -61,6 +61,22 @@ function CancelOrder({ order, mine, late }) {
   )
 }
 
+// Items the shop didn't have were taken off (update 053): say so plainly, and that they are not charged.
+function RemovedNote({ removed }) {
+  const names = removed.map((r) => r.name_snapshot)
+  const list = names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join(' and ')
+  const off = removed.reduce((s, r) => s + r.line_total, 0)
+  return (
+    <p className="mt-3 flex gap-2.5 rounded-xl border border-red-300/60 bg-red-50 p-3 text-sm text-red-900">
+      <PackageX size={18} className="mt-0.5 shrink-0 text-red-700" />
+      <span>
+        <b>Sorry, {list} {names.length > 1 ? 'were' : 'was'} not available</b> at the shop, so we removed {names.length > 1 ? 'them' : 'it'} from
+        your order. You don't pay the {rupee(off)} for {names.length > 1 ? 'them' : 'it'}; the total above is already updated.
+      </span>
+    </p>
+  )
+}
+
 // We missed the order's evening (update 038): say sorry and when it comes now.
 export function LateNote({ day, store }) {
   return (
@@ -106,6 +122,7 @@ export default function Track() {
 
 function OrderView({ data }) {
   const { order, items, store, complaints } = data
+  const removed = data.removed ?? []
   const cancelled = order.status === 'cancelled'
   const reached = stepOf(order)
   const late = lateDay(order, store)
@@ -154,12 +171,22 @@ function OrderView({ data }) {
           {items.map((i) => (
             <div key={i.id} className="flex"><span className="flex-1 text-muted">{i.name_snapshot} ×{i.quantity}</span><span>{rupee(i.line_total)}</span></div>
           ))}
+          {removed.map((r) => (
+            <div key={r.id} className="flex items-start gap-2">
+              <span className="flex-1">
+                <span className="text-muted line-through">{r.name_snapshot} ×{r.quantity}</span>
+                <span className="ml-1.5 whitespace-nowrap rounded-full bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">Not available</span>
+              </span>
+              <span className="text-muted line-through">{rupee(r.line_total)}</span>
+            </div>
+          ))}
           <div className="flex"><span className="flex-1 text-muted">Delivery charge</span><span>{order.delivery_fee ? rupee(order.delivery_fee) : 'FREE'}</span></div>
           {Number(order.express_fee) > 0 && <div className="flex"><span className="flex-1 text-muted">Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
           {order.packaging_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
           {order.wallet_used > 0 && <div className="flex font-medium text-brand"><span className="flex-1">Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>}
           <div className="flex pt-2 text-lg font-semibold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
         </div>
+        {removed.length > 0 && !cancelled && <RemovedNote removed={removed} />}
         {data.mine && <PayNow order={order} store={store} />}
         <CancelOrder order={order} mine={data.mine} late={!!late} />
         {order.status === 'completed' && (

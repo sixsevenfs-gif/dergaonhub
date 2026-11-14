@@ -589,6 +589,8 @@ function expireOld() {
 }
 
 const itemsOf = (orderId) => db.order_items.filter((i) => i.order_id === orderId)
+// Items taken off an order because the shop did not have them (update 053), oldest first.
+const removedOf = (orderId) => (db.removed_items ?? []).filter((r) => r.order_id === orderId)
 // Product photo of each order item, like store.supabase.js.
 const withPhotos = (items) =>
   items.map((i) => {
@@ -603,6 +605,7 @@ export async function getOrder(orderNumber) {
   return clone({
     order: o,
     items: itemsOf(o.id),
+    removed: removedOf(o.id),
     store: db.store,
     complaints: db.complaints.filter((k) => k.order_id === o.id),
   })
@@ -615,7 +618,7 @@ export async function ordersByPhone(phone) {
     db.orders
       .filter((o) => o.customer_phone === ph || o.ordered_by_phone === ph)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .map((o) => ({ ...o, items: itemsOf(o.id), item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
+      .map((o) => ({ ...o, items: itemsOf(o.id), removed: removedOf(o.id), item_count: sum(itemsOf(o.id), (i) => i.quantity) })),
   )
 }
 
@@ -716,6 +719,7 @@ export async function getOrderById(orderId) {
     order: o, items: withItemCosts(withPhotos(itemsOf(o.id))), store: db.store, hint: hintFor(o.customer_phone),
     complaints: db.complaints.filter((k) => k.order_id === o.id),
     costs: db.product_costs ?? {}, rules: costRules(), shopBill: db.shop_bills?.[o.id] ?? null, messages: messagesOf(o.id),
+    removed: removedOf(o.id),
   })
 }
 
@@ -824,12 +828,21 @@ export async function adminWallets() {
   return walletReport(db.customers, entries(), orders, gifts(), giftMoves())
 }
 
-// An item was not found at the shop: remove it and recalculate the total.
+// An item was not found at the shop: remove it and recalculate the total. A rider can do it on their own order;
+// the removed item is kept so the customer sees it (update 053).
 export async function removeOrderItem(orderId, itemId) {
   const o = orderOrFail(orderId)
+  checkRiderOrder(o)
   if (o.status !== 'placed' && o.status !== 'confirmed') fail('This order can no longer be changed.')
+  const item = itemsOf(orderId).find((i) => i.id === itemId) ?? fail('This item is not on the order.')
   const remaining = itemsOf(orderId).filter((i) => i.id !== itemId)
   if (!remaining.length) fail('You cannot remove the last item. Cancel the order instead.')
+  const by = demoUser()
+  db.removed_items = [...(db.removed_items ?? []), {
+    id: newId(), order_id: orderId, product_id: item.product_id, name_snapshot: item.name_snapshot, price_snapshot: item.price_snapshot,
+    quantity: item.quantity, line_total: item.line_total, reason: 'Not available at the shop', removed_by: by, removed_at: now(),
+    removed_by_name: demoTeam().find((t) => t.user_id === by)?.name ?? '',
+  }]
   db.order_items = db.order_items.filter((i) => i.id !== itemId)
   o.subtotal = sum(remaining, (i) => i.line_total)
   o.packaging_fee = packagingFee(db.store, o.subtotal)
@@ -1104,6 +1117,7 @@ export async function partnerOrders(date) {
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
         items: withPhotos(itemsOf(o.id)).map((i) => ({ picked: false, ...i, ...shopPriceOf(i) })), messages: messagesOf(o.id),
         shop_bill: db.shop_bills?.[o.id] ?? null,
+        removed: removedOf(o.id),
         money_rider: moneyRiderOf(o),
         returns: (db.rider_returns ?? []).filter((x) => x.order_id === o.id && (!rider || x.rider_id === me))
           .map((x) => ({ amount: x.amount, method: x.method, at: x.created_at, confirmed_at: x.confirmed_at ?? null })),

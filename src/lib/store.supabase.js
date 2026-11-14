@@ -396,7 +396,8 @@ export async function getOrder(orderNumber) {
   await sb.rpc('expire_unpaid_orders') // an error before update 023 is ignored
   const res = check(await sb.rpc('get_order', { p_order_number: String(orderNumber) }))
   if (!res) return null
-  return { order: toOrder(res.order), items: res.items, complaints: res.complaints, mine: res.mine, store: await getStore() }
+  // removed: items not found at the shop (update 053; missing before it).
+  return { order: toOrder(res.order), items: res.items, removed: res.removed ?? [], complaints: res.complaints, mine: res.mine, store: await getStore() }
 }
 
 // Orders placed from this phone (row-level security only returns those), for this number
@@ -404,11 +405,16 @@ export async function getOrder(orderNumber) {
 export async function ordersByPhone(phone) {
   await session()
   const ph = cleanPhone(phone)
-  const base = () => sb.from('orders').select('*, order_items(*)').order('created_at', { ascending: false })
-  let res = await base().or(`customer_phone.eq.${ph},ordered_by_phone.eq.${ph}`)
-  if (res.error) res = await base().eq('customer_phone', ph) // before update 004 there is no ordered_by_phone
+  const query = (cols, filter) => filter(sb.from('orders').select(cols).order('created_at', { ascending: false }))
+  const byNumber = (q) => q.or(`customer_phone.eq.${ph},ordered_by_phone.eq.${ph}`)
+  // Items not found at the shop come from update 053; before it the list loads without them.
+  let res = await query('*, order_items(*), order_removed_items(id, name_snapshot, quantity, line_total)', byNumber)
+  if (res.error) res = await query('*, order_items(*)', byNumber)
+  if (res.error) res = await query('*, order_items(*)', (q) => q.eq('customer_phone', ph)) // before update 004 there is no ordered_by_phone
   const rows = check(res)
-  return rows.map(({ order_items, ...o }) => ({ ...toOrder(o), items: order_items, item_count: sum(order_items, (i) => i.quantity) }))
+  return rows.map(({ order_items, order_removed_items, ...o }) => ({
+    ...toOrder(o), items: order_items, removed: order_removed_items ?? [], item_count: sum(order_items, (i) => i.quantity),
+  }))
 }
 
 /* ---------- waitlist ---------- */
@@ -509,7 +515,7 @@ export async function getOrderById(orderId) {
   await expireOld()
   const o = check(await sb.from('orders').select('*').eq('id', orderId).maybeSingle())
   if (!o) return null
-  const [items, complaints, store, hint, costs, rules, shopBill, messages] = await Promise.all([
+  const [items, complaints, store, hint, costs, rules, shopBill, messages, removed] = await Promise.all([
     sb.from('order_items').select('*').eq('order_id', orderId).then(check).then(withPhotos),
     sb.from('complaints').select('*').eq('order_id', orderId).then(check),
     getStore(),
@@ -521,9 +527,11 @@ export async function getOrderById(orderId) {
     // Messages that went to the customer (automatic and by hand), so nobody sends one twice.
     sb.from('order_messages').select('kind, channel, ok, error, created_at').eq('order_id', orderId).order('created_at')
       .then((r) => (r.error ? [] : r.data.map((m) => ({ ...m, at: m.created_at })))),
+    // Items taken off the order (not at the shop, update 053); none before that update.
+    sb.from('order_removed_items').select('*').eq('order_id', orderId).order('removed_at').then((r) => (r.error ? [] : r.data)),
   ])
   const itemCosts = await orderItemCosts(items.map((i) => i.id))
-  return { order: toOrder(o), items: items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), store, complaints, hint: hint(o.customer_phone), costs, rules, shopBill, messages }
+  return { order: toOrder(o), items: items.map((i) => ({ ...i, cost: itemCosts[i.id] ?? null })), store, complaints, hint: hint(o.customer_phone), costs, rules, shopBill, messages, removed }
 }
 
 async function updateOrder(id, change, onlyFrom, message) {
@@ -633,7 +641,8 @@ export async function adminGiftCancel(giftId) {
   notify()
 }
 
-// An item was not found at the shop: remove it and recalculate the total (in the database after 032).
+// An item was not found at the shop: remove it and recalculate the total (in the database after 032). From update
+// 053 the rider can do it on their own order too, and the removed item is kept so the customer sees it.
 export const removeOrderItem = (orderId, itemId) =>
   deskCall('desk_remove_item', { p_order_id: orderId, p_item_id: itemId }, () => removeOrderItemDirect(orderId, itemId))
 

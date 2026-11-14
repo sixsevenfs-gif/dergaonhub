@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Image as ImageIcon, Lock, MapPinned, Navigation, Phone, PhoneOff, QrCode, Receipt, RefreshCw, Repeat, Smartphone, Undo2 } from 'lucide-react'
+import { Banknote, Bike, Camera, Check, ChevronDown, FileText, Gift, Image as ImageIcon, Lock, MapPinned, Navigation, PackageX, Phone, PhoneOff, QrCode, Receipt, RefreshCw, Repeat, Smartphone, Undo2 } from 'lucide-react'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { card } from '../../components/ui.js'
 import MapPreview from '../../components/MapPreview.jsx'
 import ItemPhoto from '../../components/ItemPhoto.jsx'
 import {
-  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, removeShopBill, saveShopBill, sendAutoMessage,
+  confirmOrder, deliveryPhotoUrl, logMessage, partnerComplete, partnerNoShow, partnerPaidByQr, partnerUndoDelivered, removeOrderItem, removeShopBill, saveShopBill, sendAutoMessage,
   setDispatch, setPicked, uploadDeliveryPhoto, uploadShopBill,
 } from '../../lib/store.js'
 import { compressImage } from '../../lib/image.js'
@@ -149,6 +149,31 @@ function NoAnswer({ orderId, onError }) {
       <div className="mt-2 flex gap-2">
         <button type="button" onClick={mark} className="h-10 flex-1 rounded-xl bg-orange-500 font-semibold text-ink">Yes, no-show</button>
         <button type="button" onClick={() => setAsking(false)} className="h-10 flex-1 rounded-xl border border-line font-semibold">Go back</button>
+      </div>
+    </div>
+  )
+}
+
+// The shop doesn't have an item: take it off the order, after one "are you sure". The total goes down and the
+// customer sees the item as "Not available" on their order page. The last item can't go (cancel the order then).
+function NotAtShop({ order: o, item: i, onError, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const remove = async () => {
+    setBusy(true)
+    try {
+      await removeOrderItem(o.id, i.id)
+    } catch (err) {
+      onError(err.message)
+    }
+    setBusy(false)
+    onClose()
+  }
+  return (
+    <div className="mx-3 mb-2.5 rounded-xl border border-red-400/40 bg-red-500/[0.07] p-3 text-sm">
+      <p>Remove <b>{i.name_snapshot} ×{i.quantity}</b> from this order? The bill goes down by <b>{rupee(i.line_total)}</b> and the customer sees it as not available.</p>
+      <div className="mt-2 flex gap-2">
+        <button type="button" disabled={busy} onClick={remove} className="h-10 flex-1 rounded-xl bg-red-600 font-semibold text-white disabled:opacity-50">{busy ? 'Removing...' : 'Yes, remove'}</button>
+        <button type="button" disabled={busy} onClick={onClose} className="h-10 flex-1 rounded-xl border border-line font-semibold">Keep it</button>
       </div>
     </div>
   )
@@ -470,6 +495,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
   const [picked, toggle, untickAll] = usePicked(o, locked, setError)
   const [byQr, setByQr] = usePaidByQr(o.id)
   const [showQr, setShowQr] = useState(false)
+  const [asking, setAsking] = useState('') // the item whose "Not at shop" is waiting for yes / no
   const [shot, setShot] = useDeliveryPhoto(o.id)
   const photo = shot.path // storage path of the delivery photo
   useEffect(() => {
@@ -588,6 +614,7 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
               {o.items.map((i) => {
                 const on = picked.includes(i.id) || done
                 const byAdmin = locked.includes(i.id)
+                const mayRemove = !done && !on && !byAdmin && o.items.length > 1 && (o.status === 'placed' || o.status === 'confirmed')
                 return (
                   <li key={i.id}>
                     <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5">
@@ -604,12 +631,30 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
                         ) : (
                           !done && <ShopPrice item={i} />
                         )}
+                        {mayRemove && (
+                          // A button inside the label doesn't tick the item.
+                          <button type="button" onClick={(e) => { e.preventDefault(); setAsking(asking === i.id ? '' : i.id) }}
+                            className="mt-1 flex h-8 items-center gap-1 rounded-lg border border-red-300/70 px-2 text-xs font-semibold text-red-700 no-underline">
+                            <PackageX size={14} /> Not at shop
+                          </button>
+                        )}
                       </span>
                       <span className="text-base font-semibold">×{i.quantity}</span>
                     </label>
+                    {asking === i.id && <NotAtShop order={o} item={i} onError={setError} onClose={() => setAsking('')} />}
                   </li>
                 )
               })}
+              {o.removed?.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-700"><PackageX size={14} /></span>
+                  <span className="flex-1">
+                    <span className="line-through">{r.name_snapshot}</span>
+                    <span className="block text-xs font-semibold text-red-700">Removed · not at the shop{r.removed_by_name ? ` · by ${r.removed_by_name}` : ''}</span>
+                  </span>
+                  <span className="font-semibold line-through">×{r.quantity}</span>
+                </li>
+              ))}
             </ul>
             {priced && !done && (
               <div className="mt-2 rounded-xl bg-emerald-500/[0.08] px-3 py-2.5">

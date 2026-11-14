@@ -65,6 +65,11 @@ export function OrderList({ phone }) {
               </span>
             </Link>
             <p className="mt-2 line-clamp-1 text-xs text-muted">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>
+            {o.removed?.length > 0 && o.status !== 'cancelled' && (
+              <p className="mt-1 line-clamp-1 text-xs font-semibold text-red-700">
+                Not available, removed: {o.removed.map((r) => r.name_snapshot).join(', ')}
+              </p>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => reorder(o)} className={`${btnOutline} min-h-10 text-sm`}><RotateCcw size={16} /> Order again</button>
               <Link to={`/report/${o.order_number}`} className={`${btnOutline} min-h-10 text-sm`}>Report problem</Link>
