@@ -18,6 +18,8 @@ export const CATEGORIES = [
   { id: 'vegetables', name: 'Fruits & Vegetables', short: 'Fruits & Veg' },
   { id: 'dryfruits', name: 'Dry Fruits & Seeds', short: 'Dry fruits' },
   { id: 'pooja', name: 'Pooja Needs', short: 'Pooja' },
+  { id: 'home', name: 'Home & Kitchen', short: 'Home & Kitchen' },
+  { id: 'party', name: 'Party & Birthday', short: 'Party' },
 ]
 
 // [name, size, category, keywords, demo price]
