@@ -114,12 +114,6 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
             <CategoryIcon id={p.category_id} size={48} strokeWidth={1.4} />
           </span>
         )}
-        {off > 0 && p.available && (
-          // Red with a white ring and shadow: stands out on yellow, orange and green packs alike.
-          <span className="absolute left-1.5 top-1.5 rounded-lg bg-[#E5322D] px-2 py-1 text-[12px] font-extrabold leading-none tracking-wide text-white shadow-[0_2px_6px_rgb(0_0_0/0.25)] ring-2 ring-white">
-            {off}% OFF
-          </span>
-        )}
         {!p.available && (
           <span className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white">Out of stock</span>
         )}
@@ -129,13 +123,13 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
         <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-medium leading-[1.25] text-ink">{p.name}</h3>
         <p className="mt-0.5 text-[12px] text-muted">{p.size}</p>
         <div className="mt-auto flex items-end justify-between gap-1 pt-2">
-          {/* On sale: the price stands out in green, with the MRP crossed out and how much is saved. */}
+          {/* On sale: nothing on the photo. The price, then the MRP crossed out and "3% off" in green beside it. */}
           {off > 0 ? (
             <span className="min-w-0 leading-tight">
-              <span className="block text-[17px] font-bold text-brand">{rupee(p.price)}</span>
-              <span className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                <span className="text-[11px] text-muted line-through">{rupee(p.compare_price)}</span>
-                <span className="rounded bg-brand/10 px-1 py-px text-[10px] font-bold text-brand">Save {rupee(p.compare_price - p.price)}</span>
+              <span className="block text-[16px] font-semibold text-ink">{rupee(p.price)}</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px]">
+                <span className="text-muted line-through">{rupee(p.compare_price)}</span>
+                <span className="font-semibold text-brand">{off}% off</span>
               </span>
             </span>
           ) : (
