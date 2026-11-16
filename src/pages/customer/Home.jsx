@@ -194,7 +194,7 @@ export default function Home() {
               <Truck size={16} className="shrink-0 text-brand" />
               <span>
                 <b className="font-semibold text-brand">FREE delivery</b> on {rupee(deliveryRules(store).freeAbove)}+ · {fmtTime(store.slot_start)}–{fmtTime(store.slot_end)}
-                {deliveryRules(store).expressOn && <> · <b className="font-semibold text-[#B7791F]">⚡ Express {expressStatus(store).ok ? `in ${expressTimeText(deliveryRules(store).expressMinutes)}` : `${fmtTime(deliveryRules(store).expressFrom)} – ${fmtTime(deliveryRules(store).expressUntil)}`}</b></>}
+                {deliveryRules(store).expressOn && <> · <b className="font-semibold text-[#B7791F]">⚡ Express {expressStatus(store).ok ? `· leaves in ${expressTimeText(deliveryRules(store).expressMinutes)}` : `${fmtTime(deliveryRules(store).expressFrom)} – ${fmtTime(deliveryRules(store).expressUntil)}`}</b></>}
               </span>
             </p>
           )}

@@ -134,7 +134,7 @@ export default function OrderPlaced() {
             {order.payment_method === 'upi_now'
               ? 'As soon as your payment is verified (usually within 10 minutes), we send the confirmation on WhatsApp and pack your order.'
               : isExpress(order)
-              ? `Express: we call you right away, then a rider brings it by ${fmtClock(order.express_by)}.`
+              ? `Express: our rider leaves our store by ${fmtClock(order.express_by)} and comes straight to you. If we are late, you don't pay the Express charge.`
               : 'Then we pack your order at our store and our rider brings it in the evening. You will see "On the way" on the order status page.'}
           </span>
         </span>

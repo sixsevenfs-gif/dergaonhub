@@ -128,11 +128,25 @@ export function slotWords(date, shop) {
   return `${when} between ${fmtTime(shop.slot_start)} and ${fmtTime(shop.slot_end)}`
 }
 
-// When the order comes: "⚡ Express, by 3:45 PM" or "Today, 5 PM – 8 PM".
+// Express (update 054): express_by is when our rider LEAVES the store; then they come straight to the customer.
+// When the order comes: "⚡ Express, rider leaves by 3:45 PM" or "Today, 5 PM – 8 PM".
 export const isExpress = (o) => o?.delivery_type === 'express'
 export const deliveryWhen = (o, shop) =>
-  isExpress(o) && o.express_by ? `⚡ Express, by ${fmtClock(o.express_by)}` : slotText(o.delivery_date, shop)
-// For messages: "by 3:45 PM (Express)" or "today between 5 PM and 8 PM".
+  isExpress(o) && o.express_by ? `⚡ Express, rider leaves by ${fmtClock(o.express_by)}` : slotText(o.delivery_date, shop)
+// For messages: "by Express (our rider leaves our store by 3:45 PM)" or "today between 5 PM and 8 PM".
 export const deliveryWords = (o, shop) =>
-  isExpress(o) && o.express_by ? `by ${fmtClock(o.express_by)} (Express)` : slotWords(o.delivery_date, shop)
+  isExpress(o) && o.express_by ? `by Express (our rider leaves our store by ${fmtClock(o.express_by)})` : slotWords(o.delivery_date, shop)
+// Express running late: the rider hasn't left by express_by yet, or left late and the charge was taken off
+// (express_waived). Either way the customer doesn't pay the Express charge.
+export const expressLate = (o) => isExpress(o) && (Number(o.express_waived) > 0 || (
+  !o.left_at && !o.dispatch && (o.status === 'placed' || o.status === 'confirmed') && !!o.express_by && Date.now() > new Date(o.express_by).getTime()))
+// The Express charge not taken because we were late: already off (express_waived), or coming off when the rider leaves.
+export const expressFreed = (o) => (expressLate(o) ? Number(o.express_waived) || Number(o.express_fee) || 0 : 0)
+// The order as it will be once the late rider leaves: Express charge off, lower total. For the rider page, so the
+// amount to collect is right even before "On the way" is tapped.
+export const withLateExpress = (o) => {
+  if (!expressLate(o) || Number(o.express_waived) > 0) return o
+  const fee = Number(o.express_fee) || 0
+  return { ...o, express_fee: 0, express_waived: fee, total: Math.max(0, Number(o.total) - fee) }
+}
 

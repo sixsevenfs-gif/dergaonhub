@@ -307,14 +307,14 @@ function SettingsForm({ store }) {
           <div className="flex items-start justify-between gap-3">
             <span className="text-sm">
               <b>⚡ Express delivery</b>
-              <span className="block text-neutral-600">Customers can pay extra to get the order within the time below, only between the Express hours. At other times orders go to the evening slot. Switch it on only when a rider is free.</span>
+              <span className="block text-neutral-600">Customers pay extra and the rider leaves the store within the time below, then goes straight to them. Leaving later takes the Express charge off by itself (update 054). Only between the Express hours. At other times orders go to the evening slot. Switch it on only when a rider is free.</span>
             </span>
             {slabsReady && <Toggle checked={!!v.express_on} onChange={(on) => setV({ ...v, express_on: on })} label="Express delivery" />}
           </div>
           {slabsReady && (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Express charge ₹ (extra)"><input type="number" min="0" value={v.express_fee ?? 40} onChange={set('express_fee')} className={lfield} /></Field>
-              <Field label="Delivered within (minutes)"><input type="number" min="15" max="240" value={v.express_minutes ?? 60} onChange={set('express_minutes')} className={lfield} /></Field>
+              <Field label="Rider leaves within (minutes)"><input type="number" min="15" max="240" value={v.express_minutes ?? 60} onChange={set('express_minutes')} className={lfield} /></Field>
               {v.express_from !== undefined || DEMO_MODE ? (
                 <>
                   <Field label="Express from"><input type="time" value={v.express_from ?? '10:00'} onChange={set('express_from')} className={lfield} /></Field>

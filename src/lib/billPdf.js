@@ -93,6 +93,7 @@ export function billPdf({ order, items, store }) {
   line('Items total', rs(order.subtotal))
   line('Delivery charge', order.delivery_fee ? rs(order.delivery_fee) : 'FREE')
   if (Number(order.express_fee) > 0) line('Express delivery', rs(order.express_fee))
+  if (Number(order.express_waived) > 0) line('Express delivery (late)', 'FREE')
   if (order.packaging_fee) line('Packaging charge', rs(order.packaging_fee))
   if (Number(order.wallet_used) > 0) line('Jholzo Money', `- ${rs(order.wallet_used)}`)
   y += 3

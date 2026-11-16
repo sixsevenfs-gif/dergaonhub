@@ -486,9 +486,9 @@ export default function Checkout() {
               <Radio on={express} />
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF4D6] text-[#B7791F]"><Zap size={20} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">Express · within {expressTimeText(dRules.expressMinutes)}</span>
+                <span className="block font-semibold">Express · rider leaves in {expressTimeText(dRules.expressMinutes)}</span>
                 <span className="block text-xs text-muted">
-                  {ex.ok ? 'A rider brings it straight to you' : ex.off ? 'Not available right now' : ex.minOrder ? `For orders of ${rupee(ex.minOrder)} or more` : `Available ${fmtTime(ex.from)} – ${fmtTime(ex.until)}`}
+                  {ex.ok ? "Comes straight to you. Late? Express is free" : ex.off ? 'Not available right now' : ex.minOrder ? `For orders of ${rupee(ex.minOrder)} or more` : `Available ${fmtTime(ex.from)} – ${fmtTime(ex.until)}`}
                 </span>
               </span>
               <span className="shrink-0 text-sm font-semibold">+{rupee(dRules.expressFee)}</span>

@@ -10,7 +10,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
 import { assignRider, cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, listTeam, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { deliveryWhen, fmtClock, fmtDateTime, rupee } from '../../lib/format.js'
+import { deliveryWhen, expressLate, fmtClock, fmtDateTime, rupee } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
@@ -287,7 +287,13 @@ export default function AdminOrderDetail() {
           <div className="flex justify-between text-neutral-600"><span>Delivery charge{order.distance_km != null && ` (${order.distance_km} km)`}</span><span>{rupee(order.delivery_fee)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Packaging charge</span><span>{rupee(order.packaging_fee ?? 0)}</span></div>
           {Number(order.express_fee) > 0 && (
-            <div className="flex justify-between font-semibold text-amber-700"><span>⚡ Express delivery</span><span>{rupee(order.express_fee)}</span></div>
+            <div className="flex justify-between font-semibold text-amber-700"><span>⚡ Express delivery{expressLate(order) && ' · LATE, comes off when the rider leaves'}</span><span>{rupee(order.express_fee)}</span></div>
+          )}
+          {Number(order.express_waived) > 0 && (
+            <div className="flex justify-between font-semibold text-red-700"><span>⚡ Express: left late{order.left_at && ` (${fmtClock(order.left_at)})`}, charge not taken</span><span><s>{rupee(order.express_waived)}</s> FREE</span></div>
+          )}
+          {Number(order.express_waived) > 0 && order.payment_method === 'upi_now' && order.payment_status === 'paid' && (
+            <p className="rounded-lg bg-red-50 p-2 text-xs text-red-800">Paid online before: give the customer back {rupee(order.express_waived)} (UPI or Jholzo Money).</p>
           )}
           {Number(order.wallet_used) > 0 && (
             <div className="flex justify-between font-semibold text-green-700"><span>Jholzo Money (wallet)</span><span>−{rupee(order.wallet_used)}</span></div>

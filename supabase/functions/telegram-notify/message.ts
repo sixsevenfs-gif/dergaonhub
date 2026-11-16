@@ -43,7 +43,7 @@ function paymentLine(o: Order) {
 export function orderMessage(o: Order, items: Item[], store: Store, now = Date.now()) {
   const express = o.delivery_type === 'express'
   const when = express && o.express_by
-    ? `deliver by <b>${clock(o.express_by)}</b>`
+    ? `leave the store by <b>${clock(o.express_by)}</b>`
     : `${dayWord(o.delivery_date, now)} ${fmtTime(store.slot_start)}–${fmtTime(store.slot_end)}`
   const head = express
     ? `🚨🚨 <b>URGENT — EXPRESS ORDER</b> 🚨🚨\n⚡ <b>${esc(o.order_number)}</b> · ${when}`

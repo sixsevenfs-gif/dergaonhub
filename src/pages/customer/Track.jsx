@@ -10,7 +10,7 @@ import { btnAccent, btnOutline, card, cx } from '../../components/ui.js'
 import { cancelMyOrder, currentCustomer, getOrder, getStore } from '../../lib/store.js'
 import { HelpSupport, OrderList } from '../../components/MyOrders.jsx'
 import { useData } from '../../lib/useData.js'
-import { deliveryWhen, fmtClock, fmtDateTime, isExpress, lateDay, rupee, slotText } from '../../lib/format.js'
+import { deliveryWhen, expressFreed, fmtClock, fmtDateTime, isExpress, lateDay, rupee, slotText } from '../../lib/format.js'
 import { waLink } from '../../lib/whatsapp.js'
 
 const STEPS = [
@@ -123,6 +123,9 @@ export default function Track() {
 function OrderView({ data }) {
   const { order, items, store, complaints } = data
   const removed = data.removed ?? []
+  // Express late (update 054): the charge is free. Until the rider leaves it is still on the order, so take it off here.
+  const freed = expressFreed(order)
+  const total = Number(order.express_waived) > 0 ? order.total : order.total - freed
   const cancelled = order.status === 'cancelled'
   const reached = stepOf(order)
   const late = lateDay(order, store)
@@ -148,7 +151,7 @@ function OrderView({ data }) {
           <ol className="mt-5">
             {STEPS.map(([key, title, step], i) => {
               const done = i <= reached
-              const note = key === 'confirmed' && isExpress(order) ? `Confirmed, arriving by ${fmtClock(order.express_by)}` : step
+              const note = key === 'confirmed' && isExpress(order) ? `Confirmed. Our rider leaves the store by ${fmtClock(order.express_by)}` : step
               return (
                 <li key={key} className="flex gap-3">
                   <div className="flex flex-col items-center">
@@ -181,11 +184,20 @@ function OrderView({ data }) {
             </div>
           ))}
           <div className="flex"><span className="flex-1 text-muted">Delivery charge</span><span>{order.delivery_fee ? rupee(order.delivery_fee) : 'FREE'}</span></div>
-          {Number(order.express_fee) > 0 && <div className="flex"><span className="flex-1 text-muted">Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
+          {freed > 0 ? (
+            <div className="flex"><span className="flex-1 text-muted">Express delivery</span><span><s className="text-muted">{rupee(freed)}</s> <b className="text-brand">FREE</b></span></div>
+          ) : Number(order.express_fee) > 0 && <div className="flex"><span className="flex-1 text-muted">Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
           {order.packaging_fee > 0 && <div className="flex"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
           {order.wallet_used > 0 && <div className="flex font-medium text-brand"><span className="flex-1">Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>}
-          <div className="flex pt-2 text-lg font-semibold"><span className="flex-1">Total</span><span>{rupee(order.total)}</span></div>
+          <div className="flex pt-2 text-lg font-semibold"><span className="flex-1">Total</span><span>{rupee(total)}</span></div>
         </div>
+        {freed > 0 && !cancelled && (
+          <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            {order.status === 'completed'
+              ? <><b>Sorry we were late!</b> Our rider left after {fmtClock(order.express_by)}, so you didn't pay the {rupee(freed)} Express charge.</>
+              : <><b>Sorry, we're running late!</b> Our rider is coming as fast as possible, and you don't pay the {rupee(freed)} Express charge.</>}
+          </p>
+        )}
         {removed.length > 0 && !cancelled && <RemovedNote removed={removed} />}
         {data.mine && <PayNow order={order} store={store} />}
         <CancelOrder order={order} mine={data.mine} late={!!late} />

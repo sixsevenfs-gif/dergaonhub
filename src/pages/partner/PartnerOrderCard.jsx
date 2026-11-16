@@ -556,7 +556,11 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             #{o.order_number}{o.distance_km != null ? ` · ${o.distance_km} km away` : ''}
             {isAdmin && !done && <> · {o.rider_id ? <>🛵 <b className="text-ink">{o.rider_name || 'Rider'}</b></> : 'No rider'}</>}
           </p>
-          {isExpress(o) && <p className="mt-1 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · deliver by {fmtClock(o.express_by)}</p>}
+          {isExpress(o) && (Number(o.express_waived) > 0 ? (
+            <p className="mt-1 w-fit rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-800">⚡ EXPRESS LATE · {rupee(o.express_waived)} Express charge not taken{!o.left_at && ', go now!'}</p>
+          ) : (
+            <p className="mt-1 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · leave the store by {fmtClock(o.express_by)}</p>
+          ))}
           {money?.due > 0 && <p className="mt-1 w-fit rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-bold text-orange-700">Pay admin {rupee(money.due)}</p>}
           {(sentCount('on_the_way') > 0 || sentCount('delivered') > 0) && (
             <p className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-semibold">

@@ -68,6 +68,7 @@ export default function Bill() {
             <div className="flex justify-between"><span>Items total</span><span>{rupee(order.subtotal)}</span></div>
             <div className="flex justify-between"><span>Delivery charge</span><span>{order.delivery_fee ? rupee(order.delivery_fee) : 'FREE'}</span></div>
             {Number(order.express_fee) > 0 && <div className="flex justify-between"><span>Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
+            {Number(order.express_waived) > 0 && <div className="flex justify-between"><span>Express delivery (we were late)</span><span>FREE</span></div>}
             {order.packaging_fee > 0 && <div className="flex justify-between"><span>Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
             {Number(order.wallet_used) > 0 && <div className="flex justify-between"><span>Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>}
           </div>

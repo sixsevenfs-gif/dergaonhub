@@ -60,7 +60,7 @@ export function OrderList({ phone }) {
                 <span className="mt-0.5 block text-[13px] text-muted">{fmtDateTime(o.created_at)} · {itemsText(o.item_count)}</span>
                 <span className="block text-[13px] text-muted">
                   {late ? <b className="font-semibold text-amber-700">Sorry, delayed · now {slotText(late, store)}</b>
-                    : isExpress(o) ? <b className="font-semibold text-amber-700">⚡ Express, by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}
+                    : isExpress(o) ? <b className="font-semibold text-amber-700">⚡ Express, rider leaves by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}
                 </span>
               </span>
             </Link>

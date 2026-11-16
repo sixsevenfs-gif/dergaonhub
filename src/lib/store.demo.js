@@ -748,9 +748,24 @@ export async function assignRider(orderId, riderId) {
 }
 
 // Delivered and paid.
+// Like the orders_left_store trigger (update 054): the first time an order leaves, save left_at; an Express order
+// leaving after express_by loses its Express charge. Returns how much came off the total.
+function leaveStore(o) {
+  if (o.left_at) return 0
+  o.left_at = now()
+  if (o.delivery_type !== 'express' || !o.express_by || Date.now() <= new Date(o.express_by).getTime() || !(o.express_fee > 0)) return 0
+  const off = Math.min(o.express_fee, o.total)
+  o.express_waived = o.express_fee
+  o.express_fee = 0
+  o.total = r2(o.total - off)
+  return off
+}
+
 export async function completeOrder(id, cashCollected) {
   const o = orderOrFail(id)
   if (o.status === 'cancelled') fail('A cancelled order cannot be delivered.')
+  const before = o.total
+  if (leaveStore(o) && Number(cashCollected) === before) cashCollected = o.total
   const from = o.status
   o.status = 'completed'
   o.completed_at = now()
@@ -1132,6 +1147,7 @@ export async function setDispatch(id, dispatch) {
   checkRiderOrder(o)
   o.dispatch = dispatch
   o.dispatched_at = dispatch ? now() : null
+  if (dispatch) leaveStore(o)
   commit()
 }
 

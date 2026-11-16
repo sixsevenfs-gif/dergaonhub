@@ -9,7 +9,7 @@ import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
 import { adminSignOut, getStore, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
-import { addDays, dateStr, rupee } from '../../lib/format.js'
+import { addDays, dateStr, rupee, withLateExpress } from '../../lib/format.js'
 import PayRider from '../../components/PayRider.jsx'
 import PayBack, { CASH_BY } from './PayBack.jsx'
 import { DEMO_MODE } from '../../config.js'
@@ -112,7 +112,8 @@ function RidersMoney({ rows, date }) {
 
 function PartnerRun({ session }) {
   const [date, setDate] = useState(dateStr())
-  const { data: orders, error, reload } = useData(() => partnerOrders(date), [date])
+  // A late Express order shows without its Express charge (update 054 takes it off when the rider leaves).
+  const { data: orders, error, reload } = useData(() => partnerOrders(date).then((list) => list.map(withLateExpress)), [date])
   const { data: store } = useData(getStore)
   const { data: money, reload: reloadMoney } = useData(() => riderDayMoney(date), [date])
   const [showList, setShowList] = useState(false)
