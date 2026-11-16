@@ -96,7 +96,7 @@ function PhotoSlider({ photos, alt }) {
   )
 }
 
-// One product card in the 2-column grid: photo, name, size, price, and "+ Add" (or − 1 +).
+// One product card in the 2-column grid: photo, name, size, price, and an outlined "ADD" that turns into a green − 1 +.
 export default function ProductCard({ p, qty, onQty, disabled }) {
   const perUnit = unitPrice(p.price, p.size, p.category_id)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
@@ -139,7 +139,7 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
             </span>
           )}
           {!p.available ? null : qty > 0 ? (
-            <span className="flex h-8 shrink-0 items-center rounded-full bg-brand text-white">
+            <span className="flex h-8 w-[68px] shrink-0 items-center justify-between rounded-full bg-brand text-white">
               <button type="button" aria-label="Remove one" onClick={() => onQty(qty - 1)} className="flex h-8 w-7 items-center justify-center"><Minus size={14} strokeWidth={2.6} /></button>
               <span className="min-w-3 text-center text-[13px] font-semibold">{qty}</span>
               <button type="button" aria-label="Add one" onClick={() => onQty(qty + 1)} className="flex h-8 w-7 items-center justify-center"><Plus size={14} strokeWidth={2.6} /></button>
@@ -150,9 +150,9 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
               aria-label={`Add ${p.name}`}
               disabled={disabled}
               onClick={() => onQty(1)}
-              className="flex h-8 shrink-0 items-center gap-0.5 rounded-full bg-brand px-3 text-[12.5px] font-semibold text-white active:scale-95 disabled:opacity-40"
+              className="flex h-8 w-[68px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-brand bg-white text-[12.5px] font-bold tracking-[0.06em] text-brand active:scale-95 active:bg-brand active:text-white disabled:opacity-40"
             >
-              <Plus size={14} strokeWidth={2.6} /> Add
+              ADD
             </button>
           )}
         </div>
