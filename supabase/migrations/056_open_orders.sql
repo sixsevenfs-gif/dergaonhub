@@ -1,11 +1,11 @@
--- Update 056: an order nobody is delivering yet rings on EVERY rider's phone; the first to tap "I'll deliver"
--- gets it. Run once in Supabase → SQL Editor, after 055. Safe to run again; nothing is deleted.
+-- Update 056: an order nobody is delivering yet rings and shows on EVERY rider's phone; whoever goes just starts
+-- it (tick items, On the way, Delivered) and it becomes theirs.
+-- Run once in Supabase → SQL Editor, after 055. Safe to run again; nothing is deleted.
 --
 -- 1) partner_alerts (Partner app ring): a rider now also gets confirmed orders that have no rider yet.
--- 2) partner_orders (rider page): a rider also sees those open orders, under "New orders".
--- 3) rider_take(order): the order becomes this rider's, only if nobody took it first (two taps at the same
---    moment: one wins, the other is told who has it). rider_give_back(order): before leaving the store, a rider can
---    hand it back to everyone.
+-- 2) partner_orders (rider page): a rider also sees those open orders, with the full card as now.
+-- 3) check_my_order: the first rider to do anything on an open order gets it (then it leaves the other riders'
+--    pages). rider_give_back(order): before leaving the store, a rider can hand it back to everyone.
 -- Orders the owner or executive assigns to someone still go only to that rider. For everyone to get new orders,
 -- set Admin → Settings → Team → "New orders go to" to "Nobody".
 
@@ -60,24 +60,27 @@ begin
 end
 $$;
 
--- "I'll deliver": the open order becomes this rider's. Only one rider can win it.
-create or replace function public.rider_take(p_order_id uuid) returns void
+-- No separate "take" step: the first rider who does anything on an open order (ticks an item, On the way,
+-- shop bill, Delivered, no answer…) gets it, so their cash and shop money are counted right. Two at the same
+-- moment: one wins, the other is told who has it. The owner can do anything on any order, as before.
+drop function if exists public.rider_take(uuid);
+create or replace function public.check_my_order(p_order_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   o orders;
 begin
-  if not is_rider() then raise exception 'Only delivery partners can take orders.'; end if;
-  update orders set rider_id = auth.uid(), assigned_at = now()
-  where id = p_order_id and rider_id is null and status = 'confirmed' and coalesce(dispatch, '') = '';
-  if found then return; end if;
+  if is_admin() then return; end if;
+  if is_rider() then
+    update orders set rider_id = auth.uid(), assigned_at = now()
+    where id = p_order_id and rider_id is null and status = 'confirmed';
+  end if;
   select * into o from orders where id = p_order_id;
-  if o.rider_id = auth.uid() then return; end if;   -- already yours (tapped twice)
-  if o.rider_id is not null then
+  if o.rider_id is distinct from auth.uid() then
     raise exception '% is already delivering this order.', coalesce((select name from riders where user_id = o.rider_id), 'Another rider');
   end if;
-  raise exception 'This order is no longer open.';
 end
 $$;
+revoke execute on function public.check_my_order(uuid) from public, anon, authenticated;
 
 -- Before leaving the store: give the order back so another rider can take it.
 create or replace function public.rider_give_back(p_order_id uuid) returns void
@@ -90,9 +93,7 @@ begin
 end
 $$;
 
-revoke execute on function public.partner_alerts(), public.partner_orders(date),
-  public.rider_take(uuid), public.rider_give_back(uuid) from public, anon;
-grant execute on function public.partner_alerts(), public.partner_orders(date),
-  public.rider_take(uuid), public.rider_give_back(uuid) to authenticated;
+revoke execute on function public.partner_alerts(), public.partner_orders(date), public.rider_give_back(uuid) from public, anon;
+grant execute on function public.partner_alerts(), public.partner_orders(date), public.rider_give_back(uuid) to authenticated;
 
 notify pgrst, 'reload schema';

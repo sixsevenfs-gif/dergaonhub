@@ -1057,9 +1057,15 @@ function demoUser() {
   return 'demo-owner'
 }
 
-// Like check_my_order() in update 033: a rider works only on the orders assigned to them.
+// Like check_my_order() in update 056: a rider works only on their own orders; the first to work on an open
+// one (confirmed, no rider) gets it.
 function checkRiderOrder(o) {
-  if (demoAs().startsWith('rider') && o.rider_id !== demoUser()) fail('This order is not assigned to you. Ask the order desk.')
+  if (!demoAs().startsWith('rider')) return
+  if (!o.rider_id && o.status === 'confirmed' && demoActive()) {
+    o.rider_id = demoUser()
+    o.assigned_at = now()
+  }
+  if (o.rider_id !== demoUser()) fail(`${demoTeam().find((t) => t.user_id === o.rider_id)?.name ?? 'Another rider'} is already delivering this order.`)
 }
 
 // A deactivated team member is locked out, as is_executive() / is_rider() do in the database.
@@ -1154,18 +1160,7 @@ export async function partnerOrders(date) {
 }
 
 
-// rider_take / rider_give_back (update 056).
-export async function riderTake(id) {
-  const o = orderOrFail(id)
-  if (!demoAs().startsWith('rider') || !demoActive()) fail('Only delivery partners can take orders.')
-  if (o.rider_id === demoUser()) return
-  if (o.rider_id) fail(`${demoTeam().find((t) => t.user_id === o.rider_id)?.name ?? 'Another rider'} is already delivering this order.`)
-  if (!isOpenOrder(o)) fail('This order is no longer open.')
-  o.rider_id = demoUser()
-  o.assigned_at = now()
-  commit()
-}
-
+// rider_give_back (update 056).
 export async function riderGiveBack(id) {
   const o = orderOrFail(id)
   if (!demoAs().startsWith('rider') || o.rider_id !== demoUser() || o.status !== 'confirmed' || o.dispatch) {

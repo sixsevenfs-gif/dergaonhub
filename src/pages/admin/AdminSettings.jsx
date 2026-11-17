@@ -176,7 +176,7 @@ function AutoRider({ riders }) {
     setMsg('')
     try {
       const n = await setAutoRider(id)
-      setMsg(id ? `New orders now go to ${name}.${n ? ` ${n} open order${n === 1 ? '' : 's'} given to them now.` : ''}` : 'New orders now ring on every rider. The first to tap takes it.')
+      setMsg(id ? `New orders now go to ${name}.${n ? ` ${n} open order${n === 1 ? '' : 's'} given to them now.` : ''}` : 'New orders now show on every rider. Whoever goes, takes it.')
       reload()
     } catch (err) {
       setMsg(err.message)
@@ -187,11 +187,11 @@ function AutoRider({ riders }) {
       <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
         New orders go to
         <select value={current ?? ''} onChange={pick} className={`${lfieldBase} h-10 min-w-40 flex-1`}>
-          <option value="">Nobody: every rider gets it, the first to tap takes it</option>
+          <option value="">Nobody: it shows on every rider, whoever goes takes it</option>
           {options.map((r) => <option key={r.user_id} value={r.user_id}>{r.name}</option>)}
         </select>
       </label>
-      <p className="mt-1 text-xs text-neutral-500">Nobody: a new order rings on every rider's phone and the first to tap "I'll deliver this" gets it (update 056). Picking a rider: every new order goes only to them, and they also get all open orders not on their way yet. You can still assign any order by hand. Only riders are listed: executives can't deliver orders.</p>
+      <p className="mt-1 text-xs text-neutral-500">Nobody: a new order rings and shows on every rider's phone; whoever goes just starts it (ticks an item, On the way…) and it becomes theirs (update 056). Picking a rider: every new order goes only to them, and they also get all open orders not on their way yet. You can still assign any order by hand. Only riders are listed: executives can't deliver orders.</p>
       {msg && <p className="mt-1 text-sm text-green-700">{msg}</p>}
     </div>
   )

@@ -996,9 +996,8 @@ const partnerCall = async (fn, args) => {
 }
 
 export const setDispatch = (id, dispatch) => partnerCall('partner_set_dispatch', { p_order_id: id, p_dispatch: dispatch })
-// An order nobody is delivering yet (update 056): the first rider to take it gets it; before leaving the store
-// they can give it back to everyone.
-export const riderTake = (id) => partnerCall('rider_take', { p_order_id: id })
+// An order nobody is delivering yet (update 056) becomes the rider's when they first work on it; before leaving
+// the store they can give it back to everyone.
 export const riderGiveBack = (id) => partnerCall('rider_give_back', { p_order_id: id })
 // photo: storage path from uploadDeliveryPhoto (required by the database).
 // p_cash is a whole-rupee number in the database (₹119.80 would fail); the database stores the order's exact total itself.
