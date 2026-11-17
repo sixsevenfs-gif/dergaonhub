@@ -94,6 +94,45 @@ function CostEdit({ product, cost }) {
   )
 }
 
+// The few lines customers read under "Product details" on the product page (update 055).
+function DescriptionEdit({ product }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(product.description ?? '')
+  const [error, setError] = useState('')
+  const saved = (product.description ?? '').trim()
+
+  const save = async (e) => {
+    e.preventDefault()
+    try {
+      await updateProduct(product.id, { description: text })
+      setOpen(false)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="flex w-full items-start gap-2 border-t border-neutral-100 pt-2">
+        <span className="shrink-0 text-xs text-neutral-500">Description</span>
+        <span className={`line-clamp-2 min-w-0 flex-1 text-xs ${saved ? 'text-neutral-700' : 'text-neutral-400'}`}>{saved || 'Not written yet: customers see one general line for the category.'}</span>
+        <button type="button" onClick={() => { setText(saved); setOpen(true) }} className="shrink-0 text-xs font-semibold text-emerald-700">{saved ? 'Edit' : 'Write'}</button>
+      </div>
+    )
+  }
+  return (
+    <form onSubmit={save} className="w-full border-t border-neutral-100 pt-2">
+      <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={1200} placeholder="What it is, what it is used for, anything a customer should know. Only what is true for this pack." className={`${lfieldBase} block h-auto w-full px-3 py-2 text-sm`} />
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <div className="mt-2 flex gap-2">
+        <button type="submit" className={`${lbtnDark} min-h-9 px-4 text-sm`}>Save</button>
+        <button type="button" onClick={() => setOpen(false)} className="min-h-9 px-2 text-sm text-neutral-500">Cancel</button>
+      </div>
+    </form>
+  )
+}
+
 // Sale price: type the discount price (or tap 5% / 10% ...), the % off and saving update as you type.
 // Saving keeps the old price as "price before discount"; customers see it struck out.
 function DiscountEdit({ product }) {
@@ -387,6 +426,7 @@ function ProductEditor() {
                 <Trash2 size={16} />
               </button>
             </div>
+            {(p.description !== undefined || DEMO_MODE) && <DescriptionEdit key={`desc-${p.description}`} product={p} />}
             {/* More photos: on the home page they slide when the customer touches or hovers the product. */}
             {p.photo_url && (p.photos !== undefined || DEMO_MODE) && (
               <div className="flex w-full flex-wrap items-center gap-2 border-t border-neutral-100 pt-2">

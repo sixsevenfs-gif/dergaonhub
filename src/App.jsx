@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { recordVisit } from './lib/store.js'
 import CartProvider from './lib/CartProvider.jsx'
 
@@ -40,6 +40,11 @@ import Partner from './pages/partner/Partner.jsx'
 
 import NotFound from './pages/NotFound.jsx'
 
+// A shared product link (/product/<id>) opens that product over the home page.
+function ProductLink() {
+  return <Navigate to={`/?p=${encodeURIComponent(useParams().id)}`} replace />
+}
+
 // One grocery store: the customer site, /admin for the founder and /partner for the delivery riders.
 export default function App() {
   // A customer already logged in on this phone is added to Admin → Logins once.
@@ -52,6 +57,7 @@ export default function App() {
       <LaunchCountdown />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/product/:id" element={<ProductLink />} />
         <Route path="/cart" element={<RequireLogin><Cart /></RequireLogin>} />
         <Route path="/checkout" element={<RequireLogin><Checkout /></RequireLogin>} />
         <Route path="/order/:orderNumber" element={<RequireLogin><OrderPlaced /></RequireLogin>} />

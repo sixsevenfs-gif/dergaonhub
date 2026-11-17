@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, LayoutGrid, Search, ShoppingCart, Truck } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import { DeliverTo, HeaderIcons } from '../../components/TopBar.jsx'
@@ -13,6 +13,7 @@ import ProductCard, { ProductTile } from '../../components/ProductCard.jsx'
 import { CategoryIcon } from '../../components/icons.jsx'
 import { CATEGORY_ART, categoryTint } from '../../lib/categoryLook.js'
 import CategoryBar from '../../components/CategoryBar.jsx'
+import ProductPage from './ProductPage.jsx'
 import { getStore, listCategories, listProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
@@ -125,6 +126,23 @@ export default function Home() {
     if (allParam) toProducts()
   }, [allParam])
 
+  // A product opens over this page as /?p=<id>, so this page keeps its shelf and scroll underneath.
+  const navigate = useNavigate()
+  const inApp = useLocation().state?.product
+  const openId = params.get('p')
+  const opened = openId ? products.find((p) => p.id === openId) : null
+  const openProduct = (id) => {
+    const next = new URLSearchParams(params)
+    next.set('p', id)
+    setParams(next, { state: { product: true } })
+  }
+  const closeProduct = () => {
+    if (inApp) return navigate(-1) // back to where the customer was: the shelf, or the product before this one
+    const next = new URLSearchParams(params)
+    next.delete('p')
+    setParams(next, { replace: true }) // came in by a shared link: stay on Jholzo
+  }
+
   // Tapping the JHOLZO logo always brings back the normal home page, at the top.
   const fromLogo = useLocation().state?.fromLogo
   useEffect(() => {
@@ -226,7 +244,7 @@ export default function Home() {
 
       <div className="mt-3 grid grid-cols-2 gap-3">
         {list.map((p) => (
-          <ProductCard key={p.id} p={p} qty={qtyOf(p.id)} onQty={(v) => setQty(p.id, v)} disabled={store.paused} />
+          <ProductCard key={p.id} p={p} qty={qtyOf(p.id)} onQty={(v) => setQty(p.id, v)} disabled={store.paused} onOpen={openProduct} />
         ))}
       </div>
       {!list.length && <p className="py-10 text-center text-muted">No products found. Try another name.</p>}
@@ -249,6 +267,8 @@ export default function Home() {
       )}
 
       <BottomNav />
+
+      {opened && <ProductPage p={opened} products={products} categories={categories} store={store} onOpen={openProduct} onClose={closeProduct} />}
     </main>
   )
 }

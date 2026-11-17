@@ -229,6 +229,7 @@ export async function updateProduct(id, patch) {
   if ('available' in patch) change.available = !!patch.available
   if ('featured' in patch) change.featured = !!patch.featured
   if ('status' in patch) change.status = patch.status
+  if ('description' in patch) change.description = String(patch.description ?? '').trim() // update 055
   check(await sb.from('products').update(change).eq('id', id))
   notify()
 }

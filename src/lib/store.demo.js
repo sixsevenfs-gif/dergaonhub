@@ -159,6 +159,7 @@ export async function updateProduct(id, patch) {
   if ('available' in patch) p.available = !!patch.available
   if ('featured' in patch) p.featured = !!patch.featured
   if ('status' in patch) p.status = patch.status
+  if ('description' in patch) p.description = String(patch.description ?? '').trim()
   p.updated_at = now()
   commit()
 }

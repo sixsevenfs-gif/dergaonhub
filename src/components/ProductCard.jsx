@@ -4,25 +4,7 @@ import { CategoryIcon } from './icons.jsx'
 import { categoryTint } from '../lib/categoryLook.js'
 import { percentOff, rupee } from '../lib/format.js'
 import FastImg from './FastImg.jsx'
-
-// The placeholder pack drawings (public/demo/) are not real photos.
-const realPhoto = (url) => !!url && !url.includes('/demo/')
-
-// Per-kg price only where people compare by weight (staples, loose produce, dry fruits),
-// not on chocolates, snacks, drinks or soaps where it reads oddly.
-const UNIT_PRICE_CATEGORIES = new Set(['atta', 'rice', 'daal', 'oil', 'masala', 'vegetables', 'dryfruits'])
-
-// "5 kg" at ₹285 → "₹57/kg"; grams per kg. Nothing for litres (oil, ghee), pieces or packs.
-function unitPrice(price, size = '', categoryId = '') {
-  if (!UNIT_PRICE_CATEGORIES.has(categoryId)) return ''
-  const m = size.trim().toLowerCase().match(/^([\d.]+)\s*(kg|g)$/)
-  if (!m) return ''
-  const n = Number(m[1])
-  if (!(n > 0)) return ''
-  const [qty, unit] = { kg: [n, 'kg'], g: [n / 1000, 'kg'] }[m[2]]
-  if (qty === 1) return ''
-  return `${rupee(price / qty)}/${unit}`
-}
+import { photosOf, realPhoto, unitPrice } from '../lib/productInfo.js'
 
 // Product photo, or the category icon on a soft tint when there is no photo.
 export function ProductTile({ p, className = 'h-[84px] w-[92px]' }) {
@@ -42,8 +24,8 @@ export function ProductTile({ p, className = 'h-[84px] w-[92px]' }) {
 }
 
 // Several photos: swipe with a finger, or they slide by themselves while the mouse is over the
-// product or after a tap (like Myntra). Dots show which photo is on screen.
-function PhotoSlider({ photos, alt }) {
+// product or after a tap (like Myntra). Dots show which photo is on screen. With onTap, a tap opens the product instead.
+function PhotoSlider({ photos, alt, onTap }) {
   const track = useRef(null)
   const timer = useRef(null)
   const [index, setIndex] = useState(0)
@@ -79,7 +61,7 @@ function PhotoSlider({ photos, alt }) {
           show(0)
         }}
         onTouchStart={stop}
-        onClick={play}
+        onClick={onTap ?? play}
         onScroll={(e) => setIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
         className="flex h-full w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
@@ -97,16 +79,18 @@ function PhotoSlider({ photos, alt }) {
 }
 
 // One product card in the 2-column grid: photo, name, size, price, and an outlined "ADD" that turns into a green − 1 +.
-export default function ProductCard({ p, qty, onQty, disabled }) {
+// onOpen: tapping the photo or the name opens the product page.
+export default function ProductCard({ p, qty, onQty, disabled, onOpen }) {
   const perUnit = unitPrice(p.price, p.size, p.category_id)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
-  const photos = [p.photo_url, ...(p.photos ?? [])].filter(realPhoto)
+  const photos = photosOf(p)
   const tint = categoryTint(p.category_id)
+  const open = onOpen ? () => onOpen(p.id) : undefined
   return (
     <article className="flex flex-col rounded-2xl border border-line bg-white p-2 shadow-[0_2px_10px_rgb(26_31_27/0.04)]">
-      <div className={`relative aspect-square overflow-hidden rounded-xl bg-mint-soft ${p.available ? '' : 'grayscale'}`}>
+      <div onClick={open} className={`relative aspect-square overflow-hidden rounded-xl bg-mint-soft ${p.available ? '' : 'grayscale'} ${open ? 'cursor-pointer' : ''}`}>
         {photos.length > 1 ? (
-          <PhotoSlider photos={photos} alt={p.name} />
+          <PhotoSlider photos={photos} alt={p.name} onTap={open} />
         ) : photos.length ? (
           <FastImg src={photos[0]} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
@@ -120,7 +104,11 @@ export default function ProductCard({ p, qty, onQty, disabled }) {
       </div>
 
       <div className="flex flex-1 flex-col px-1 pt-2">
-        <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-medium leading-[1.25] text-ink">{p.name}</h3>
+        <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-medium leading-[1.25] text-ink">
+          {open ? (
+            <a href={`/product/${p.id}`} onClick={(e) => { e.preventDefault(); open() }}>{p.name}</a>
+          ) : p.name}
+        </h3>
         <p className="mt-0.5 text-[12px] text-muted">{p.size}</p>
         <div className="mt-auto flex items-end justify-between gap-1 pt-2">
           {/* On sale: nothing on the photo. The price, then the MRP crossed out and "3% off" in green beside it. */}

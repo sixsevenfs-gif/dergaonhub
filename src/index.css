@@ -63,3 +63,8 @@ body {
   .lc-rise, .lc-fade, .lc-breathe { animation: none; }
   .lc-confetti { display: none; }
 }
+
+/* The product page rises over the home page (src/pages/customer/ProductPage.jsx) */
+@keyframes pp-in { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pp-in { animation: pp-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .pp-in { animation: none; } }
