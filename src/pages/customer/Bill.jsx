@@ -70,6 +70,7 @@ export default function Bill() {
             {Number(order.express_fee) > 0 && <div className="flex justify-between"><span>Express delivery</span><span>{rupee(order.express_fee)}</span></div>}
             {Number(order.express_waived) > 0 && <div className="flex justify-between"><span>Express delivery (we were late)</span><span>FREE</span></div>}
             {order.packaging_fee > 0 && <div className="flex justify-between"><span>Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>}
+            {order.gift_wrap_fee > 0 && <div className="flex justify-between"><span>Gift packing</span><span>{rupee(order.gift_wrap_fee)}</span></div>}
             {Number(order.wallet_used) > 0 && <div className="flex justify-between"><span>Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>}
           </div>
           <div className="mt-3 flex justify-between rounded-xl bg-neutral-100 px-3 py-2.5 text-lg font-semibold">

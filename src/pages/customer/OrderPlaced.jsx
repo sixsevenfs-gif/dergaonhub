@@ -106,6 +106,9 @@ export default function OrderPlaced() {
               <span className="w-14 text-right">{rupee(i.line_total)}</span>
             </div>
           ))}
+          {order.gift_wrap_fee > 0 && (
+            <div className="flex text-sm"><span className="flex-1 text-muted">🎁 Gift packing</span><span>{rupee(order.gift_wrap_fee)}</span></div>
+          )}
           {order.packaging_fee > 0 && (
             <div className="flex text-sm"><span className="flex-1 text-muted">Packaging charge</span><span>{rupee(order.packaging_fee)}</span></div>
           )}

@@ -187,6 +187,9 @@ export default function AdminOrderDetail() {
         {order.confirmed_by && <> · confirmed by {nameOf(order.confirmed_by)}</>}
         {order.cancelled_by && <> · cancelled by {nameOf(order.cancelled_by)}</>}
       </p>
+      {order.gift_wrap && (
+        <p className="w-fit rounded-full bg-pink-100 px-3 py-1 text-sm font-bold text-pink-800">🎁 Gift pack: wrap this order as a gift ({rupee(order.gift_wrap_fee)} paid)</p>
+      )}
 
       <section className={`${lcard} p-4`}>
         <div className="font-semibold">{order.customer_name}</div>
@@ -280,6 +283,7 @@ export default function AdminOrderDetail() {
           <div className="flex justify-between text-neutral-600"><span>Subtotal</span><span>{rupee(order.subtotal)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Delivery charge{order.distance_km != null && ` (${order.distance_km} km)`}</span><span>{rupee(order.delivery_fee)}</span></div>
           <div className="flex justify-between text-neutral-600"><span>Packaging charge</span><span>{rupee(order.packaging_fee ?? 0)}</span></div>
+          {order.gift_wrap_fee > 0 && <div className="flex justify-between text-neutral-600"><span>🎁 Gift packing</span><span>{rupee(order.gift_wrap_fee)}</span></div>}
           {Number(order.express_fee) > 0 && (
             <div className="flex justify-between font-semibold text-amber-700"><span>⚡ Express delivery{expressLate(order) && ' · LATE, comes off when the rider leaves'}</span><span>{rupee(order.express_fee)}</span></div>
           )}

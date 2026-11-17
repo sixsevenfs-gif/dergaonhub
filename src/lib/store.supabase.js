@@ -675,7 +675,7 @@ async function removeOrderItemDirect(orderId, itemId) {
   // Packaging follows the new items total; the delivery charge stays as quoted to the customer.
   const packaging = packagingFee(await getStore(), subtotal)
   // Jholzo Money used on the order stays used.
-  const total = Math.max(0, subtotal + o.delivery_fee + Number(o.express_fee ?? 0) + packaging - Number(o.wallet_used ?? 0))
+  const total = Math.max(0, subtotal + o.delivery_fee + Number(o.express_fee ?? 0) + packaging + Number(o.gift_wrap_fee ?? 0) - Number(o.wallet_used ?? 0))
   check(await sb.from('orders').update({ subtotal, packaging_fee: packaging, total }).eq('id', orderId))
   notify()
 }

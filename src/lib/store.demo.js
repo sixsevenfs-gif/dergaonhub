@@ -886,7 +886,7 @@ export async function removeOrderItem(orderId, itemId) {
     o.gift_used = r2(o.gift_used - given)
     o.wallet_used = r2(o.wallet_used - given)
   }
-  o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee - (o.wallet_used ?? 0))
+  o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee + (o.gift_wrap_fee ?? 0) - (o.wallet_used ?? 0))
   commit()
 }
 

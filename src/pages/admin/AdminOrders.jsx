@@ -172,7 +172,7 @@ export default function AdminOrders() {
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
-                <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express · leave by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}
+                <Truck size={15} /> {isExpress(o) ? <b className="text-amber-700">⚡ Express · leave by {fmtClock(o.express_by)}</b> : <>Delivery {dayLabel(o.delivery_date)}</>}{o.distance_km != null ? ` · ${o.distance_km} km` : ''}{o.gift_wrap && <b className="text-pink-700"> · 🎁 Gift pack</b>}
               </p>
               {o.delayed_from && o.status !== 'completed' && o.status !== 'cancelled' && (
                 <p className="mt-1 text-sm font-semibold text-amber-700">Late: was due {dayLabel(o.delayed_from)}. The customer sees a sorry note.</p>

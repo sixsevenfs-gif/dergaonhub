@@ -21,6 +21,7 @@ export function billMessage({ order, items }) {
     ...(Number(order.express_fee) > 0 ? [`Express delivery: ${rupee(order.express_fee)}`] : []),
     ...(Number(order.express_waived) > 0 ? [`Express delivery: FREE (we were late)`] : []),
     ...(order.packaging_fee ? [`Packaging charge: ${rupee(order.packaging_fee)}`] : []),
+    ...(order.gift_wrap_fee ? [`Gift packing: ${rupee(order.gift_wrap_fee)}`] : []),
     ...(Number(order.wallet_used) > 0 ? [`Jholzo Money: −${rupee(order.wallet_used)}`] : []),
     '-------------------------',
     `*Total: ${rupee(order.total)}*`,

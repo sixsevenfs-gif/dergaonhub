@@ -556,6 +556,9 @@ export default function PartnerOrderCard({ order: o, store, isAdmin, userId, aut
             #{o.order_number}{o.distance_km != null ? ` · ${o.distance_km} km away` : ''}
             {isAdmin && !done && <> · {o.rider_id ? <>🛵 <b className="text-ink">{o.rider_name || 'Rider'}</b></> : 'No rider'}</>}
           </p>
+          {o.gift_wrap && (
+            <p className="mt-1 w-fit rounded-full bg-pink-100 px-2 py-0.5 text-xs font-bold text-pink-800">🎁 GIFT PACK · wrap it as a gift</p>
+          )}
           {isExpress(o) && (Number(o.express_waived) > 0 ? (
             <p className="mt-1 w-fit rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-800">⚡ EXPRESS LATE · {rupee(o.express_waived)} Express charge not taken{!o.left_at && ', go now!'}</p>
           ) : (
