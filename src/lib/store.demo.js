@@ -1128,7 +1128,9 @@ export async function partnerSignIn() {
 
 const messagesOf = (orderId) => (db.order_messages ?? []).filter((m) => m.order_id === orderId)
 
-// Like partner_orders() in update 033: the owner sees every order, a rider only the ones assigned to them.
+// Like partner_orders() in update 056: the owner sees every order, a rider the ones assigned to them and the open
+// ones (confirmed, no rider, not on the way) that anyone may take.
+const isOpenOrder = (o) => o.status === 'confirmed' && !o.rider_id && !o.dispatch
 export async function partnerOrders(date) {
   expireOld()
   const rider = demoAs().startsWith('rider')
@@ -1137,7 +1139,7 @@ export async function partnerOrders(date) {
   return clone(
     db.orders
       .filter((o) => o.delivery_date === date && o.status !== 'cancelled')
-      .filter((o) => !rider || o.rider_id === me || o.delivered_by === me)
+      .filter((o) => !rider || o.rider_id === me || o.delivered_by === me || isOpenOrder(o))
       .sort((a, b) => a.area.localeCompare(b.area) || a.created_at.localeCompare(b.created_at))
       .map((o) => ({
         dispatch: '', ...o, rider_name: team.find((t) => t.user_id === o.rider_id)?.name ?? null,
@@ -1151,6 +1153,28 @@ export async function partnerOrders(date) {
   )
 }
 
+
+// rider_take / rider_give_back (update 056).
+export async function riderTake(id) {
+  const o = orderOrFail(id)
+  if (!demoAs().startsWith('rider') || !demoActive()) fail('Only delivery partners can take orders.')
+  if (o.rider_id === demoUser()) return
+  if (o.rider_id) fail(`${demoTeam().find((t) => t.user_id === o.rider_id)?.name ?? 'Another rider'} is already delivering this order.`)
+  if (!isOpenOrder(o)) fail('This order is no longer open.')
+  o.rider_id = demoUser()
+  o.assigned_at = now()
+  commit()
+}
+
+export async function riderGiveBack(id) {
+  const o = orderOrFail(id)
+  if (!demoAs().startsWith('rider') || o.rider_id !== demoUser() || o.status !== 'confirmed' || o.dispatch) {
+    fail('You can give an order back only before you leave with it. Call the owner.')
+  }
+  o.rider_id = null
+  o.assigned_at = null
+  commit()
+}
 
 export async function setDispatch(id, dispatch) {
   const o = orderOrFail(id)

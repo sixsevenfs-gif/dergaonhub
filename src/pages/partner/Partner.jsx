@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, HandCoins, LogOut, RefreshCw, ShoppingBasket } from 'lucide-react'
+import { Bike, Check, ChevronDown, HandCoins, LogOut, RefreshCw, ShoppingBasket, Undo2 } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import PartnerLogin from './PartnerLogin.jsx'
 import PartnerOrderCard from './PartnerOrderCard.jsx'
 import StockButton from './StockSheet.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
-import { adminSignOut, getStore, partnerCheck, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
+import { adminSignOut, getStore, partnerCheck, partnerOrders, partnerSession, riderDayMoney, riderGiveBack, riderTake } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { useLiveCheck } from '../../lib/useLiveCheck.js'
-import { addDays, dateStr, rupee, withLateExpress } from '../../lib/format.js'
+import { addDays, dateStr, fmtClock, isExpress, rupee, withLateExpress } from '../../lib/format.js'
 import PayRider from '../../components/PayRider.jsx'
 import PayBack, { CASH_BY } from './PayBack.jsx'
 import { DEMO_MODE } from '../../config.js'
@@ -26,6 +26,68 @@ export default function Partner() {
 }
 
 const ORDER = { arriving: 0, on_the_way: 1, ready: 2, new: 3, done: 4 }
+
+// An order nobody is delivering yet (update 056): it rang on every rider's phone; the first to tap gets it.
+function OpenOrderCard({ order: o, onTaken }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const count = o.items.reduce((n, i) => n + i.quantity, 0)
+  const pay = o.payment_method === 'cash' ? `Cash ${rupee(o.total)}` : o.payment_status === 'paid' ? 'Paid online' : `UPI ${rupee(o.total)}`
+  const take = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await riderTake(o.id)
+    } catch (err) {
+      setError(err.message)
+    }
+    setBusy(false)
+    onTaken()
+  }
+  return (
+    <article className={`${card} border-2 border-brand/40 p-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-lg font-semibold leading-tight">{o.area}</p>
+          <p className="mt-0.5 text-sm text-muted">
+            #{o.order_number}{o.distance_km != null ? ` · ${o.distance_km} km away` : ''} · {count} item{count === 1 ? '' : 's'}
+          </p>
+        </div>
+        <span className="shrink-0 text-right text-sm font-semibold">{pay}</span>
+      </div>
+      {isExpress(o) && o.express_by && (
+        <p className="mt-2 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">⚡ EXPRESS · leave the store by {fmtClock(o.express_by)}</p>
+      )}
+      <button type="button" disabled={busy} onClick={take} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand font-semibold text-white disabled:opacity-60">
+        <Bike size={19} /> {busy ? 'Taking…' : "I'll deliver this"}
+      </button>
+      {error && <p className="mt-2 rounded-xl bg-red-500/10 p-2.5 text-sm text-red-700">{error}</p>}
+    </article>
+  )
+}
+
+// Took an order but can't go: give it back before leaving the store, so another rider can take it.
+function GiveBackOrder({ order: o, onDone }) {
+  const [error, setError] = useState('')
+  const back = async () => {
+    if (!window.confirm(`Give order #${o.order_number} back? Every rider will see it again.`)) return
+    setError('')
+    try {
+      await riderGiveBack(o.id)
+      onDone()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  return (
+    <div className="-mt-1 px-2">
+      <button type="button" onClick={back} className="flex h-10 items-center gap-1.5 text-sm font-medium text-muted underline">
+        <Undo2 size={15} /> Can't go? Give it back
+      </button>
+      {error && <p className="rounded-xl bg-red-500/10 p-2.5 text-sm text-red-700">{error}</p>}
+    </div>
+  )
+}
 
 // The day's money the rider gives back to the owner (update 044). Riders are paid a salary, so everything a
 // customer pays belongs to the store: cash collected − paid at the shop − already given back.
@@ -133,6 +195,12 @@ function PartnerRun({ session }) {
   const rider = session.role === 'rider'
   const buying = store?.riders_buy !== false
   const list = rider ? all.filter((o) => o.rider_id === session.userId || o.delivered_by === session.userId) : all
+  // Open orders (update 056): confirmed, nobody delivering yet. Every rider sees them; the first to tap gets one.
+  const open = rider ? all.filter((o) => o.status === 'confirmed' && !o.rider_id && !o.dispatch) : []
+  const refresh = () => {
+    reload()
+    reloadMoney()
+  }
   const left = list.filter((o) => o.status === 'confirmed')
   const delivered = list.filter((o) => o.status === 'completed').length
   const cash = left.filter((o) => o.payment_method === 'cash').reduce((s, o) => s + o.total, 0)
@@ -243,19 +311,32 @@ function PartnerRun({ session }) {
 
       {error && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-700">{error.message}</p>}
 
+      {open.length > 0 && (
+        <section className="mt-4">
+          <h2 className="text-sm font-semibold text-brand">New orders · nobody going yet · {open.length}</h2>
+          <p className="mb-2 text-xs text-muted">Every rider sees these. The first one to tap gets the order.</p>
+          <div className="space-y-3">
+            {open.map((o) => <OpenOrderCard key={o.id} order={o} onTaken={refresh} />)}
+          </div>
+        </section>
+      )}
+
       <section className="mt-4">
         {rider && <h2 className="mb-2 text-sm font-semibold text-muted">My orders · {list.length}</h2>}
         <div className="space-y-3">
           {list.map((o) => (
-            <PartnerOrderCard
-              key={o.id} order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto}
-              date={date} balance={buying && Array.isArray(money) ? Number(money.find((r) => r.rider_id === session.userId)?.to_return ?? 0) : null}
-              riderName={money?.find?.((r) => r.rider_id === session.userId)?.name}
-            />
+            <div key={o.id} className="space-y-3">
+              <PartnerOrderCard
+                order={o} store={store ?? {}} isAdmin={session.role === 'admin'} userId={session.userId} auto={!!store?.whatsapp_auto}
+                date={date} balance={buying && Array.isArray(money) ? Number(money.find((r) => r.rider_id === session.userId)?.to_return ?? 0) : null}
+                riderName={money?.find?.((r) => r.rider_id === session.userId)?.name}
+              />
+              {rider && o.rider_id === session.userId && o.status === 'confirmed' && !o.dispatch && <GiveBackOrder order={o} onDone={refresh} />}
+            </div>
           ))}
           {orders && !list.length && (
             <p className={`${card} p-8 text-center text-muted`}>
-              {rider ? 'No orders for you yet. The order desk assigns them to you, then they show up here.' : 'No orders for this day yet.'}
+              {rider ? (open.length ? 'Take a new order above, then it shows up here.' : 'No orders for you yet. A new order rings and shows up here; tap "I\'ll deliver this" to take it.') : 'No orders for this day yet.'}
             </p>
           )}
         </div>
