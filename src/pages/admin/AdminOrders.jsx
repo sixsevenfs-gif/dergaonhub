@@ -6,8 +6,9 @@ import StatusBadge from '../../components/StatusBadge.jsx'
 import { PaymentBadge } from './PaymentCheck.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
-import { adminListOrders, assignRider, confirmOrder, getStore, listTeam, setDispatch } from '../../lib/store.js'
+import { adminListOrders, assignRider, confirmOrder, getStore, listTeam, ordersCheck, setDispatch } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { addDays, dateStr, dayLabel, fmtClock, isExpress, itemsText, rupee } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 import { useRole } from '../../lib/role.js'
@@ -58,10 +59,16 @@ function beep() {
   }
 }
 
+const RECENT_DAYS = 30
+
 export default function AdminOrders() {
   const [filter, setFilter] = useState('new')
   const [day, setDay] = useState('all') // 'all', 'today', 'yesterday' or a date like 2026-11-02
-  const { data: orders = [], reload } = useData(adminListOrders)
+  // The last RECENT_DAYS days only, unless older ones are asked for (a day picked further back, or the button).
+  const [older, setOlder] = useState(false)
+  const since = addDays(dateStr(), -RECENT_DAYS)
+  const allDays = older || (/^\d{4}-/.test(day) && day < since)
+  const { data: orders = [], reload } = useData(() => adminListOrders(allDays ? {} : { since }), [allDays, since])
   const { data: team = [] } = useData(listTeam)
   const { data: store } = useData(getStore)
   const { isOwner } = useRole()
@@ -71,11 +78,9 @@ export default function AdminOrders() {
   const riderOptions = (o) => (o.rider_id && !riders.some((r) => r.user_id === o.rider_id) ? [...riders, { user_id: o.rider_id, name: nameOf(o.rider_id) }] : riders)
   const seen = useRef(null)
 
-  // Check for new orders every 15 seconds and beep when one arrives.
-  useEffect(() => {
-    const t = setInterval(reload, 15000)
-    return () => clearInterval(t)
-  }, [reload])
+  // Check for new orders every 15 seconds (a few small fields only) and reload the list when something changed;
+  // it beeps when a new one arrives. Nothing is checked while this page is in the background.
+  useLiveCheck(ordersCheck, reload)
 
   useEffect(() => {
     const ids = orders.filter(isNew).map((o) => o.id)
@@ -120,7 +125,7 @@ export default function AdminOrders() {
         </label>
       </div>
       <p className="mt-2 text-sm font-semibold text-neutral-700">
-        {day === 'all' ? 'Showing all days' : `Showing orders placed ${near(dayKey) ? `${dayLabel(dayKey)}, ` : ''}${longDay(dayKey)}`}
+        {day === 'all' ? (allDays ? 'Showing all days' : `Showing the last ${RECENT_DAYS} days`) : `Showing orders placed ${near(dayKey) ? `${dayLabel(dayKey)}, ` : ''}${longDay(dayKey)}`}
       </p>
       {newElsewhere > 0 && (
         <button type="button" onClick={() => setDay('all')} className="mt-2 w-full rounded-xl bg-accent px-3 py-2 text-left text-sm font-semibold text-ink">
@@ -222,6 +227,11 @@ export default function AdminOrders() {
           <p className="py-10 text-center text-neutral-500">
             {filter === 'new' ? 'No new orders. New orders show up here with a sound.' : day === 'all' ? 'No orders here.' : 'No orders here on this day.'}
           </p>
+        )}
+        {!allDays && (
+          <button type="button" onClick={() => setOlder(true)} className={`${lbtnOutline} w-full text-sm`}>
+            Showing the last {RECENT_DAYS} days · show older orders
+          </button>
         )}
       </div>
     </div>

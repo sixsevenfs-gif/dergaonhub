@@ -492,14 +492,31 @@ async function hintsFor(orders) {
 
 const expireOld = async () => check(await sb.rpc('expire_old_orders'))
 
-export async function adminListOrders({ status = '', date = '' } = {}) {
+// since: only orders placed on or after this day (YYYY-MM-DD), so the Orders page does not download every
+// order ever placed each time it reloads.
+export async function adminListOrders({ status = '', date = '', since = '' } = {}) {
   await expireOld()
   let query = sb.from('orders').select('*, order_items(quantity)').order('created_at', { ascending: false })
   if (status) query = query.eq('status', status)
   if (date) query = query.eq('delivery_date', date)
+  if (since) query = query.gte('created_at', since)
   const rows = check(await query)
   const hint = await hintsFor(rows)
   return rows.map(({ order_items, ...o }) => ({ ...toOrder(o), item_count: sum(order_items, (i) => i.quantity), hint: hint(o.customer_phone) }))
+}
+
+// Fingerprints for useLiveCheck: a few small fields, checked every few seconds instead of downloading the page.
+// The newest orders, for the Orders page (a new order, or one confirmed, sent out, paid or delivered elsewhere).
+export async function ordersCheck() {
+  const rows = check(await sb.from('orders').select('id, status, dispatch, payment_status, rider_id, total').order('created_at', { ascending: false }).limit(40))
+  return JSON.stringify(rows)
+}
+// One order, for its page: also the rider's WhatsApp messages and shop bill.
+export async function orderCheck(id) {
+  const cols = 'status, dispatch, payment_status, rider_id, total, cash_collected, delivery_photo'
+  const res = await sb.from('orders').select(`${cols}, order_messages(count), order_shop_bills(paid)`).eq('id', id).maybeSingle()
+  if (!res.error) return JSON.stringify(res.data)
+  return JSON.stringify(check(await sb.from('orders').select(cols).eq('id', id).maybeSingle()))
 }
 
 // Product photo (and category, for the icon when there is none) of each order item: an item keeps only
@@ -956,6 +973,14 @@ export async function partnerSignIn(email, password) {
   }
   notify()
   return s
+}
+
+// The rider page's fingerprint: the short list the Partner app also checks (update 052). Before 052 there is
+// nothing small to check, so it changes every time and the page reloads as it used to.
+export async function partnerCheck() {
+  const res = await sb.rpc('partner_alerts')
+  if (missingFunction(res.error)) return String(Date.now())
+  return JSON.stringify(check(res))
 }
 
 export async function partnerOrders(date) {

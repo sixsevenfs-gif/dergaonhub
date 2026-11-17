@@ -702,15 +702,25 @@ function hintFor(phone) {
   return { completed: completedCount(c.id), no_show_count: c.no_show_count, blocked: c.blocked }
 }
 
-export async function adminListOrders({ status = '', date = '' } = {}) {
+export async function adminListOrders({ status = '', date = '', since = '' } = {}) {
   expireOld()
   return clone(
     db.orders
-      .filter((o) => (!status || o.status === status) && (!date || o.delivery_date === date))
+      .filter((o) => (!status || o.status === status) && (!date || o.delivery_date === date) && (!since || o.created_at >= since))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((o) => ({ ...o, item_count: sum(itemsOf(o.id), (i) => i.quantity), hint: hintFor(o.customer_phone) })),
   )
 }
+
+// Fingerprints for useLiveCheck (see store.supabase.js).
+export async function ordersCheck() {
+  return JSON.stringify(db.orders.map((o) => [o.id, o.status, o.dispatch, o.payment_status, o.rider_id, o.total]))
+}
+export async function orderCheck(id) {
+  const o = db.orders.find((x) => x.id === id)
+  return JSON.stringify(o ? [o.status, o.dispatch, o.payment_status, o.rider_id, o.total, o.cash_collected, o.delivery_photo] : null)
+}
+export const partnerCheck = ordersCheck
 
 export async function getOrderById(orderId) {
   expireOld()

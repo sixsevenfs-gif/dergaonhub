@@ -8,8 +8,9 @@ import ItemPhoto from '../../components/ItemPhoto.jsx'
 import Field from '../../components/Field.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield, lfieldBase } from '../../components/ui.js'
-import { assignRider, cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, listTeam, logMessage, removeOrderItem, reopenOrder } from '../../lib/store.js'
+import { assignRider, cancelOrder, confirmOrder, deliveryPhotoUrl, getOrderById, listTeam, logMessage, orderCheck, removeOrderItem, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { deliveryWhen, expressLate, fmtClock, fmtDateTime, rupee } from '../../lib/format.js'
 import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../lib/whatsapp.js'
 import { mapsLink } from '../../lib/delivery.js'
@@ -143,16 +144,9 @@ function ProfitCard({ order, items, costs, rules, shopBill }) {
 export default function AdminOrderDetail() {
   const { orderId } = useParams()
   const { data, reload } = useData(() => getOrderById(orderId), [orderId])
-  // A rider marks steps on their own phone: check again every 15 seconds and when the page comes back to the front.
-  useEffect(() => {
-    const t = setInterval(reload, 15000)
-    const back = () => document.visibilityState === 'visible' && reload()
-    document.addEventListener('visibilitychange', back)
-    return () => {
-      clearInterval(t)
-      document.removeEventListener('visibilitychange', back)
-    }
-  }, [reload])
+  // A rider marks steps on their own phone: a small check every 15 seconds, and the order is loaded again only
+  // when it changed. Also when the page comes back to the front.
+  useLiveCheck(() => orderCheck(orderId), reload, { key: orderId })
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
   const [cash, setCash] = useState('')

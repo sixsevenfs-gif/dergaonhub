@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ChevronDown, HandCoins, LogOut, RefreshCw, ShoppingBasket } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
@@ -7,8 +7,9 @@ import PartnerOrderCard from './PartnerOrderCard.jsx'
 import StockButton from './StockSheet.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
-import { adminSignOut, getStore, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
+import { adminSignOut, getStore, partnerCheck, partnerOrders, partnerSession, riderDayMoney } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { addDays, dateStr, rupee, withLateExpress } from '../../lib/format.js'
 import PayRider from '../../components/PayRider.jsx'
 import PayBack, { CASH_BY } from './PayBack.jsx'
@@ -119,23 +120,13 @@ function PartnerRun({ session }) {
   const [showList, setShowList] = useState(false)
   const [moneyError, setMoneyError] = useState('')
 
-  // New orders come in while the rider is out: check again every 30 seconds and on return to the page.
-  useEffect(() => {
-    const again = () => {
-      reload()
-      reloadMoney()
-    }
-    // Every 10 seconds, and when the page comes back to the front (switching apps on a phone fires no "focus").
-    const t = setInterval(again, 10000)
-    const back = () => document.visibilityState === 'visible' && again()
-    window.addEventListener('focus', again)
-    document.addEventListener('visibilitychange', back)
-    return () => {
-      clearInterval(t)
-      window.removeEventListener('focus', again)
-      document.removeEventListener('visibilitychange', back)
-    }
-  }, [reload, reloadMoney])
+  // New orders come in while the rider is out: a small check every 10 seconds (the Partner app's short list) and
+  // when the page comes back to the front; the day's orders and money load again only when it changed, and at
+  // least every 5 minutes.
+  useLiveCheck(partnerCheck, () => {
+    reload()
+    reloadMoney()
+  }, { every: 10000, fullEvery: 5 * 60000, key: date })
 
   const all = (orders ?? []).slice().sort((a, b) => ORDER[stageOf(a)] - ORDER[stageOf(b)])
   // A rider: only the orders assigned to them (updates 032, 033). The owner: every order.
