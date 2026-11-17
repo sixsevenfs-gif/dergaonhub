@@ -14,10 +14,11 @@ import { CategoryIcon } from '../../components/icons.jsx'
 import { CATEGORY_ART, categoryTint } from '../../lib/categoryLook.js'
 import CategoryBar from '../../components/CategoryBar.jsx'
 import ProductPage from './ProductPage.jsx'
+import CartPill from '../../components/CartPill.jsx'
 import { getStore, listCategories, listProducts } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { useCart } from '../../lib/cart-context.js'
-import { fmtTime, itemsText, matches, percentOff, rupee } from '../../lib/format.js'
+import { fmtTime, matches, percentOff, rupee } from '../../lib/format.js'
 
 // Round category tiles: 7 and "More" until opened, like the mockup grid.
 const GRID_COUNT = 7
@@ -257,14 +258,7 @@ export default function Home() {
 
       <Footer store={store} />
 
-      {count > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 px-4 pb-3">
-          <Link to="/cart" className="mx-auto flex h-14 max-w-md items-center justify-between rounded-2xl bg-brand px-5 text-white shadow-[0_8px_24px_rgb(31_107_58/0.35)]">
-            <span className="flex items-center gap-3 font-semibold"><ShoppingCart size={20} /> {itemsText(count)} · {rupee(cartTotal)}</span>
-            <span className="flex items-center gap-1 text-sm font-semibold">View cart <ArrowRight size={18} /></span>
-          </Link>
-        </div>
-      )}
+      {count > 0 && <CartPill lines={cart.lines} products={products} count={count} total={cartTotal} />}
 
       <BottomNav />
 
