@@ -20,7 +20,7 @@ export default function Footer({ store }) {
         <p>
           <JholzoText className="text-[40px]" />
         </p>
-        <p className="mt-2 text-[13px] text-ink">Fresh Groceries. Right at Your Door.</p>
+        <p className="mt-2 text-[13px] text-ink">Your town’s store, at your door.</p>
         <p className="mt-1 text-[12px]">Launched 1 November 2026 · Now delivering in Dergaon</p>
         <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-brand">{LEGAL.GROUP_LINE}</p>
         <a href={LEGAL.INSTAGRAM} target="_blank" rel="noreferrer" className="mt-4 inline-flex h-10 items-center gap-2 rounded-full border border-line px-4 text-[13px] font-semibold text-ink">

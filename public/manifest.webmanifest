@@ -1,7 +1,7 @@
 {
   "name": "Jholzo",
   "short_name": "Jholzo",
-  "description": "Dergaon ka sab kuch, ek jagah. Powered by Malchetra Group.",
+  "description": "Your town’s store, at your door. Powered by Malchetra Group.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",
