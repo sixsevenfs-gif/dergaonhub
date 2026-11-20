@@ -4,7 +4,7 @@ import { CategoryIcon } from './icons.jsx'
 import { categoryTint } from '../lib/categoryLook.js'
 import { percentOff, rupee } from '../lib/format.js'
 import FastImg from './FastImg.jsx'
-import { photosOf, realPhoto, unitPrice } from '../lib/productInfo.js'
+import { photosOf, realPhoto } from '../lib/productInfo.js'
 
 // Product photo, or the category icon on a soft tint when there is no photo.
 export function ProductTile({ p, className = 'h-[84px] w-[92px]' }) {
@@ -81,7 +81,6 @@ function PhotoSlider({ photos, alt, onTap }) {
 // One product card in the 2-column grid: photo, name, size, price, and an outlined "ADD" that turns into a green − 1 +.
 // onOpen: tapping the photo or the name opens the product page.
 export default function ProductCard({ p, qty, onQty, disabled, onOpen }) {
-  const perUnit = unitPrice(p.price, p.size, p.category_id)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
   const photos = photosOf(p)
   const tint = categoryTint(p.category_id)
@@ -123,7 +122,6 @@ export default function ProductCard({ p, qty, onQty, disabled, onOpen }) {
           ) : (
             <span className="min-w-0 leading-tight">
               <span className="block text-[15px] font-semibold text-ink">{rupee(p.price)}</span>
-              {perUnit && <span className="block text-[10.5px] text-muted">{perUnit}</span>}
             </span>
           )}
           {!p.available ? null : qty > 0 ? (

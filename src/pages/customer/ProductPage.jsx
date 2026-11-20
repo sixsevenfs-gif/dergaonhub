@@ -8,7 +8,7 @@ import { categoryTint } from '../../lib/categoryLook.js'
 import { useCart } from '../../lib/cart-context.js'
 import { deliveryRules } from '../../lib/delivery.js'
 import { fmtTime, itemsText, percentOff, rupee } from '../../lib/format.js'
-import { aboutText, alsoLike, photosOf, similarTo, storageTip, unitPrice } from '../../lib/productInfo.js'
+import { aboutText, alsoLike, photosOf, similarTo, storageTip } from '../../lib/productInfo.js'
 import { LEGAL } from '../../config.js'
 
 // Big photos, swiped with a finger; dots show which one is on screen.
@@ -95,7 +95,6 @@ export default function ProductPage({ p, products, categories, store, onOpen, on
 
   const qty = qtyOf(p.id)
   const off = p.compare_price ? percentOff(p.compare_price, p.price) : 0
-  const perUnit = unitPrice(p.price, p.size, p.category_id)
   const category = categories.find((c) => c.id === p.category_id)
   const rules = deliveryRules(store)
   const about = aboutText(p)
@@ -154,7 +153,6 @@ export default function ProductPage({ p, products, categories, store, onOpen, on
                   <span className="rounded-md bg-mint px-1.5 py-0.5 text-[12px] font-semibold text-brand-dark">{off}% off</span>
                 </>
               )}
-              {perUnit && <span className="text-[12px] text-muted">({perUnit})</span>}
             </div>
             {off > 0 && <p className="mt-1.5 text-[12px] font-medium text-brand">You save {rupee(p.compare_price - p.price)} on this</p>}
 

@@ -1,4 +1,3 @@
-import { rupee } from './format.js'
 
 // What the product page says about an item, and which other items it shows below it.
 
@@ -67,20 +66,4 @@ export function alsoLike(p, products, limit = 10) {
   return [...starred, ...others.filter((x) => !x.featured)]
     .filter((x) => (taken[x.category_id] = (taken[x.category_id] ?? 0) + 1) <= 2)
     .slice(0, limit)
-}
-
-// Per-kg price only where people compare by weight (staples, loose produce, dry fruits),
-// not on chocolates, snacks, drinks or soaps where it reads oddly.
-const UNIT_PRICE_CATEGORIES = new Set(['atta', 'rice', 'daal', 'oil', 'masala', 'vegetables', 'dryfruits'])
-
-// "5 kg" at ₹285 → "₹57/kg"; grams per kg. Nothing for litres (oil, ghee), pieces or packs.
-export function unitPrice(price, size = '', categoryId = '') {
-  if (!UNIT_PRICE_CATEGORIES.has(categoryId)) return ''
-  const m = size.trim().toLowerCase().match(/^([\d.]+)\s*(kg|g)$/)
-  if (!m) return ''
-  const n = Number(m[1])
-  if (!(n > 0)) return ''
-  const [qty, unit] = { kg: [n, 'kg'], g: [n / 1000, 'kg'] }[m[2]]
-  if (qty === 1) return ''
-  return `${rupee(price / qty)}/${unit}`
 }
