@@ -23,6 +23,7 @@ const ABOUT = {
   pooja: 'For daily pooja and festivals.',
   home: 'A useful everyday item for your home and kitchen.',
   party: 'For birthdays and celebrations.',
+  meat: 'Fresh, cut and packed for your order.',
 }
 const STORAGE = {
   atta: 'Store in a cool, dry place in an airtight container.',
@@ -35,6 +36,7 @@ const STORAGE = {
   dryfruits: 'Store in an airtight container, away from moisture.',
   dairy: 'Keep refrigerated.',
   vegetables: 'Wash before use.',
+  meat: 'Keep refrigerated and cook within a day.',
 }
 
 export const aboutText = (p) => p.description?.trim() || `${p.name}, ${p.size}. ${ABOUT[p.category_id] ?? 'Delivered to your door in Dergaon.'}`

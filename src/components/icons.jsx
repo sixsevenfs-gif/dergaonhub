@@ -1,11 +1,11 @@
 import {
-  Bean, Carrot, Coffee, Nut, Cookie, CookingPot, CupSoda, Droplet, Flame, House, Milk, Package, PartyPopper, Soup, Sparkles, SprayCan, Wheat,
+  Bean, Carrot, Coffee, Nut, Cookie, CookingPot, CupSoda, Drumstick, Droplet, Flame, House, Milk, Package, PartyPopper, Soup, Sparkles, SprayCan, Wheat,
 } from 'lucide-react'
 
 const CATEGORY_ICONS = {
   atta: Wheat, rice: CookingPot, daal: Bean, oil: Droplet, masala: Soup, dairy: Milk,
   snacks: Cookie, beverages: Coffee, colddrinks: CupSoda, personal: Sparkles, cleaning: SprayCan,
-  vegetables: Carrot, dryfruits: Nut, pooja: Flame, home: House, party: PartyPopper,
+  vegetables: Carrot, dryfruits: Nut, pooja: Flame, home: House, party: PartyPopper, meat: Drumstick,
 }
 
 // Products without a photo show their category icon (plan section 7).

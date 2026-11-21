@@ -16,11 +16,12 @@ export const CATEGORY_LOOK = {
   pooja: ['#D9772B', 'Pooja Needs'],
   home: ['#2F7FB5', 'Home & Kitchen'],
   party: ['#D6457A', 'Party & Birthday'],
+  meat: ['#B5463A', 'Meat & Fish'],
 }
 export const categoryTint = (id) => CATEGORY_LOOK[id]?.[0] ?? '#1F6B3A'
 
 // Product-collage pictures for the home category tiles (public/categories). Others use the icon.
 export const CATEGORY_ART = Object.fromEntries(
-  ['atta', 'rice', 'daal', 'oil', 'masala', 'dairy', 'snacks', 'beverages', 'colddrinks', 'personal', 'cleaning', 'vegetables', 'home', 'party']
+  ['atta', 'rice', 'daal', 'oil', 'masala', 'dairy', 'snacks', 'beverages', 'colddrinks', 'personal', 'cleaning', 'vegetables', 'home', 'party', 'meat']
     .map((id) => [id, `/categories/${id}.webp`]),
 )

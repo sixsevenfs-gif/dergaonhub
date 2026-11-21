@@ -20,6 +20,7 @@ export const CATEGORIES = [
   { id: 'pooja', name: 'Pooja Needs', short: 'Pooja' },
   { id: 'home', name: 'Home & Kitchen', short: 'Home & Kitchen' },
   { id: 'party', name: 'Party & Birthday', short: 'Party' },
+  { id: 'meat', name: 'Meat & Fish', short: 'Meat & Fish' },
 ]
 
 // [name, size, category, keywords, demo price]
