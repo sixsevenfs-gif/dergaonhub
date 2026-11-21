@@ -96,6 +96,7 @@ export function billPdf({ order, items, store }) {
   if (Number(order.express_waived) > 0) line('Express delivery (late)', 'FREE')
   if (order.packaging_fee) line('Packaging charge', rs(order.packaging_fee))
   if (order.gift_wrap_fee) line('Gift packing', rs(order.gift_wrap_fee))
+  if (Number(order.invite_discount) > 0) line('Invite code', `- ${rs(order.invite_discount)}`)
   if (Number(order.wallet_used) > 0) line('Jholzo Money', `- ${rs(order.wallet_used)}`)
   y += 3
   doc.setFillColor(234, 244, 228)

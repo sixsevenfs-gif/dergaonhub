@@ -293,6 +293,9 @@ export default function AdminOrderDetail() {
           {Number(order.express_waived) > 0 && order.payment_method === 'upi_now' && order.payment_status === 'paid' && (
             <p className="rounded-lg bg-red-50 p-2 text-xs text-red-800">Paid online before: give the customer back {rupee(order.express_waived)} (UPI or Jholzo Money).</p>
           )}
+          {Number(order.invite_discount) > 0 && (
+            <div className="flex justify-between font-semibold text-green-700"><span>Invite code (new customer)</span><span>−{rupee(order.invite_discount)}</span></div>
+          )}
           {Number(order.wallet_used) > 0 && (
             <div className="flex justify-between font-semibold text-green-700"><span>Jholzo Money (wallet)</span><span>−{rupee(order.wallet_used)}</span></div>
           )}

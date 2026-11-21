@@ -29,10 +29,11 @@ export const activeGifts = (wallet) =>
 // Jholzo Money on an order, same rules as place_order (update 051): gifts whose minimum the items total reaches pay
 // for items only (never the charges) with no per-order limit; the other money (rewards, refunds) pays up to the
 // per-order limit of what is left. nudge: the next gift the customer can unlock by adding items.
-export function walletPlan(wallet, store, subtotal, fullTotal) {
+// itemsCap: what gifts may pay at most (the items total, less an invite code's discount, update 058).
+export function walletPlan(wallet, store, subtotal, fullTotal, itemsCap = subtotal) {
   const gifts = activeGifts(wallet)
   const usable = gifts.filter((g) => g.min_order <= subtotal)
-  const gift = Math.min(usable.reduce((s, g) => s + g.left, 0), subtotal)
+  const gift = Math.min(usable.reduce((s, g) => s + g.left, 0), Math.max(0, itemsCap))
   const generalBalance = wallet && !wallet.locked ? Number(wallet.general_balance ?? wallet.balance) || 0 : 0
   const general = walletToUse(generalBalance, store, Math.max(0, fullTotal - gift))
   const locked = gifts.filter((g) => g.min_order > subtotal).sort((a, b) => a.min_order - b.min_order)[0]
@@ -93,7 +94,7 @@ export const inviteLink = (code) => `${window.location.origin}/?ref=${code}`
 
 export function inviteMessage(code, store) {
   const r = walletRules(store)
-  return `Order groceries from Jholzo, delivered to your door in Dergaon 🛒\nUse my invite code *${code}* on your first order (₹${r.minOrder} or more) and get ₹${r.friendReward} Jholzo Money after it is delivered.\n${inviteLink(code)}`
+  return `Order groceries from Jholzo, delivered to your door in Dergaon 🛒\nUse my invite code *${code}* on your first order (₹${r.minOrder} or more) and get ₹${r.friendReward} off right away.\n${inviteLink(code)}`
 }
 
 // Words for each row of the money history.

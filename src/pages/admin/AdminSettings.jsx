@@ -376,7 +376,7 @@ function SettingsForm({ store }) {
               <Field label="Wallet use per order up to ₹"><input type="number" min="0" value={v.wallet_max_per_order ?? 50} onChange={set('wallet_max_per_order')} className={lfield} /></Field>
             </div>
             <p className="rounded-xl bg-neutral-100 p-3 text-sm">
-              Cost per new customer: ₹{(Number(v.referrer_reward ?? 30) || 0) + (Number(v.friend_reward ?? 20) || 0)}, paid only after their first order is delivered.
+              Cost per new customer: ₹{(Number(v.referrer_reward ?? 30) || 0) + (Number(v.friend_reward ?? 20) || 0)}. The friend's part comes off their first order; the inviter's is paid after it is delivered.
               <span className="block text-xs text-neutral-500">Codes can't be used on your own number, from the inviter's phone, or after the first order. Add or take back money by hand in Customers.</span>
             </p>
           </>

@@ -118,6 +118,9 @@ export default function OrderPlaced() {
           {order.express_fee > 0 && (
             <div className="flex text-sm"><span className="flex-1 text-muted">Express delivery</span><span>{rupee(order.express_fee)}</span></div>
           )}
+          {order.invite_discount > 0 && (
+            <div className="flex text-sm font-medium text-brand"><span className="flex-1">Invite code</span><span>−{rupee(order.invite_discount)}</span></div>
+          )}
           {order.wallet_used > 0 && (
             <div className="flex text-sm font-medium text-brand"><span className="flex-1">Jholzo Money</span><span>−{rupee(order.wallet_used)}</span></div>
           )}

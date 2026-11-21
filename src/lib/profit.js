@@ -22,7 +22,7 @@ export function orderProfit(order, items, costs = {}, rules = COST_DEFAULTS) {
     else itemsEarned += Number(i.line_total) - Number(cost) * i.quantity
   }
   const fees = Number(order.delivery_fee || 0) + Number(order.packaging_fee || 0) + Number(order.express_fee || 0)
-  const discount = Number(order.wallet_used || 0)
+  const discount = Number(order.wallet_used || 0) + Number(order.invite_discount || 0)
   const rider = riderPayFor(order, rules)
   const packing = Number(rules.packing_cost || 0)
   return { itemsEarned, missing, fees, discount, rider, packing, profit: itemsEarned + fees - discount - rider - packing }

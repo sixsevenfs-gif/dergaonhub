@@ -362,6 +362,7 @@ const toOrder = (o) => ({
   // Amounts with paise come from the database as numbers or strings.
   total: Number(o.total ?? 0), packaging_fee: Number(o.packaging_fee ?? 0), cash_collected: Number(o.cash_collected ?? 0),
   wallet_used: Number(o.wallet_used ?? 0), express_fee: Number(o.express_fee ?? 0), delivery_type: o.delivery_type ?? 'evening',
+  invite_discount: Number(o.invite_discount ?? 0),
 })
 
 // Price, fee, limits and delivery day are all decided by place_order() in the database.
@@ -674,8 +675,9 @@ async function removeOrderItemDirect(orderId, itemId) {
   const subtotal = sum(remaining, (i) => i.line_total)
   // Packaging follows the new items total; the delivery charge stays as quoted to the customer.
   const packaging = packagingFee(await getStore(), subtotal)
-  // Jholzo Money used on the order stays used.
-  const total = Math.max(0, subtotal + o.delivery_fee + Number(o.express_fee ?? 0) + packaging + Number(o.gift_wrap_fee ?? 0) - Number(o.wallet_used ?? 0))
+  // Jholzo Money used on the order stays used, and so does an invite code's discount (update 058).
+  const total = Math.max(0, subtotal + o.delivery_fee + Number(o.express_fee ?? 0) + packaging + Number(o.gift_wrap_fee ?? 0)
+    - Number(o.invite_discount ?? 0) - Number(o.wallet_used ?? 0))
   check(await sb.from('orders').update({ subtotal, packaging_fee: packaging, total }).eq('id', orderId))
   notify()
 }

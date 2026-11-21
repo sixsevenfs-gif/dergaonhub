@@ -327,7 +327,8 @@ function walletOnStatus(o, from) {
     if (me?.referred_by && o.subtotal >= rules.minOrder && firstDelivered && !alreadyWelcomed) {
       const first = me.name.split(' ')[0] || 'Your friend'
       if (rules.referrerReward > 0) addEntry(me.referred_by, rules.referrerReward, 'referral_bonus', o.id, `${first}'s first order was delivered`)
-      if (rules.friendReward > 0) addEntry(meId, rules.friendReward, 'welcome_bonus', o.id, 'Welcome reward for joining with an invite')
+      // The friend already got it off the order (update 058); older orders still give it here.
+      if (rules.friendReward > 0 && !(o.invite_discount > 0)) addEntry(meId, rules.friendReward, 'welcome_bonus', o.id, 'Welcome reward for joining with an invite')
     }
   }
   if (from === 'completed') {
@@ -484,16 +485,21 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
   if (ref && rules.on) {
     referrer = db.customers.find((c) => c.referral_code === ref) ?? fail('This invite code is not valid. Check it or remove it.')
     if (referrer.phone === mePhone) fail('You cannot use your own invite code.')
-    if (me && (me.referred_by || db.orders.some((o) => ordererId(o) === me.id || o.customer_id === me.id))) {
+    if (me && ((me.referred_by && me.referred_by !== referrer.id)
+      || db.orders.some((o) => (ordererId(o) === me.id || o.customer_id === me.id) && o.status !== 'cancelled'))) {
       fail('Invite codes work only on your first order. Please remove the code.')
     }
+    if (subtotal < rules.minOrder) fail(`Invite codes work on orders of ${rupee(rules.minOrder)} or more. Add a few items or remove the code.`)
   }
+  // The friend's reward comes off this order right away (update 058).
+  const invite = referrer ? r2(Math.min(rules.friendReward, subtotal)) : 0
+  total = r2(total - invite)
   // Jholzo Money (the demo has one phone, so it always owns the number). Gifts first: those whose minimum the items
   // total reaches, soonest to expire first, on the items only, no per-order limit (update 051). Then the other money
   // up to the per-order limit.
   const giftUses = []
   if (use_wallet && me) {
-    let itemsLeft = subtotal
+    let itemsLeft = r2(subtotal - invite)
     for (const g of gifts().filter((x) => x.customer_id === me.id && giftActive(x) && x.min_order <= subtotal)
       .sort((a, b) => a.expires_at.localeCompare(b.expires_at) || a.created_at.localeCompare(b.created_at))) {
       if (itemsLeft <= 0) break
@@ -534,7 +540,7 @@ export async function placeOrder({ lines, name, phone, address, area, location, 
     customer_id: customer.id, customer_name: customer.name, customer_phone: ph,
     address: address.trim(), area, location: location ? { lat: location.lat, lng: location.lng } : null, distance_km: quote.km,
     note: note?.trim() ?? '', allow_substitute: !!allow_substitute,
-    orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, gift_used: giftUsed, total, payment_method, cash_collected: 0,
+    orderer_id: me.id, subtotal, delivery_fee: fee, packaging_fee: packaging, wallet_used: walletUsed, gift_used: giftUsed, invite_discount: invite, total, payment_method, cash_collected: 0,
     payment_status: payment_method === 'upi_now' ? 'awaiting' : 'none', upi_ref: '',
     // Cash orders are confirmed at once (update 037); pay-now UPI orders wait for the payment check.
     delivery_date: express ? dateStr() : pickDate(), status: payment_method === 'upi_now' ? 'placed' : 'confirmed', cancel_reason: '',
@@ -886,7 +892,7 @@ export async function removeOrderItem(orderId, itemId) {
     o.gift_used = r2(o.gift_used - given)
     o.wallet_used = r2(o.wallet_used - given)
   }
-  o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee + (o.gift_wrap_fee ?? 0) - (o.wallet_used ?? 0))
+  o.total = Math.max(0, o.subtotal + o.delivery_fee + (o.express_fee ?? 0) + o.packaging_fee + (o.gift_wrap_fee ?? 0) - (o.invite_discount ?? 0) - (o.wallet_used ?? 0))
   commit()
 }
 

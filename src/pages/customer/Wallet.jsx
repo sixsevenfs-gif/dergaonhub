@@ -48,7 +48,7 @@ function InviteCard({ code, store }) {
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand"><Gift size={22} /></span>
         <h2 className="mt-3 text-lg font-semibold leading-snug text-ink">Invite friends, earn {rupee(r.referrerReward)} each</h2>
         <p className="mt-1 text-sm text-muted">
-          Your friend gets {rupee(r.friendReward)} too. Both rewards come when their first order (items worth {rupee(r.minOrder)} or more) is delivered.
+          Your friend gets {rupee(r.friendReward)} off their first order (items worth {rupee(r.minOrder)} or more) right away. You get yours when that order is delivered.
         </p>
 
         <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted">Your invite code</p>

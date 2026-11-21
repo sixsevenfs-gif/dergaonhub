@@ -207,13 +207,18 @@ export default function Checkout() {
   const fullTotal = Math.round((subtotal + (fee ?? 0) + packaging) * 100) / 100
   const rules = walletRules(store)
   const walletBalance = wallet && !wallet.locked ? wallet.balance : 0
-  // Gift money first (items only, from its minimum), then rewards up to the per-order limit (update 051).
-  const plan = walletPlan(wallet, store, subtotal, fullTotal)
-  const walletUse = useWallet ? plan.use : 0
-  const gifts = activeGifts(wallet)
-  const total = Math.round((fullTotal - walletUse) * 100) / 100
   // Invite code box: only for a number with no orders yet (the database checks this again).
   const showInvite = !!wallet && rules.on && (wallet.locked || (!wallet.has_orders && !wallet.referred))
+  // An invite code takes the friend's reward off this order right away, from the minimum order (update 058).
+  const inviteCode = showInvite ? refCode.trim() : ''
+  const inviteShort = inviteCode && subtotal < rules.minOrder ? Math.round((rules.minOrder - subtotal) * 100) / 100 : 0
+  const invite = inviteCode && !inviteShort ? Math.min(rules.friendReward, subtotal) : 0
+  const afterInvite = Math.round((fullTotal - invite) * 100) / 100
+  // Gift money first (items only, from its minimum), then rewards up to the per-order limit (update 051).
+  const plan = walletPlan(wallet, store, subtotal, afterInvite, subtotal - invite)
+  const walletUse = useWallet ? plan.use : 0
+  const gifts = activeGifts(wallet)
+  const total = Math.round((afterInvite - walletUse) * 100) / 100
   // Pay now by UPI needs the store's UPI ID and UPI switched on (Settings, update 035). While it works, orders
   // above cod_limit are paid online first (update 039); with UPI off, Cash on Delivery takes any amount.
   const upiOn = store.upi_on !== false
@@ -591,7 +596,7 @@ export default function Checkout() {
               </Link>
             )}
             {showInvite && (
-              <InputRow icon={Ticket} label={`Invite code (first order) · get ${rupee(rules.friendReward)} after delivery`}>
+              <InputRow icon={Ticket} label={`Invite code (first order) · ${rupee(rules.friendReward)} off right away`}>
                 <input
                   value={refCode}
                   onChange={(e) => setRefCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
@@ -599,6 +604,11 @@ export default function Checkout() {
                   maxLength={12}
                   className={`${inputCls} font-semibold tracking-wider`}
                 />
+                {inviteShort > 0 && (
+                  <span className="mt-1 block text-xs font-medium text-orange-700">
+                    Add {rupee(inviteShort)} more to use the code (orders of {rupee(rules.minOrder)} or more).
+                  </span>
+                )}
               </InputRow>
             )}
           </section>
@@ -619,6 +629,9 @@ export default function Checkout() {
             <div className="mt-1 flex justify-between text-muted"><span>Express delivery</span><span>{rupee(quote.expressFee)}</span></div>
           )}
           <div className="mt-1 flex justify-between text-muted"><span>Packaging charge</span><span>{rupee(packaging)}</span></div>
+          {invite > 0 && (
+            <div className="mt-1 flex justify-between font-medium text-brand"><span>Invite code</span><span>−{rupee(invite)}</span></div>
+          )}
           {walletUse > 0 && (
             <div className="mt-1 flex justify-between font-medium text-brand"><span>Jholzo Money</span><span>−{rupee(walletUse)}</span></div>
           )}
