@@ -7,7 +7,7 @@ export const CATEGORY_LOOK = {
   masala: ['#C8582F', 'Masala & Salt'],
   dairy: ['#3F86C9', 'Dairy'],
   snacks: ['#E0722C', 'Snacks'],
-  beverages: ['#8A5A3B', 'Tea & Coffee'],
+  beverages: ['#8A5A3B', 'Dairy & Beverages'],
   colddrinks: ['#D9443C', 'Cold Drinks'],
   personal: ['#8D62C4', 'Personal Care'],
   cleaning: ['#2A9D8F', 'Cleaning'],
@@ -16,7 +16,7 @@ export const CATEGORY_LOOK = {
   pooja: ['#D9772B', 'Pooja Needs'],
   home: ['#2F7FB5', 'Home & Kitchen'],
   party: ['#D6457A', 'Party & Birthday'],
-  meat: ['#B5463A', 'Meat & Fish'],
+  meat: ['#B5463A', 'Eggs, Meat & Fish'],
 }
 export const categoryTint = (id) => CATEGORY_LOOK[id]?.[0] ?? '#1F6B3A'
 
