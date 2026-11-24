@@ -47,8 +47,16 @@ export function walletPlan(wallet, store, subtotal, fullTotal, itemsCap = subtot
 const round2 = (n) => Math.round(n * 100) / 100
 
 // "Valid till 15 Nov, 9:00 PM" (India time).
-export const validTill = (iso) =>
-  new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+// "23 Nov, 11:59 pm"; with the year when it is not this year ("23 Nov 2027, 11:59 pm"), so a gift valid into next
+// year does not look as if it has already ended.
+export const validTill = (iso) => {
+  const d = new Date(iso)
+  const year = (x) => x.toLocaleString('en-IN', { year: 'numeric', timeZone: 'Asia/Kolkata' })
+  const other = year(d) !== year(new Date())
+  return d.toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', ...(other ? { year: 'numeric' } : {}), hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
+  })
+}
 
 // WhatsApp text for a gift. It never says from which order amount it works: the cart tells them that.
 // Only emoji from the basic set (⭐ ⏰ ✅ ➜): newer ones like 🎁 break in WhatsApp links on a Mac. No *bold* marks.
