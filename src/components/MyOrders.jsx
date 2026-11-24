@@ -11,7 +11,30 @@ import { waLink } from '../lib/whatsapp.js'
 
 const STATUS_STYLE = {
   placed: 'bg-brand text-white', confirmed: 'bg-blue-500/20 text-blue-700',
-  completed: 'bg-green-500/20 text-green-700', cancelled: 'bg-black/10 text-muted',
+  completed: 'bg-green-500/20 text-green-700', cancelled: 'bg-black/10 text-muted', deleted: 'bg-red-500/10 text-red-700',
+}
+
+// An order the owner deleted: only its number, items and total are left, so it has no tracking or buttons.
+function DeletedOrder({ o }) {
+  return (
+    <div className={`${card} p-4`}>
+      <div className="flex gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5 text-muted"><Package size={20} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
+              <span className="whitespace-nowrap">#{o.order_number}</span>
+              <span className={cx('rounded-full px-2 py-0.5 text-xs font-semibold', STATUS_STYLE.deleted)}>{statusLabel('deleted')}</span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap font-semibold text-muted">{rupee(o.total)}</span>
+          </span>
+          <span className="mt-0.5 block text-[13px] text-muted">{fmtDateTime(o.created_at)} · {itemsText(o.item_count)}</span>
+          <span className="block text-[13px] text-muted">Deleted on {fmtDateTime(o.deleted_at)}. A question about it? Call or WhatsApp us below.</span>
+        </span>
+      </div>
+      {o.items.length > 0 && <p className="mt-2 line-clamp-1 text-xs text-muted">{o.items.map((i) => `${i.name_snapshot} ×${i.quantity}`).join(', ')}</p>}
+    </div>
+  )
 }
 
 // Every order of the logged-in number, newest first, with "Order again" and "Report problem".
@@ -44,6 +67,7 @@ export function OrderList({ phone }) {
       {note && <p className="mb-2 text-sm text-orange-700">{note}</p>}
       <div className="space-y-3">
         {list.map((o) => {
+          if (o.status === 'deleted') return <DeletedOrder key={o.id} o={o} />
           const late = lateDay(o, store)
           return (
           <div key={o.id} className={`${card} p-4`}>

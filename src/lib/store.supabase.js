@@ -414,9 +414,17 @@ export async function ordersByPhone(phone) {
   if (res.error) res = await query('*, order_items(*)', byNumber)
   if (res.error) res = await query('*, order_items(*)', (q) => q.eq('customer_phone', ph)) // before update 004 there is no ordered_by_phone
   const rows = check(res)
-  return rows.map(({ order_items, order_removed_items, ...o }) => ({
+  const live = rows.map(({ order_items, order_removed_items, ...o }) => ({
     ...toOrder(o), items: order_items, removed: order_removed_items ?? [], item_count: sum(order_items, (i) => i.quantity),
   }))
+  // Orders the owner deleted (update 060) stay in the list as "Deleted by Jholzo". Before 060 there are none.
+  const { data: gone } = await byNumber(sb.from('deleted_orders').select('*'))
+  const deleted = (gone ?? []).map((d) => ({
+    id: d.id, order_number: d.order_number, status: 'deleted', created_at: d.placed_at ?? d.deleted_at, deleted_at: d.deleted_at,
+    total: Number(d.total ?? 0), item_count: d.item_count ?? 0, removed: [],
+    items: (d.items ?? []).map((i, k) => ({ id: `${d.id}-${k}`, name_snapshot: i.name, quantity: i.quantity })),
+  }))
+  return [...live, ...deleted].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
 }
 
 /* ---------- waitlist ---------- */

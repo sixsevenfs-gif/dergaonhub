@@ -87,7 +87,7 @@ function DeleteOrdersList({ onLock }) {
         </div>
         <p className="text-sm text-neutral-600">
           For test or demo orders. A deleted order is gone from the database and counts nowhere: sales, daily summary,
-          reports, top items, customers, Jholzo Money. Real orders: cancel them instead.
+          reports, top items, customers, Jholzo Money. The customer still sees it in their orders as "Deleted by Jholzo". Real orders: cancel them instead.
         </p>
       </div>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}

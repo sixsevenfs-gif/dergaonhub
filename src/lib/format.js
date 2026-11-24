@@ -113,7 +113,7 @@ export function matches(text, query) {
     .every((q) => found(q) || (q.length > 3 && q.endsWith('s') && found(q.slice(0, -1))))
 }
 
-export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', completed: 'Delivered', cancelled: 'Cancelled' })[s] ?? s
+export const statusLabel = (s) => ({ placed: 'Placed', confirmed: 'Confirmed', completed: 'Delivered', cancelled: 'Cancelled', deleted: 'Deleted by Jholzo' })[s] ?? s
 
 // "1 item", "3 items"
 export const itemsText = (n) => `${n} item${n === 1 ? '' : 's'}`
