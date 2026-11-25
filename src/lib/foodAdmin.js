@@ -260,3 +260,33 @@ export function agoText(iso) {
   const h = Math.floor(min / 60)
   return h < 24 ? `${h} h ${min % 60} min ago` : whenText(iso)
 }
+
+/* ---------- rider page (/partner) ---------- */
+
+/** Food orders for this rider to pick up and deliver now (their own and confirmed ones nobody took). */
+export async function partnerFoodOrders() {
+  if (!sb) {
+    return demo.orders.filter((o) => o.status === 'confirmed' || o.status === 'picked').map((o) => ({
+      id: o.id, no: o.order_number, status: o.status, restaurant: o.restaurant_name, pickup_address: o.restaurant_address,
+      pickup_phone: '9876543210', pickup_map: '', pickup_lat: null, pickup_lng: null, name: o.customer_name, phone: o.customer_phone,
+      address: o.address, area: o.area, lat: o.lat, lng: o.lng, note: o.note, payment: o.payment_method, total: o.total,
+      menu_total: o.menu_total, mine: !!o.rider_id, items: o.food_order_items.map((i) => ({ name: i.name, variant: i.variant, qty: i.qty })),
+    }))
+  }
+  const { data, error } = await sb.rpc('partner_food_orders')
+  if (error) {
+    if (missing(error)) return []
+    throw new Error(error.message)
+  }
+  return data ?? []
+}
+
+/** Rider: "picked" (from the restaurant) or "delivered". An order nobody took becomes theirs. */
+export async function partnerFoodStatus(id, status) {
+  if (!sb) {
+    const o = demo.orders.find((x) => x.id === id)
+    if (o) Object.assign(o, { status, rider_id: o.rider_id ?? 'me', [`${status}_at`]: new Date().toISOString() })
+    return
+  }
+  check(await sb.rpc('partner_food_status', { p_order_id: id, p_status: status }))
+}

@@ -8,6 +8,7 @@ import StockButton from './StockSheet.jsx'
 import { stageOf } from './stage.js'
 import { card } from '../../components/ui.js'
 import { adminSignOut, getStore, partnerCheck, partnerOrders, partnerSession, riderDayMoney, riderGiveBack } from '../../lib/store.js'
+import FoodRides from './FoodRides.jsx'
 import { useData } from '../../lib/useData.js'
 import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { addDays, dateStr, rupee, withLateExpress } from '../../lib/format.js'
@@ -216,6 +217,9 @@ function PartnerRun({ session }) {
         </div>
         <button type="button" aria-label="Refresh" onClick={reload} className="flex h-12 w-12 items-center justify-center rounded-full border border-line text-muted active:rotate-180 active:transition-transform"><RefreshCw size={18} /></button>
       </div>
+
+      {/* Jholzo Food (update 064): restaurant orders to pick up and deliver now. */}
+      {date === today && <FoodRides />}
 
       <section className="mt-4 grid grid-cols-3 gap-2 text-center">
         {[[left.length, 'To deliver'], [delivered, 'Delivered'], cash > 0 ? [rupee(cash), 'Cash to collect'] : [rupee(inHand), 'Cash collected']].map(([n, label]) => (
