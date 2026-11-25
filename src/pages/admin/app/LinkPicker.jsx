@@ -8,6 +8,8 @@ import { LINKS, linkKind } from '../../../lib/appAdmin.js'
 const OPENS = [
   ['grocery', 'Grocery home'],
   ['food', 'Food home'],
+  ['categories', 'All categories'],
+  ['wallet', 'Jholzo Money'],
   ['product', 'A product'],
   ['restaurant', 'A restaurant'],
   ['url', 'A website link'],
@@ -26,7 +28,7 @@ export default function LinkPicker({ value = '', onChange, allowNone = false }) 
   const { data: places } = useData(() => (opens === 'restaurant' ? foodRestaurants() : Promise.resolve([])), [opens])
 
   const link = opens === 'none' ? '' : opens === 'url' ? (/^https:\/\//.test(url.trim()) ? url.trim() : '')
-    : opens === 'grocery' || opens === 'food' ? LINKS[opens]() : target ? LINKS[opens](target) : ''
+    : ['grocery', 'food', 'categories', 'wallet'].includes(opens) ? LINKS[opens]() : target ? LINKS[opens](target) : ''
   const complete = opens === 'none' || link !== ''
   useEffect(() => { onChange(link, complete) }, [link, complete]) // eslint-disable-line react-hooks/exhaustive-deps
 

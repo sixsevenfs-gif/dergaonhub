@@ -91,6 +91,8 @@ export async function sendPush({ title, body, image = '', link = '', audience = 
 export const LINKS = {
   grocery: () => 'https://jholzo.com/',
   food: () => 'https://jholzo.com/?mode=food',
+  categories: () => 'https://jholzo.com/?open=categories',
+  wallet: () => 'https://jholzo.com/wallet',
   product: (id) => `https://jholzo.com/?p=${id}`,
   restaurant: (id) => `https://jholzo.com/food/r/${id}`,
 }
@@ -100,6 +102,8 @@ export function linkKind(link) {
   if (!link) return ['none', '']
   if (link === LINKS.grocery()) return ['grocery', '']
   if (link === LINKS.food()) return ['food', '']
+  if (link === LINKS.categories()) return ['categories', '']
+  if (link === LINKS.wallet()) return ['wallet', '']
   const p = link.match(/[?&]p=([^&]+)/)
   if (p) return ['product', p[1]]
   const r = link.match(/\/food\/r\/([^/?#]+)/)
@@ -109,16 +113,27 @@ export function linkKind(link) {
 
 /* ---------- banners (update 066) ---------- */
 
-demo.banners = []
-demo.updates = {
-  ios_min_version: '', ios_latest_version: '', android_min_version_code: 0, android_latest_version_code: 0, update_message: '',
+// Where a banner shows in the apps.
+export const PLACES = [
+  ['grocery', 'Grocery home'],
+  ['food', 'Food home'],
+  ['both', 'Both homes'],
+]
+
+demo.banners = [
+  { id: 'b1', created_at: new Date().toISOString(), place: 'grocery', image: '/app-banners/fresh-groceries.jpg', title: 'Fresh groceries, delivered to your door', link: 'https://jholzo.com/?open=categories', active: true, sort: 0, starts_at: null, ends_at: null },
+  { id: 'b2', created_at: new Date().toISOString(), place: 'grocery', image: '/app-banners/share-and-earn.jpg', title: 'Share Jholzo, earn rewards', link: 'https://jholzo.com/wallet', active: true, sort: 1, starts_at: null, ends_at: null },
+]
+demo.control = {
+  update_mode: 'off', update_version: '', update_platforms: 'both', update_title: '', update_message: '',
   ios_store_url: 'https://apps.apple.com/app/id6836980141', android_store_url: 'https://play.google.com/store/apps/details?id=com.jholzo.app',
+  app_status: 'live', app_status_title: '', app_status_message: '',
 }
 
-/** Every banner (running or not), by place and order. Null before update 066. */
+/** Every banner (running or not), in the order the apps slide them. Null before update 066. */
 export async function listBanners() {
-  if (!sb) return demo.banners.slice().sort((a, b) => a.place.localeCompare(b.place) || a.sort - b.sort)
-  const { data, error } = await sb.from('app_banners').select('*').order('place').order('sort').order('created_at')
+  if (!sb) return demo.banners.slice().sort((a, b) => a.sort - b.sort)
+  const { data, error } = await sb.from('app_banners').select('*').order('sort').order('created_at')
   if (error) {
     if (missing(error)) return null
     throw new Error(error.message)
@@ -136,7 +151,7 @@ export async function saveBanner(b) {
     return d.toISOString()
   }
   const row = {
-    place: b.place === 'food' ? 'food' : 'grocery', image: (b.image ?? '').trim(), title: (b.title ?? '').trim().slice(0, 80),
+    place: PLACES.some(([k]) => k === b.place) ? b.place : 'grocery', image: (b.image ?? '').trim(), title: (b.title ?? '').trim().slice(0, 80),
     link: (b.link ?? '').trim(), active: b.active !== false, sort: Number(b.sort) || 0, starts_at: at(b.starts_at), ends_at: at(b.ends_at),
   }
   if (!row.image) throw new Error('Add the picture first.')
@@ -159,7 +174,7 @@ export async function deleteBanner(id) {
   check(await sb.from('app_banners').delete().eq('id', id))
 }
 
-/** Saves a new order for one place's banners (their position in the list). */
+/** Saves a new order for the banners (their position in the list). */
 export async function reorderBanners(ids) {
   for (const [i, id] of ids.entries()) {
     if (!sb) {
@@ -175,13 +190,20 @@ export async function reorderBanners(ids) {
 export const bannerLive = (b, now = Date.now()) =>
   b.active && (!b.starts_at || new Date(b.starts_at).getTime() <= now) && (!b.ends_at || new Date(b.ends_at).getTime() > now)
 
-/* ---------- app updates (update 066) ---------- */
+/** Running banners on one home ("grocery" or "food"), in order. */
+export const bannersOn = (banners, place) => (banners ?? []).filter((b) => (b.place === place || b.place === 'both') && bannerLive(b))
 
-const UPDATE_FIELDS = ['ios_min_version', 'ios_latest_version', 'android_min_version_code', 'android_latest_version_code', 'update_message', 'ios_store_url', 'android_store_url']
+/* ---------- app update and app status (update 066), one setting for both apps ---------- */
 
-export async function appUpdateSettings() {
-  if (!sb) return { ...demo.updates }
-  const { data, error } = await sb.from('store_settings').select(UPDATE_FIELDS.join(',')).eq('id', 1).maybeSingle()
+// What the apps show when the owner writes nothing (the same words are in the apps).
+export const DEFAULT_UPDATE = 'A new version of Jholzo is here with new features and fixes. Please update to keep using the app.'
+export const DEFAULT_PAUSE = 'Jholzo is getting a quick upgrade. Please check back in a little while.'
+
+const CONTROL_FIELDS = Object.keys(demo.control)
+
+export async function appControl() {
+  if (!sb) return { ...demo.control }
+  const { data, error } = await sb.from('store_settings').select(CONTROL_FIELDS.join(',')).eq('id', 1).maybeSingle()
   if (error) {
     if (missing(error)) return null
     throw new Error(error.message)
@@ -189,30 +211,56 @@ export async function appUpdateSettings() {
   return data
 }
 
-const VERSION = /^([0-9]+(\.[0-9]+){0,2})?$/
+const VERSION = /^[0-9]+(\.[0-9]+){0,3}$/
 /** Compares "1.2" and "1.10.1" part by part (missing parts are 0). */
 export function compareVersions(a, b) {
   const x = String(a || '0').split('.').map(Number)
   const y = String(b || '0').split('.').map(Number)
-  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0)
   return 0
 }
 
-export async function saveAppUpdateSettings(v) {
-  const row = {
-    ios_min_version: String(v.ios_min_version ?? '').trim(), ios_latest_version: String(v.ios_latest_version ?? '').trim(),
-    android_min_version_code: Math.max(0, Math.round(Number(v.android_min_version_code) || 0)),
-    android_latest_version_code: Math.max(0, Math.round(Number(v.android_latest_version_code) || 0)),
-    update_message: String(v.update_message ?? '').trim().slice(0, 200),
-    ios_store_url: String(v.ios_store_url ?? '').trim(), android_store_url: String(v.android_store_url ?? '').trim(),
+/** Saves part of the update / status settings. */
+export async function saveAppControl(patch) {
+  const row = {}
+  for (const k of CONTROL_FIELDS) if (k in patch) row[k] = typeof patch[k] === 'string' ? patch[k].trim() : patch[k]
+  if ('update_version' in row) row.update_version = row.update_version.replace(/^v/i, '')
+  const next = { ...(sb ? {} : demo.control), ...row }
+  if ('update_mode' in row && row.update_mode !== 'off' && !VERSION.test(next.update_version ?? row.update_version ?? '')) {
+    throw new Error('Write the new version, like 1.2 or 1.2.1.')
   }
-  if (!VERSION.test(row.ios_min_version) || !VERSION.test(row.ios_latest_version)) throw new Error('iPhone versions look like 1.1 or 1.2.3.')
-  if (row.ios_min_version && row.ios_latest_version && compareVersions(row.ios_min_version, row.ios_latest_version) > 0) throw new Error('iPhone: "Must update below" can\'t be higher than "Newest version".')
-  if (row.android_latest_version_code && row.android_min_version_code > row.android_latest_version_code) throw new Error('Android: "Must update below" can\'t be higher than "Newest version code".')
+  if (row.update_version && !VERSION.test(row.update_version)) throw new Error('A version looks like 1.2 or 1.2.1.')
   for (const k of ['ios_store_url', 'android_store_url']) if (row[k] && !/^https:\/\//.test(row[k])) throw new Error('Store links start with https://')
+  for (const [k, max] of [['update_title', 60], ['update_message', 200], ['app_status_title', 60], ['app_status_message', 200]]) {
+    if (row[k]) row[k] = row[k].slice(0, max)
+  }
   if (!sb) {
-    Object.assign(demo.updates, row)
+    Object.assign(demo.control, row)
     return
   }
   check(await sb.from('store_settings').update(row).eq('id', 1))
+}
+
+/* ---------- the App home in numbers (update 066) ---------- */
+
+export async function appOverview() {
+  if (!sb) {
+    const live = demo.banners.filter((b) => bannerLive(b))
+    return {
+      devices: { total: 148, android: 117, ios: 31, logged_in: 96, new_7d: 23 },
+      versions: [
+        { platform: 'android', version: '1.1.0', phones: 92 }, { platform: 'android', version: '1.0.0', phones: 25 },
+        { platform: 'ios', version: '1.1', phones: 24 }, { platform: 'ios', version: '1.0', phones: 7 },
+      ],
+      campaigns: { count_30d: demo.campaigns.length, sent_30d: demo.campaigns.reduce((t, c) => t + (c.sent || 0), 0), failed_30d: 0 },
+      last_campaign: demo.campaigns.at(-1) ?? null,
+      banners: { total: demo.banners.length, live: live.length, grocery: bannersOn(demo.banners, 'grocery').length, food: bannersOn(demo.banners, 'food').length },
+    }
+  }
+  const { data, error } = await sb.rpc('admin_app_overview')
+  if (error) {
+    if (missing(error)) return null
+    throw new Error(error.message)
+  }
+  return data
 }

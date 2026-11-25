@@ -5,6 +5,8 @@ import { useData } from '../../../lib/useData.js'
 import { AUDIENCES, pushAudience, pushCampaigns, sendPush, uploadAppMedia } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import LinkPicker from './LinkPicker.jsx'
+import AppHeader from './AppHeader.jsx'
+import { LockScreenPreview, PhoneFrame } from './AppPreview.jsx'
 
 const AUDIENCE_LABEL = Object.fromEntries(AUDIENCES)
 const phonesIn = (text) => [...new Set((text.match(/[6-9][0-9]{9}/g) ?? []))]
@@ -67,10 +69,9 @@ export default function AdminNotifications() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Notifications</h1>
-        <p className="text-sm text-neutral-500">Send an offer or news to the Jholzo app on Android and iPhone. Order updates (confirmed, on the way, delivered) go out by themselves.</p>
-      </div>
+      <AppHeader title="Notifications" text="Send an offer or news to every phone with the app, Android and iPhone together. Order updates (confirmed, on the way, delivered) go out by themselves." />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="space-y-4">
       {reach && (
         <div className="grid grid-cols-3 gap-2 text-center">
           {[['Android', reach.android], ['iPhone', reach.ios], ['Logged in', reach.logged_in]].map(([l, n]) => (
@@ -126,21 +127,6 @@ export default function AdminNotifications() {
         </div>
       </div>
 
-      <div className={`${lcard} p-4`}>
-        <p className="text-xs font-semibold uppercase text-neutral-500">Preview</p>
-        <div className="mt-2 rounded-2xl bg-neutral-100 p-3">
-          <div className="flex items-start gap-3 rounded-xl bg-white p-3 shadow-sm">
-            <img src="/icons/icon-192.png" alt="" className="h-9 w-9 shrink-0 rounded-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-neutral-500">Jholzo · now</p>
-              <p className="truncate text-sm font-bold">{title || 'Title'}</p>
-              <p className="line-clamp-3 text-sm text-neutral-700">{body || 'Your message shows here.'}</p>
-              {image && <img src={image} alt="" className="mt-2 max-h-40 w-full rounded-lg object-cover" />}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {msg?.error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{msg.error}</p>}
       {msg?.ok && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{msg.ok}</p>}
       {problem && (title || body) && <p className="text-sm text-amber-700">{problem}</p>}
@@ -177,6 +163,11 @@ export default function AdminNotifications() {
             ))}
           </div>
         )}
+      </div>
+      </div>
+      <aside className="lg:sticky lg:top-36 lg:self-start">
+        <PhoneFrame label="On the lock screen"><LockScreenPreview title={title} body={body} image={image} /></PhoneFrame>
+      </aside>
       </div>
     </div>
   )

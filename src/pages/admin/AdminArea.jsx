@@ -143,7 +143,7 @@ function AdminShell({ email, role }) {
             <NavLink
               key={to}
               to={to}
-              end={to === '/admin' || to === '/admin/food'}
+              end={to === '/admin' || to === '/admin/food' || to === '/admin/app'}
               className={({ isActive }) => `flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ${isActive ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
             >
               {label}
@@ -159,7 +159,8 @@ function AdminShell({ email, role }) {
           Demo mode: admin opens without a login for now. Once the database is connected, only your admin login will work.
         </p>
       )}
-      <main className="mx-auto max-w-3xl px-4 pb-28 pt-4 sm:pb-16">
+      {/* The App Control Center is wider: its pages show a phone next to the settings. */}
+      <main className={`mx-auto ${section === 'app' && pathname !== '/admin/settings' ? 'max-w-6xl' : 'max-w-3xl'} px-4 pb-28 pt-4 sm:pb-16`}>
         <Outlet />
       </main>
       <PhoneNav nav={nav} bottomPaths={BOTTOM[section]} stats={counts} email={email} />
@@ -179,14 +180,14 @@ function PhoneNav({ nav, bottomPaths, stats, email }) {
   useEffect(() => setOpen(false), [pathname])
   const bottom = nav.filter(([to]) => bottomPaths.includes(to))
   const more = nav.filter(([to]) => !bottomPaths.includes(to))
-  const moreActive = more.some(([to]) => pathname.startsWith(to))
+  const moreActive = more.some(([to]) => (to === '/admin/app' ? pathname === to : pathname.startsWith(to)))
   const moreCount = more.reduce((n, [, , key]) => n + (key ? stats?.[key] ?? 0 : 0), 0)
   const item = 'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold'
   return (
     <>
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden print:hidden">
         {bottom.map(([to, label, key, Icon]) => (
-          <NavLink key={to} to={to} end={to === '/admin' || to === '/admin/food'} onClick={() => setOpen(false)} className={({ isActive }) => `${item} ${isActive ? 'text-neutral-900' : 'text-neutral-500'}`}>
+          <NavLink key={to} to={to} end={to === '/admin' || to === '/admin/food' || to === '/admin/app'} onClick={() => setOpen(false)} className={({ isActive }) => `${item} ${isActive ? 'text-neutral-900' : 'text-neutral-500'}`}>
             {({ isActive }) => (
               <>
                 <span className={`relative flex h-7 w-12 items-center justify-center rounded-full ${isActive ? 'bg-accent' : ''}`}>

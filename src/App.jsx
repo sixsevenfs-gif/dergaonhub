@@ -44,6 +44,8 @@ import FoodSettings from './pages/admin/food/FoodSettings.jsx'
 import AdminNotifications from './pages/admin/app/AdminNotifications.jsx'
 import AdminBanners from './pages/admin/app/AdminBanners.jsx'
 import AdminAppUpdates from './pages/admin/app/AdminAppUpdates.jsx'
+import AdminAppHome from './pages/admin/app/AdminAppHome.jsx'
+import AdminAppStatus from './pages/admin/app/AdminAppStatus.jsx'
 import Collect from './pages/collect/Collect.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
@@ -108,10 +110,11 @@ export default function App() {
           <Route path="food/restaurants" element={<FoodRestaurants />} />
           <Route path="food/payouts" element={<OwnerOnly><FoodPayouts /></OwnerOnly>} />
           <Route path="food/settings" element={<OwnerOnly><FoodSettings /></OwnerOnly>} />
-          <Route path="app" element={<Navigate to="/admin/app/notifications" replace />} />
+          <Route path="app" element={<OwnerOnly><AdminAppHome /></OwnerOnly>} />
           <Route path="app/notifications" element={<OwnerOnly><AdminNotifications /></OwnerOnly>} />
           <Route path="app/banners" element={<OwnerOnly><AdminBanners /></OwnerOnly>} />
           <Route path="app/updates" element={<OwnerOnly><AdminAppUpdates /></OwnerOnly>} />
+          <Route path="app/status" element={<OwnerOnly><AdminAppStatus /></OwnerOnly>} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}
