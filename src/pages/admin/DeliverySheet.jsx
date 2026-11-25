@@ -4,8 +4,9 @@ import { Navigation, Phone, Printer, Repeat, ShoppingBasket } from 'lucide-react
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { lbtnOutline, lcard, lfieldBase } from '../../components/ui.js'
-import { deliverySheet, reopenOrder } from '../../lib/store.js'
+import { deliverySheet, ordersCheck, reopenOrder } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { dateStr, dayLabel, fmtClock, isExpress, rupee } from '../../lib/format.js'
 import { mapsLink } from '../../lib/delivery.js'
 import { useRole } from '../../lib/role.js'
@@ -13,7 +14,9 @@ import { useRole } from '../../lib/role.js'
 // The evening run: first the shopping list (buy everything in one trip), then deliveries by area.
 export default function DeliverySheet() {
   const [date, setDate] = useState(dateStr())
-  const { data } = useData(() => deliverySheet(date), [date])
+  const { data, refresh } = useData(() => deliverySheet(date), [date])
+  // Live: orders added or delivered show without a refresh (checked every 15 s).
+  useLiveCheck(ordersCheck, refresh, { key: date })
   const { isOwner } = useRole()
   if (!data) return null
   const all = data.groups.flatMap((g) => g.orders)

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCircle2, Image, LogIn, RefreshCw, Smartphone, Sparkles, Users, Wrench } from 'lucide-react'
 import { lcard } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
+import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
 import { AUDIENCES, appControl, appOverview, bannersOn, compareVersions, listBanners, newestSeen, updateFor } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import AppHeader from './AppHeader.jsx'
@@ -13,9 +14,15 @@ const when = (iso) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', mo
 // Owner: the App part's home: phones with the app, the versions they run, and what is live in the apps now
 // (status, update, banners, the last notification), with the home screen as customers see it.
 export default function AdminAppHome() {
-  const { data: ov } = useData(appOverview)
-  const { data: control } = useData(appControl)
-  const { data: banners } = useData(listBanners)
+  const { data: ov, refresh: refreshOverview } = useData(appOverview)
+  const { data: control, refresh: refreshControl } = useData(appControl)
+  const { data: banners, refresh: refreshBanners } = useData(listBanners)
+  // Live: phones and versions as people open the apps; every 30 s.
+  useAutoRefresh(() => {
+    refreshOverview()
+    refreshControl()
+    refreshBanners()
+  }, 30_000)
   if (ov === null || control === null || banners === null) return <NeedsUpdate n="066" what="the App Control Center" />
 
   const d = ov?.devices ?? { total: 0, android: 0, ios: 0, logged_in: 0, new_7d: 0 }

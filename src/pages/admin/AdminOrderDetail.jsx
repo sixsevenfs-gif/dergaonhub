@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Bike, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
+import { Bike, MapPin, Navigation, Phone, Repeat, Trash2 } from 'lucide-react'
 import CustomerHint from '../../components/CustomerHint.jsx'
 import DeliveredButton from '../../components/DeliveredButton.jsx'
 import StatusBadge from '../../components/StatusBadge.jsx'
@@ -177,7 +177,6 @@ export default function AdminOrderDetail() {
 
   return (
     <div className="space-y-3">
-      <Link to="/admin/orders" className="flex items-center gap-2 text-sm text-neutral-600"><ArrowLeft size={18} /> Orders</Link>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black">#{order.order_number}</h1>
         <StatusBadge status={order.status} />

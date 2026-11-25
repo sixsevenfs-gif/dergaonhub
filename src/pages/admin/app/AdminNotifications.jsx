@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Bell, ImagePlus, Send, Smartphone, X } from 'lucide-react'
 import { lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
+import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
 import { AUDIENCES, pushAudience, pushCampaigns, sendPush, uploadAppMedia } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import LinkPicker from './LinkPicker.jsx'
@@ -25,7 +26,9 @@ export default function AdminNotifications() {
   const file = useRef(null)
   const phones = useMemo(() => phonesIn(numbers), [numbers])
   const { data: reach } = useData(() => pushAudience(audience, phones), [audience, phones.join()])
-  const { data: history, reload } = useData(pushCampaigns)
+  const { data: history, reload, refresh } = useData(pushCampaigns)
+  // Live: a notification being sent moves to "sent to N" by itself.
+  useAutoRefresh(refresh, 15_000)
 
   if (reach === null || history === null) return <NeedsUpdate n="065" what="notifications to the apps" />
 

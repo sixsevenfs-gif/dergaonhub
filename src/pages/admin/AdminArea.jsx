@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import {
-  BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, ScanBarcode,
+  ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, ScanBarcode,
   Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
 } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
-import { adminSession, adminSignOut, adminStats } from '../../lib/store.js'
+import { adminSession, adminSignOut, adminStats, ordersCheck } from '../../lib/store.js'
 import { foodNewCount } from '../../lib/foodAdmin.js'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { RoleContext, useRole } from '../../lib/role.js'
 import { DEMO_MODE } from '../../config.js'
 import { APP_NAV } from './appNav.js'
@@ -89,7 +90,9 @@ export function OwnerOnly({ children }) {
 function AdminShell({ email, role }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { data: stats } = useData(adminStats)
+  const { data: stats, refresh: refreshStats } = useData(adminStats)
+  // The badges (new orders, open complaints) follow new orders without a page reload.
+  useLiveCheck(ordersCheck, refreshStats, { fullEvery: 60_000 })
   const { data: newFood, reload: reloadFood } = useData(foodNewCount)
   // New food orders show on the Food switch from any page; checked every 20 seconds while the tab is open.
   useEffect(() => {
@@ -161,10 +164,64 @@ function AdminShell({ email, role }) {
       )}
       {/* The App Control Center is wider: its pages show a phone next to the settings. */}
       <main className={`mx-auto ${section === 'app' && pathname !== '/admin/settings' ? 'max-w-6xl' : 'max-w-3xl'} px-4 pb-28 pt-4 sm:pb-16`}>
+        <BackButton home={SECTIONS.find(([key]) => key === section)[3]} />
         <Outlet />
       </main>
       <PhoneNav nav={nav} bottomPaths={BOTTOM[section]} stats={counts} email={email} />
     </div>
+  )
+}
+
+// The admin pages of this tab's history, by their place in it (React Router numbers each entry), so Back
+// returns to the page you came from, also after a refresh or the phone's own back and forward.
+const TRAIL_KEY = 'jholzo-admin-trail'
+function readTrail() {
+  try {
+    const trail = JSON.parse(sessionStorage.getItem(TRAIL_KEY) ?? '[]')
+    return Array.isArray(trail) ? trail : []
+  } catch {
+    return []
+  }
+}
+function saveTrail(trail) {
+  try {
+    sessionStorage.setItem(TRAIL_KEY, JSON.stringify(trail))
+  } catch {
+    // private mode: Back still works on this page
+  }
+}
+const placeInHistory = () => window.history.state?.idx ?? 0
+
+// "Back" at the top of every admin page: the page you were on before (like the phone's back), or this
+// part's home when there is no admin page before it in the tab.
+function BackButton({ home }) {
+  const location = useLocation()
+  const type = useNavigationType()
+  const navigate = useNavigate()
+  const [trail, setTrail] = useState(readTrail)
+  const at = placeInHistory()
+  // Before the page is drawn, so the button doesn't jump in a moment later.
+  useLayoutEffect(() => {
+    const here = { key: location.key, path: location.pathname + location.search }
+    setTrail((old) => {
+      const known = old[at]?.key === here.key && old[at]?.path === here.path
+      if (known) return old // a refresh, or back or forward to a page already in the trail
+      // A new page drops the pages after it (as the browser does); a replaced one keeps them; a page the
+      // trail doesn't know (opened fresh) starts it again.
+      const next = type === 'PUSH' ? old.slice(0, at) : type === 'REPLACE' ? [...old] : []
+      next[at] = here
+      next.fill(null, 0, Math.max(0, at - 50)) // the browser keeps only the last 50 pages too
+      saveTrail(next)
+      return next
+    })
+  }, [at, location.key, location.pathname, location.search, type])
+  const canGoBack = at > 0 && trail[at]?.key === location.key && Boolean(trail[at - 1])
+  if (!canGoBack && location.pathname === home) return null
+  return (
+    <button type="button" onClick={() => (canGoBack ? navigate(-1) : navigate(home))}
+      className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 shadow-sm active:scale-95 print:hidden">
+      <ArrowLeft size={16} /> Back
+    </button>
   )
 }
 

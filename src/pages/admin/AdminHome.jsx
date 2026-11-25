@@ -4,10 +4,11 @@ import { ChevronRight } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import { lcard } from '../../components/ui.js'
-import { adminListComplaints, adminListOrders, adminStats, getStore, setPaused } from '../../lib/store.js'
+import { adminListComplaints, adminListOrders, adminStats, getStore, ordersCheck, setPaused } from '../../lib/store.js'
 import PaymentCheck from './PaymentCheck.jsx'
 import DayReport from './DayReport.jsx'
 import { useData } from '../../lib/useData.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { useRole } from '../../lib/role.js'
 import { fmtClock, itemsText, rupee, timeAgo } from '../../lib/format.js'
 
@@ -21,9 +22,15 @@ function Stat({ label, value, to, hot }) {
 }
 
 export default function AdminHome() {
-  const { data: stats } = useData(adminStats)
-  const { data: complaints = [] } = useData(() => adminListComplaints({ status: 'open' }))
-  const { data: allOrders = [] } = useData(() => adminListOrders())
+  const { data: stats, refresh: refreshStats } = useData(adminStats)
+  const { data: complaints = [], refresh: refreshComplaints } = useData(() => adminListComplaints({ status: 'open' }))
+  const { data: allOrders = [], refresh: refreshOrders } = useData(() => adminListOrders())
+  // Live: a new or changed order reloads the numbers at once (checked every 15 s); complaints every minute.
+  useLiveCheck(ordersCheck, () => {
+    refreshStats()
+    refreshComplaints()
+    refreshOrders()
+  }, { fullEvery: 60_000 })
   const { data: store } = useData(getStore)
   const { isOwner } = useRole()
   // New: not on the way yet (cash orders are confirmed by themselves, update 037).

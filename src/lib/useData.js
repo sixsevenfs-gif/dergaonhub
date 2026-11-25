@@ -8,6 +8,8 @@ export function useData(loader, key = []) {
   const loaderRef = useRef(loader)
   loaderRef.current = loader
   const keyStr = JSON.stringify(key)
+  const keyRef = useRef(keyStr)
+  keyRef.current = keyStr
 
   const run = useCallback(() => {
     Promise.resolve()
@@ -23,5 +25,20 @@ export function useData(loader, key = []) {
     return subscribe(run)
   }, [run, keyStr])
 
-  return { ...state, reload: run }
+  // A quiet reload for pages that refresh themselves: the new data shows when it comes; a failed try keeps
+  // what is on screen (a dropped connection must not blank the page or a half-typed note), and an answer
+  // for an old filter (switched while it loaded) is dropped.
+  const refresh = useCallback(() => {
+    const askedFor = keyRef.current
+    Promise.resolve()
+      .then(() => loaderRef.current())
+      .then(
+        (data) => {
+          if (keyRef.current === askedFor) setState({ data, error: null, loading: false })
+        },
+        () => {},
+      )
+  }, [])
+
+  return { ...state, reload: run, refresh }
 }

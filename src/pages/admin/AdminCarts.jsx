@@ -5,6 +5,7 @@ import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnOutline, lcard } from '../../components/ui.js'
 import { adminCarts, getStore, markReminded } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useAutoRefresh } from '../../lib/useAutoRefresh.js'
 import { rupee, timeAgo } from '../../lib/format.js'
 import { cartReminder } from '../../lib/carts.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
@@ -12,7 +13,9 @@ import { toWa, waLink } from '../../lib/whatsapp.js'
 // Carts that logged-in customers filled but didn't order (update 032). One friendly WhatsApp reminder per
 // cart: the button opens WhatsApp with the message ready and marks the cart as reminded for everyone.
 export default function AdminCarts() {
-  const { data: carts, error } = useData(adminCarts)
+  const { data: carts, error, refresh } = useData(adminCarts)
+  // Live: carts change while people shop; checked every 15 s.
+  useAutoRefresh(refresh, 15_000)
   const { data: store } = useData(getStore)
   const [all, setAll] = useState(false)
   if (carts === undefined && !error) return null

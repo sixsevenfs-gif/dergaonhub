@@ -4,8 +4,10 @@ import { Phone } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge.jsx'
 import { WhatsAppIcon } from '../../components/icons.jsx'
 import { lbtnDark, lbtnOutline, lcard, lfield } from '../../components/ui.js'
-import { adminListComplaints, adminListOrders, reopenComplaint, resolveComplaint } from '../../lib/store.js'
+import { adminListComplaints, adminListOrders, ordersCheck, reopenComplaint, resolveComplaint } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
+import { useAutoRefresh } from '../../lib/useAutoRefresh.js'
+import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { fmtDateTime } from '../../lib/format.js'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 
@@ -46,8 +48,11 @@ function Complaint({ k, orderId }) {
 
 export default function AdminComplaints() {
   const [filter, setFilter] = useState('open')
-  const { data: complaints = [] } = useData(() => adminListComplaints({ status: filter }), [filter])
-  const { data: orders = [] } = useData(adminListOrders)
+  const { data: complaints = [], refresh: refreshComplaints } = useData(() => adminListComplaints({ status: filter }), [filter])
+  const { data: orders = [], refresh: refreshOrders } = useData(adminListOrders)
+  // Live: new complaints every 15 s; the orders they point to when orders change.
+  useAutoRefresh(refreshComplaints, 15_000)
+  useLiveCheck(ordersCheck, refreshOrders)
   const orderId = (num) => orders.find((o) => o.order_number === num)?.id
 
   return (

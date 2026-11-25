@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Phone, Store } from 'lucide-react'
+import { MapPin, Phone, Store } from 'lucide-react'
 import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { WhatsAppIcon } from '../../../components/icons.jsx'
 import { useData } from '../../../lib/useData.js'
+import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
 import { useRole } from '../../../lib/role.js'
 import { listTeam } from '../../../lib/store.js'
 import { rupee } from '../../../lib/format.js'
@@ -17,7 +18,9 @@ const REASONS = ['Restaurant is closed', 'Dish not available', 'Customer asked t
 export default function FoodOrderDetail() {
   const { id } = useParams()
   const { isOwner } = useRole()
-  const { data: o, error, reload } = useData(() => foodOrder(id), [id])
+  const { data: o, error, reload, refresh } = useData(() => foodOrder(id), [id])
+  // Live: the rider's steps and the customer's cancel show here every 10 s.
+  useAutoRefresh(refresh, 10_000)
   const { data: team } = useData(listTeam)
   const { data: places } = useData(foodRestaurants)
   const [busy, setBusy] = useState(false)
@@ -53,7 +56,6 @@ export default function FoodOrderDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/admin/food/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-600"><ArrowLeft size={16} /> Food orders</Link>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold">{o.order_number}</h1>

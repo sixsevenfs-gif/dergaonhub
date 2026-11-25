@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, ChevronRight, ClipboardList, Store } from 'lucide-react'
 import { lcard } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
+import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
 import { useRole } from '../../../lib/role.js'
 import { addDays, dateStr, rupee } from '../../../lib/format.js'
 import { foodRestaurants, foodSales, fssaiDaysLeft } from '../../../lib/foodAdmin.js'
@@ -42,8 +43,13 @@ export default function FoodHome() {
   const { isOwner } = useRole()
   const [range, setRange] = useState('today')
   const [from, to] = rangeOf(range)
-  const { data: s, error } = useData(() => foodSales(from, to), [from, to])
-  const { data: today } = useData(() => foodSales(dateStr(), dateStr()), [])
+  const { data: s, error, refresh: refreshRange } = useData(() => foodSales(from, to), [from, to])
+  const { data: today, refresh: refreshToday } = useData(() => foodSales(dateStr(), dateStr()), [])
+  // Live: today's food orders and sales every 15 s.
+  useAutoRefresh(() => {
+    refreshRange()
+    refreshToday()
+  }, 15_000)
   const { data: places } = useData(foodRestaurants)
 
   if (s === null) return <NeedsUpdate n="064" what="food orders and their numbers" />
