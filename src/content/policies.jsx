@@ -187,6 +187,12 @@ export const POLICIES = {
           'Photos are for reference only. The packaging of some products may look slightly different from the photo (for example a new pack design), but you always get the same brand and flavour you chose.',
           'If your chosen brand is not available and you allowed a similar brand, we may send one of the same type and size at about the same price. Otherwise we remove the item and tell you the new total.',
         ]} />
+        <H>Jholzo Food (restaurant orders)</H>
+        <UL items={[
+          'Dishes are cooked and packed by the restaurant. Prices on Jholzo can differ from the restaurant\'s own menu.',
+          'Some dish photos are for illustration only. You get the dish you ordered, but it may look different from the photo.',
+          'Each restaurant\'s FSSAI licence number is shown at the end of its menu.',
+        ]} />
         <H>Payment</H>
         <P>You pay on delivery by cash or UPI. Please check the amount before paying. We do not give credit (udhaar).</P>
         <H>No-shows</H>
