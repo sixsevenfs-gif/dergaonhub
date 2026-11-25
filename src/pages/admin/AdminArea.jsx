@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, ScanBarcode,
   Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
@@ -172,51 +172,14 @@ function AdminShell({ email, role }) {
   )
 }
 
-// The admin pages of this tab's history, by their place in it (React Router numbers each entry), so Back
-// returns to the page you came from, also after a refresh or the phone's own back and forward.
-const TRAIL_KEY = 'jholzo-admin-trail'
-function readTrail() {
-  try {
-    const trail = JSON.parse(sessionStorage.getItem(TRAIL_KEY) ?? '[]')
-    return Array.isArray(trail) ? trail : []
-  } catch {
-    return []
-  }
-}
-function saveTrail(trail) {
-  try {
-    sessionStorage.setItem(TRAIL_KEY, JSON.stringify(trail))
-  } catch {
-    // private mode: Back still works on this page
-  }
-}
-const placeInHistory = () => window.history.state?.idx ?? 0
-
-// "Back" at the top of every admin page: the page you were on before (like the phone's back), or this
-// part's home when there is no admin page before it in the tab.
+// "Back" at the top of every admin page: the page you were on before in this tab, like the phone's back (also
+// after a refresh), or this part's home when this page was opened first (a new tab, a typed or shared link).
 function BackButton({ home }) {
-  const location = useLocation()
-  const type = useNavigationType()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
-  const [trail, setTrail] = useState(readTrail)
-  const at = placeInHistory()
-  // Before the page is drawn, so the button doesn't jump in a moment later.
-  useLayoutEffect(() => {
-    const here = { key: location.key, path: location.pathname + location.search }
-    setTrail((old) => {
-      const known = old[at]?.key === here.key && old[at]?.path === here.path
-      if (known) return old // a refresh, or back or forward to a page already in the trail
-      // A new page drops the pages after it (as the browser does); a replaced one keeps them; a page the
-      // trail doesn't know (opened fresh) starts it again.
-      const next = type === 'PUSH' ? old.slice(0, at) : type === 'REPLACE' ? [...old] : []
-      next[at] = here
-      next.fill(null, 0, Math.max(0, at - 50)) // the browser keeps only the last 50 pages too
-      saveTrail(next)
-      return next
-    })
-  }, [at, location.key, location.pathname, location.search, type])
-  const canGoBack = at > 0 && trail[at]?.key === location.key && Boolean(trail[at - 1])
-  if (!canGoBack && location.pathname === home) return null
+  // React Router numbers the pages opened in this tab; above 0, a page of this site is behind this one.
+  const canGoBack = (window.history.state?.idx ?? 0) > 0
+  if (!canGoBack && pathname === home) return null
   return (
     <button type="button" onClick={() => (canGoBack ? navigate(-1) : navigate(home))}
       className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-700 shadow-sm active:scale-95 print:hidden">
