@@ -35,6 +35,12 @@ import AdminDeleteOrders from './pages/admin/AdminDeleteOrders.jsx'
 import AdminWallet from './pages/admin/AdminWallet.jsx'
 import AdminCarts from './pages/admin/AdminCarts.jsx'
 import AdminSurvey from './pages/admin/AdminSurvey.jsx'
+import FoodHome from './pages/admin/food/FoodHome.jsx'
+import FoodOrders from './pages/admin/food/FoodOrders.jsx'
+import FoodOrderDetail from './pages/admin/food/FoodOrderDetail.jsx'
+import FoodRestaurants from './pages/admin/food/FoodRestaurants.jsx'
+import FoodPayouts from './pages/admin/food/FoodPayouts.jsx'
+import FoodSettings from './pages/admin/food/FoodSettings.jsx'
 import Collect from './pages/collect/Collect.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
@@ -93,6 +99,13 @@ export default function App() {
           <Route path="settings" element={<OwnerOnly><AdminSettings /></OwnerOnly>} />
           <Route path="delete-orders" element={<OwnerOnly><AdminDeleteOrders /></OwnerOnly>} />
           <Route path="survey" element={<OwnerOnly><AdminSurvey /></OwnerOnly>} />
+          <Route path="food" element={<FoodHome />} />
+          <Route path="food/orders" element={<FoodOrders />} />
+          <Route path="food/orders/:id" element={<FoodOrderDetail />} />
+          <Route path="food/restaurants" element={<FoodRestaurants />} />
+          <Route path="food/payouts" element={<OwnerOnly><FoodPayouts /></OwnerOnly>} />
+          <Route path="food/settings" element={<OwnerOnly><FoodSettings /></OwnerOnly>} />
+          <Route path="app" element={<Navigate to="/admin/settings" replace />} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}

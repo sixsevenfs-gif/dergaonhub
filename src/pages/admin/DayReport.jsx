@@ -34,7 +34,7 @@ function Tile({ label, value, sub }) {
 }
 
 // Sales per day (or per month for long ranges) as bars; hover or tap a bar for its numbers.
-function SalesBars({ from, to, byDay }) {
+export function SalesBars({ from, to, byDay }) {
   const monthly = daysIn(from, to) > 62
   const map = {}
   for (const d of byDay) {

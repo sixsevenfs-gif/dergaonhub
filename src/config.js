@@ -12,6 +12,10 @@ export const CONFIG = {
 // Demo mode: no Supabase keys in .env, so data is saved in this browser only (localStorage).
 export const DEMO_MODE = !(import.meta.env?.VITE_SUPABASE_URL && import.meta.env?.VITE_SUPABASE_ANON_KEY)
 
+// The Food Desk (restaurants and menus, jholzo-food-desk on Netlify). Put its address here to get an
+// "open it" link on Admin → Food → Restaurants; empty shows no link.
+export const FOOD_DESK_URL = ''
+
 // Opening day: until this moment the customer site shows a full-screen countdown and nobody can order.
 // Admin and rider pages are not covered. Open https://jholzo.com/?preview=store to look inside before.
 export const LAUNCH_AT = '2026-11-01T10:00:00+05:30'
