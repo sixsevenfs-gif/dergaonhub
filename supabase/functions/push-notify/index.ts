@@ -52,14 +52,20 @@ function groceryNote(kind: string, o: Record<string, any>): Note | null {
   return null
 }
 
+// Food: one note for each step of the order (update 067), with the rider's first name once one has it.
 function foodNote(kind: string, o: Record<string, any>): Note | null {
   const n = `#${o.order_number}`
-  const place = String(o.restaurant_name || 'The restaurant').trim()
+  const place = String(o.restaurant_name || 'the restaurant').trim()
+  const rider = String(o.rider_name || '').trim().split(/\s+/)[0] || 'Our rider'
+  const pay = o.payment_method === 'upi' ? `Please keep ${rupee(o.total)} ready to pay by UPI.` : `Please keep ${rupee(o.total)} ready (cash or UPI).`
   const base = { link: `${SITE}/food-order/${o.order_number}`, kind: `food_${kind}`, channel: 'orders' as const, tag: String(o.order_number) }
   switch (kind) {
-    case 'confirmed': return { ...base, title: 'Restaurant accepted ✅', body: `${place} is preparing your order ${n}.` }
-    case 'picked': return { ...base, title: 'On the way 🛵', body: `Your food from ${place} is on the way. Please keep ${rupee(o.total)} ready (cash or UPI).` }
-    case 'delivered': return { ...base, title: 'Enjoy your meal 😋', body: `Order ${n} is delivered. Thanks for ordering from Jholzo Food!` }
+    case 'confirmed': return { ...base, title: 'Your food is being prepared 🍳', body: `${place} accepted your order ${n} and is cooking it now.` }
+    case 'to_restaurant': return { ...base, title: 'Rider on the way to the restaurant 🛵', body: `${rider} is going to ${place} to pick up your order ${n}.` }
+    case 'at_restaurant': return { ...base, title: 'Rider at the restaurant 🥡', body: `${rider} has reached ${place}. Your food is being packed.` }
+    case 'picked': return { ...base, title: 'Your food is on the way 🛵', body: `${rider} has picked up your food and left ${place}. ${pay}` }
+    case 'arriving': return { ...base, title: 'Rider at your door 📍', body: `${rider} has reached your location with order ${n}. ${pay}` }
+    case 'delivered': return { ...base, title: 'Delivered. Enjoy your meal 😋', body: `Order ${n} is delivered. Thanks for ordering from Jholzo Food!` }
     case 'cancelled': return { ...base, title: 'Food order cancelled', body: `Order ${n} was cancelled${o.cancel_reason ? `: ${o.cancel_reason}` : '.'}` }
   }
   return null

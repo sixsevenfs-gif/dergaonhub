@@ -8,7 +8,7 @@ import { useRole } from '../../../lib/role.js'
 import { listTeam } from '../../../lib/store.js'
 import { rupee } from '../../../lib/format.js'
 import { toWa, waLink } from '../../../lib/whatsapp.js'
-import { assignFoodRider, foodOrder, foodRestaurants, setFoodStatus, whenText } from '../../../lib/foodAdmin.js'
+import { assignFoodRider, foodOrder, foodRestaurants, foodStageText, setFoodStatus, whenText } from '../../../lib/foodAdmin.js'
 import { FoodStatus } from './FoodBits.jsx'
 
 const REASONS = ['Restaurant is closed', 'Dish not available', 'Customer asked to cancel', 'No-show', 'Fake or test order']
@@ -59,10 +59,14 @@ export default function FoodOrderDetail() {
           <h1 className="text-2xl font-bold">{o.order_number}</h1>
           <p className="text-sm text-neutral-500">{whenText(o.created_at)}</p>
         </div>
-        <FoodStatus status={o.status} />
+        <div className="text-right">
+          <FoodStatus status={o.status} />
+          {open && <p className="mt-1 text-xs font-semibold text-neutral-600">{foodStageText(o)}</p>}
+        </div>
       </div>
       {o.status === 'cancelled' && <p className="rounded-xl bg-neutral-100 p-3 text-sm">Cancelled: {o.cancel_reason || '—'}</p>}
       {msg && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{msg}</p>}
+      {o.status !== 'cancelled' && <Trip o={o} />}
 
       <div className={`${lcard} space-y-2 p-4`}>
         <p className="text-xs font-semibold uppercase text-neutral-500">Customer</p>
@@ -147,6 +151,29 @@ export default function FoodOrderDetail() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// The order's way, with the time of each step the rider pressed (update 067). The customer's app shows the same.
+const TRIP = [
+  ['created_at', 'Placed'], ['confirmed_at', 'Restaurant confirmed'], ['to_restaurant_at', 'Rider going to the restaurant'],
+  ['at_restaurant_at', 'Rider at the restaurant'], ['picked_at', 'Picked up'], ['arriving_at', 'Rider at the door'], ['delivered_at', 'Delivered'],
+]
+function Trip({ o }) {
+  const time = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
+  return (
+    <div className={`${lcard} p-4`}>
+      <p className="text-xs font-semibold uppercase text-neutral-500">Trip{o.rider_name ? ` · ${o.rider_name}` : ''}</p>
+      <ol className="mt-2 space-y-1.5">
+        {TRIP.map(([key, label]) => (
+          <li key={key} className={`flex items-center gap-2 text-sm ${o[key] ? '' : 'text-neutral-400'}`}>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${o[key] ? 'bg-emerald-500' : 'bg-neutral-200'}`} />
+            <span className="flex-1">{label}</span>
+            {o[key] && <span className="text-xs text-neutral-500">{time(o[key])}</span>}
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }

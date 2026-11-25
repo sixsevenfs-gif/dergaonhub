@@ -219,7 +219,7 @@ function PartnerRun({ session }) {
       </div>
 
       {/* Jholzo Food (update 064): restaurant orders to pick up and deliver now. */}
-      {date === today && <FoodRides />}
+      {date === today && <FoodRides store={store ?? {}} />}
 
       <section className="mt-4 grid grid-cols-3 gap-2 text-center">
         {[[left.length, 'To deliver'], [delivered, 'Delivered'], cash > 0 ? [rupee(cash), 'Cash to collect'] : [rupee(inHand), 'Cash collected']].map(([n, label]) => (

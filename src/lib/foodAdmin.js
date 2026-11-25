@@ -263,30 +263,64 @@ export function agoText(iso) {
 
 /* ---------- rider page (/partner) ---------- */
 
-/** Food orders for this rider to pick up and deliver now (their own and confirmed ones nobody took). */
+/** Food trips for this rider: their own and confirmed ones nobody took, with the step they are at (update 067),
+ *  plus what they delivered today. */
 export async function partnerFoodOrders() {
   if (!sb) {
-    return demo.orders.filter((o) => o.status === 'confirmed' || o.status === 'picked').map((o) => ({
-      id: o.id, no: o.order_number, status: o.status, restaurant: o.restaurant_name, pickup_address: o.restaurant_address,
-      pickup_phone: '9876543210', pickup_map: '', pickup_lat: null, pickup_lng: null, name: o.customer_name, phone: o.customer_phone,
-      address: o.address, area: o.area, lat: o.lat, lng: o.lng, note: o.note, payment: o.payment_method, total: o.total,
-      menu_total: o.menu_total, mine: !!o.rider_id, items: o.food_order_items.map((i) => ({ name: i.name, variant: i.variant, qty: i.qty })),
-    }))
+    return demo.orders.filter((o) => ['confirmed', 'picked'].includes(o.status) || (o.status === 'delivered' && o.rider_id === 'me'))
+      .map((o) => ({
+        id: o.id, no: o.order_number, status: o.status, stage: o.rider_stage ?? '', created_at: o.created_at,
+        confirmed_at: o.confirmed_at, to_restaurant_at: o.to_restaurant_at ?? null, at_restaurant_at: o.at_restaurant_at ?? null,
+        picked_at: o.picked_at, arriving_at: o.arriving_at ?? null, delivered_at: o.delivered_at,
+        restaurant: o.restaurant_name, pickup_address: o.restaurant_address, pickup_area: 'DKD Road', pickup_phone: '9876543210',
+        pickup_map: '', pickup_lat: 26.705, pickup_lng: 93.968, prep_minutes: 20, pay_when: 'pickup', restaurant_upi: 'fooddelight@upi',
+        name: o.customer_name, phone: o.customer_phone, address: o.address, area: o.area, lat: o.lat, lng: o.lng, distance_km: 1.8,
+        note: o.note, payment: o.payment_method, total: o.total, menu_total: o.menu_total, packing_fee: o.packing_fee,
+        mine: o.rider_id === 'me', rider_id: o.rider_id, rider_name: o.rider_id ? 'You' : '',
+        items: o.food_order_items.map((i) => ({ name: i.name, variant: i.variant, qty: i.qty, diet: i.diet })),
+      }))
   }
   const { data, error } = await sb.rpc('partner_food_orders')
   if (error) {
     if (missing(error)) return []
     throw new Error(error.message)
   }
-  return data ?? []
+  return (data ?? []).map((o) => ({ stage: '', ...o }))
 }
 
-/** Rider: "picked" (from the restaurant) or "delivered". An order nobody took becomes theirs. */
-export async function partnerFoodStatus(id, status) {
+/** One step of a food trip (update 067): to_restaurant, at_restaurant, picked, arriving, delivered.
+ *  An order nobody took becomes the rider's. Before 067 only picked / delivered exist. */
+export async function partnerFoodStep(id, step) {
   if (!sb) {
     const o = demo.orders.find((x) => x.id === id)
-    if (o) Object.assign(o, { status, rider_id: o.rider_id ?? 'me', [`${status}_at`]: new Date().toISOString() })
+    if (!o) return
+    const now = new Date().toISOString()
+    o.rider_id ??= 'me'
+    if (step === 'to_restaurant' || step === 'at_restaurant' || step === 'arriving') Object.assign(o, { rider_stage: step, [`${step}_at`]: now })
+    if (step === 'picked') Object.assign(o, { status: 'picked', rider_stage: '', picked_at: now })
+    if (step === 'delivered') Object.assign(o, { status: 'delivered', delivered_at: now })
     return
   }
-  check(await sb.rpc('partner_food_status', { p_order_id: id, p_status: status }))
+  const { error } = await sb.rpc('partner_food_step', { p_order_id: id, p_step: step })
+  if (!error) return
+  if (missing(error) && ['picked', 'delivered'].includes(step)) {
+    check(await sb.rpc('partner_food_status', { p_order_id: id, p_status: step }))
+    return
+  }
+  if (missing(error)) throw new Error('Run database update 067 for the trip steps. Picked up and Delivered work already.')
+  throw new Error(error.message)
+}
+
+/** Kept for older callers: picked / delivered. */
+export const partnerFoodStatus = (id, status) => partnerFoodStep(id, status)
+
+/** The step a food order is at, for the customer, the desk and the rider (update 067). */
+export function foodStageText(o) {
+  if (o.status === 'confirmed') {
+    if (o.rider_stage === 'at_restaurant') return 'Rider at the restaurant'
+    if (o.rider_stage === 'to_restaurant') return 'Rider going to the restaurant'
+    return 'Being prepared'
+  }
+  if (o.status === 'picked') return o.rider_stage === 'arriving' ? 'Rider at the door' : 'On the way to the customer'
+  return FOOD_STATUS[o.status]?.[0] ?? o.status
 }
