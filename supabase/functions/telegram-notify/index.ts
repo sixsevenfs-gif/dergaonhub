@@ -5,7 +5,7 @@
 // Deploy:  npx supabase functions deploy telegram-notify --no-verify-jwt --project-ref <your project ref>
 // Secrets: npx supabase secrets set TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... --project-ref <your project ref>
 //          (TELEGRAM_CHAT_ID can be several ids separated by commas, e.g. you and a rider.)
-import { cancelMessage, orderMessage, utrMessage } from './message.ts'
+import { cancelMessage, foodCancelMessage, foodOrderMessage, orderMessage, utrMessage } from './message.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -22,9 +22,9 @@ async function rows(path: string) {
 
 // Claims "this event is being sent" in one atomic update; returns false if another call already claimed it.
 // Before update 020 the flag columns do not exist: then it sends without the once-only guard.
-async function claim(filter: string, patch: Record<string, unknown>) {
+async function claim(filter: string, patch: Record<string, unknown>, table = 'orders') {
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/orders?${filter}`, {
+  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/${table}?${filter}`, {
     method: 'PATCH',
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
     body: JSON.stringify(patch),
@@ -44,10 +44,44 @@ async function telegram(method: string, body: Record<string, unknown>) {
   return res.json().catch(() => ({ ok: false }))
 }
 
+async function sendAll(text: string) {
+  const chats = (Deno.env.get('TELEGRAM_CHAT_ID') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  const results = []
+  for (const chat_id of chats) {
+    const r = await telegram('sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true })
+    results.push({ chat_id, ok: !!r.ok, error: r.ok ? undefined : r.description, message_id: r.result?.message_id })
+  }
+  return results
+}
+
+// Jholzo Food orders (update 064): new and cancelled, once each.
+async function food(foodOrderId: string, kind: string) {
+  if (!UUID.test(foodOrderId)) return json({ error: 'Order not found.' }, 404)
+  const [o] = await rows(`food_orders?id=eq.${foodOrderId}&select=*`)
+  if (!o) return json({ error: 'Order not found.' }, 404)
+  if (kind === 'food_placed' && Date.now() - new Date(o.created_at).getTime() > 15 * 60_000) return json({ sent: false, reason: 'old' })
+  if (kind === 'food_cancelled' && o.status !== 'cancelled') return json({ sent: false, reason: 'not cancelled' })
+  const flag = kind === 'food_placed' ? 'tg_placed_sent' : 'tg_cancel_sent'
+  if (!(await claim(`id=eq.${o.id}&${flag}=eq.false`, { [flag]: true }, 'food_orders'))) return json({ sent: false, reason: 'already sent' })
+  const items = await rows(`food_order_items?order_id=eq.${o.id}&select=name,variant,qty,line_total`)
+  let text: string
+  if (kind === 'food_placed') {
+    const [r] = o.restaurant_id ? await rows(`food_restaurants?id=eq.${o.restaurant_id}&select=phone,whatsapp,address`) : []
+    text = foodOrderMessage(o, items, { phone: r?.phone || r?.whatsapp, address: r?.address })
+  } else {
+    text = foodCancelMessage(o, items)
+  }
+  const results = await sendAll(text)
+  const sent = results.some((r) => r.ok)
+  if (!sent) await claim(`id=eq.${o.id}`, { [flag]: false }, 'food_orders')
+  return json({ sent, results })
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
   try {
-    const { order_id, kind } = await req.json()
+    const { order_id, food_order_id, kind } = await req.json()
+    if (kind === 'food_placed' || kind === 'food_cancelled') return await food(String(food_order_id ?? ''), kind)
     if (!['placed', 'utr', 'cancelled'].includes(kind)) return json({ error: 'Unknown message.' }, 400)
 
     if (!UUID.test(String(order_id ?? ''))) return json({ error: 'Order not found.' }, 404)

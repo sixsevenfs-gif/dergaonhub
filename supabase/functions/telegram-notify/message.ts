@@ -104,3 +104,41 @@ export function cancelMessage(o: Order, items: Item[]) {
   if (o.dispatch) lines.push('🛵 The rider was already on the way.')
   return lines.join('\n')
 }
+
+// Jholzo Food (update 064): a new restaurant order, and a cancelled one.
+type FoodItem = { name: string; variant?: string; qty: number; line_total: number }
+const dish = (i: FoodItem) => `${esc(i.name)}${i.variant ? ` (${esc(i.variant)})` : ''}`
+
+export function foodOrderMessage(o: Order, items: FoodItem[], pickup: { phone?: string; address?: string } = {}) {
+  const map = o.lat != null && o.lng != null ? ` · <a href="https://maps.google.com/?q=${o.lat},${o.lng}">Map</a>` : ''
+  const lines = [
+    `🍲 <b>New FOOD order ${esc(o.order_number)}</b>`,
+    `🕐 Ordered: ${stamp(o.created_at)}`,
+    `🏪 <b>${esc(o.restaurant_name)}</b>${pickup.phone ? ` · 📞 ${esc(pickup.phone)}` : ''}`,
+  ]
+  if (pickup.address || o.restaurant_address) lines.push(`   Pickup: ${esc(pickup.address || o.restaurant_address)}`)
+  lines.push('', `👤 <b>${esc(o.customer_name)}</b> · 📞 ${esc(o.customer_phone)}`, `📍 ${esc(o.address)}, ${esc(o.area)}${map}`, '', '🍽️ <b>Dishes:</b>')
+  for (const i of items) lines.push(`• ${dish(i)} × ${i.qty} = ${rupee(i.line_total)}`)
+  const fees = [`Dishes ${rupee(o.items_total)}`]
+  if (o.packing_fee) fees.push(`Packing ${rupee(o.packing_fee)}`)
+  fees.push(`Delivery ${o.delivery_fee ? rupee(o.delivery_fee) : 'FREE'}`)
+  if (o.platform_fee) fees.push(`Platform ${rupee(o.platform_fee)}`)
+  if (o.gst) fees.push(`GST ${rupee(o.gst)}`)
+  lines.push(fees.join(' · '), `💰 <b>TOTAL ${rupee(o.total)}</b> · ${o.payment_method === 'cash' ? 'CASH' : 'UPI'} on delivery`,
+    `🏪 Pay the restaurant: <b>${rupee(o.menu_total)}</b>`)
+  if (o.note) lines.push(`📝 Note: ${esc(o.note)}`)
+  lines.push('👉 Call the restaurant, then Confirm in Admin → Food.')
+  return lines.join('\n')
+}
+
+export function foodCancelMessage(o: Order, items: FoodItem[]) {
+  const lines = [
+    `❌ <b>Food order cancelled — ${esc(o.order_number)}</b>`,
+    cancelReason(o),
+    `🏪 ${esc(o.restaurant_name)} · 👤 ${esc(o.customer_name)} · 📞 ${esc(o.customer_phone)}`,
+    `💰 ${rupee(o.total)} · ordered ${stamp(o.created_at)}`,
+  ]
+  if (items.length) lines.push(`🍽️ ${items.map((i) => `${dish(i)} × ${i.qty}`).join(', ')}`)
+  if (o.confirmed_at) lines.push('⚠️ The restaurant was already told: call them to stop it.')
+  return lines.join('\n')
+}
