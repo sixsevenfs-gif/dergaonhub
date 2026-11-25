@@ -108,7 +108,7 @@ export function AppHomePreview({ place = 'grocery', banners = null, highlightId 
 }
 
 /** What a phone below the new version sees: the full screen (mandatory) or the question (normal). */
-export function UpdatePreview({ mode, title, message, version }) {
+export function UpdatePreview({ mode, title, message }) {
   if (mode === 'force') {
     return (
       <div className="flex h-full flex-col items-center bg-white px-5 pb-6 pt-3 text-center">
@@ -119,7 +119,7 @@ export function UpdatePreview({ mode, title, message, version }) {
           <p className="mt-1.5 text-[10px] leading-snug text-neutral-500">{message || DEFAULT_UPDATE}</p>
         </div>
         <span className="flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-[#1F6B3A] text-[11px] font-bold text-white"><Download size={12} /> Update now</span>
-        <p className="mt-1.5 text-[8px] text-neutral-400">You have version 1.0 · new: {version || '—'}</p>
+        <p className="mt-1.5 text-[8px] text-neutral-400">You have version 1.1</p>
       </div>
     )
   }

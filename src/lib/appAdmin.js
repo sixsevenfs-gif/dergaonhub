@@ -225,10 +225,6 @@ export async function saveAppControl(patch) {
   const row = {}
   for (const k of CONTROL_FIELDS) if (k in patch) row[k] = typeof patch[k] === 'string' ? patch[k].trim() : patch[k]
   if ('update_version' in row) row.update_version = row.update_version.replace(/^v/i, '')
-  const next = { ...(sb ? {} : demo.control), ...row }
-  if ('update_mode' in row && row.update_mode !== 'off' && !VERSION.test(next.update_version ?? row.update_version ?? '')) {
-    throw new Error('Write the new version, like 1.2 or 1.2.1.')
-  }
   if (row.update_version && !VERSION.test(row.update_version)) throw new Error('A version looks like 1.2 or 1.2.1.')
   for (const k of ['ios_store_url', 'android_store_url']) if (row[k] && !/^https:\/\//.test(row[k])) throw new Error('Store links start with https://')
   for (const [k, max] of [['update_title', 60], ['update_message', 200], ['app_status_title', 60], ['app_status_message', 200]]) {
@@ -240,6 +236,19 @@ export async function saveAppControl(patch) {
   }
   check(await sb.from('store_settings').update(row).eq('id', 1))
 }
+
+/** The newest version seen on phones, per app ("android" / "ios"): the store's, once phones have updated. */
+export function newestSeen(versions) {
+  const best = {}
+  for (const v of versions ?? []) {
+    if (v.version === '?') continue
+    if (!best[v.platform] || compareVersions(v.version, best[v.platform]) > 0) best[v.platform] = v.version
+  }
+  return best
+}
+
+/** Does the update setting reach this app ("android" / "ios")? */
+export const updateFor = (control, platform) => control?.update_mode !== 'off' && ['both', platform].includes(control?.update_platforms)
 
 /* ---------- the App home in numbers (update 066) ---------- */
 

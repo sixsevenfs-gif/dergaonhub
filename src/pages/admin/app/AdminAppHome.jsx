@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Bell, CheckCircle2, Image, LogIn, RefreshCw, Smartphone, Sparkles, Users, Wrench } from 'lucide-react'
 import { lcard } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
-import { AUDIENCES, appControl, appOverview, bannersOn, compareVersions, listBanners } from '../../../lib/appAdmin.js'
+import { AUDIENCES, appControl, appOverview, bannersOn, compareVersions, listBanners, newestSeen, updateFor } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import AppHeader from './AppHeader.jsx'
 import { AppHomePreview, PhoneFrame } from './AppPreview.jsx'
@@ -22,8 +22,9 @@ export default function AdminAppHome() {
   const grocery = bannersOn(banners, 'grocery')
   const food = bannersOn(banners, 'food')
   const maxPhones = Math.max(1, ...(ov?.versions ?? []).map((v) => v.phones))
-  const behind = (v) => control?.update_mode !== 'off' && control?.update_version && compareVersions(v.version, control.update_version) < 0
-    && (control.update_platforms === 'both' || control.update_platforms === v.platform)
+  // Phones below the newest version seen on that app are the ones an update reaches.
+  const newest = newestSeen(ov?.versions)
+  const behind = (v) => updateFor(control, v.platform) && newest[v.platform] && v.version !== '?' && compareVersions(v.version, newest[v.platform]) < 0
 
   return (
     <div className="space-y-4">
@@ -45,7 +46,7 @@ export default function AdminAppHome() {
             <StateCard to="/admin/app/updates" Icon={RefreshCw}
               tone={control?.update_mode === 'force' ? 'border-red-200 bg-red-50' : control?.update_mode === 'soft' ? 'border-sky-200 bg-sky-50' : 'border-neutral-200 bg-white'}
               title="App update" value={control?.update_mode === 'off' ? 'No update asked'
-                : `${control?.update_mode === 'force' ? 'Mandatory' : 'Normal'} update to ${control?.update_version}${control?.update_platforms === 'both' ? '' : ` · ${control?.update_platforms === 'ios' ? 'iPhone' : 'Android'} only`}`} />
+                : `${control?.update_mode === 'force' ? 'Mandatory' : 'Normal'} update · ${control?.update_platforms === 'both' ? 'both apps' : `${control?.update_platforms === 'ios' ? 'iPhone' : 'Android'} only`}`} />
           </div>
 
           <div className={`${lcard} p-4`}>

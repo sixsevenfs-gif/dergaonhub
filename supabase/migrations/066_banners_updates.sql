@@ -3,8 +3,9 @@
 -- 1. Banners: pictures at the top of the Grocery home, the Food home, or both, each with what it opens, on/off,
 --    order and optional start / end times. The app's two built-in banners are added here once, so they can be
 --    changed or removed like any other. With no banner running, the apps show none.
--- 2. App update: a newest version, as a normal update (asked once, can be skipped) or a mandatory one (a full
---    screen "Update Jholzo" until the app is updated), for both apps or just one of them.
+-- 2. App update: a normal update (asked once, can be skipped) or a mandatory one (a full screen "Update Jholzo"
+--    until the app is updated), for both apps or just one. Each app asks its own store whether a newer version
+--    is out (update 068), so no version is written here.
 -- 3. App status: Live, or Maintenance (a full screen "We'll be back soon" in both apps).
 -- 4. admin_app_overview(): phones with the app, versions in use, notifications and banners, for the owner.
 -- Pictures go in the public app-media bucket from update 065. Push the website first (the built-in banner
@@ -56,8 +57,7 @@ do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'store_settings_app_update') then
     alter table public.store_settings add constraint store_settings_app_update check (
       update_mode in ('off', 'soft', 'force') and update_platforms in ('both', 'android', 'ios')
-      and update_version ~ '^([0-9]+(\.[0-9]+){0,3})?$' and (update_mode = 'off' or update_version <> '')
-      and app_status in ('live', 'maintenance'));
+      and update_version ~ '^([0-9]+(\.[0-9]+){0,3})?$' and app_status in ('live', 'maintenance'));
   end if;
 end $$;
 
