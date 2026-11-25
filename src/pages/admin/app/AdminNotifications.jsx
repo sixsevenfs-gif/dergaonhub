@@ -2,18 +2,10 @@ import { useMemo, useRef, useState } from 'react'
 import { Bell, ImagePlus, Send, Smartphone, X } from 'lucide-react'
 import { lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
-import { listProducts } from '../../../lib/store.js'
-import { foodRestaurants } from '../../../lib/foodAdmin.js'
-import { AUDIENCES, LINKS, pushAudience, pushCampaigns, sendPush, uploadAppMedia } from '../../../lib/appAdmin.js'
+import { AUDIENCES, pushAudience, pushCampaigns, sendPush, uploadAppMedia } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
+import LinkPicker from './LinkPicker.jsx'
 
-const OPENS = [
-  ['grocery', 'Grocery home'],
-  ['food', 'Food home'],
-  ['product', 'A product'],
-  ['restaurant', 'A restaurant'],
-  ['url', 'A website link'],
-]
 const AUDIENCE_LABEL = Object.fromEntries(AUDIENCES)
 const phonesIn = (text) => [...new Set((text.match(/[6-9][0-9]{9}/g) ?? []))]
 
@@ -22,30 +14,21 @@ export default function AdminNotifications() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [image, setImage] = useState('')
-  const [opens, setOpens] = useState('grocery')
-  const [target, setTarget] = useState('')
-  const [url, setUrl] = useState('https://jholzo.com/')
+  const [link, setLink] = useState('')
   const [audience, setAudience] = useState('all')
   const [numbers, setNumbers] = useState('')
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState(null)
   const [confirm, setConfirm] = useState(false)
-  const [q, setQ] = useState('')
   const file = useRef(null)
   const phones = useMemo(() => phonesIn(numbers), [numbers])
   const { data: reach } = useData(() => pushAudience(audience, phones), [audience, phones.join()])
   const { data: history, reload } = useData(pushCampaigns)
-  const { data: products } = useData(() => (opens === 'product' ? listProducts() : Promise.resolve([])), [opens])
-  const { data: places } = useData(() => (opens === 'restaurant' ? foodRestaurants() : Promise.resolve([])), [opens])
 
   if (reach === null || history === null) return <NeedsUpdate n="065" what="notifications to the apps" />
 
-  const link = opens === 'url' ? url.trim() : opens === 'grocery' || opens === 'food' ? LINKS[opens]() : target ? LINKS[opens](target) : ''
-  const shownProducts = (products ?? []).filter((p) => p.status === 'active' && (!q || p.name.toLowerCase().includes(q.toLowerCase()))).slice(0, 50)
-  const live = (places ?? []).filter((r) => r.status === 'live' && r.fssai_number?.trim())
   const problem = !title.trim() ? 'Write a title.' : !body.trim() ? 'Write the message.'
-    : (opens === 'product' || opens === 'restaurant') && !target ? `Choose the ${opens}.`
-    : opens === 'url' && !/^https:\/\//.test(url.trim()) ? 'The link must start with https://'
+    : !link ? 'Choose what it opens (a website link must start with https://).'
     : audience === 'phones' && !phones.length ? 'Add at least one 10-digit number.' : ''
 
   async function pick(e) {
@@ -124,28 +107,7 @@ export default function AdminNotifications() {
 
         <div>
           <span className="text-sm font-semibold">When they tap it, open</span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {OPENS.map(([k, l]) => (
-              <button key={k} type="button" onClick={() => { setOpens(k); setTarget('') }}
-                className={`h-9 rounded-full px-3 text-sm font-semibold ${opens === k ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{l}</button>
-            ))}
-          </div>
-          {opens === 'product' && (
-            <div className="mt-2 space-y-2">
-              <input className={lfield} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a product" />
-              <select className={lfield} value={target} onChange={(e) => setTarget(e.target.value)}>
-                <option value="">Choose a product</option>
-                {shownProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.size ? ` · ${p.size}` : ''}</option>)}
-              </select>
-            </div>
-          )}
-          {opens === 'restaurant' && (
-            <select className={`${lfield} mt-2`} value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="">Choose a restaurant</option>
-              {live.map((r) => <option key={r.id} value={r.id}>{r.name.trim()}</option>)}
-            </select>
-          )}
-          {opens === 'url' && <input className={`${lfield} mt-2`} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://jholzo.com/…" />}
+          <div className="mt-2"><LinkPicker onChange={setLink} /></div>
         </div>
 
         <div>
