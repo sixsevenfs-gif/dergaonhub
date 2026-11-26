@@ -1,9 +1,9 @@
--- Purabi Dahi (sweetened curd) in two cups at the owner's prices: 200 g ₹30 and 400 g ₹55. No buy prices were given,
+-- Purabi Dahi (sweetened curd) in two cups at the owner's prices: 200 g ₹30 and 400 g ₹55, in Dairy & Beverages. No buy prices were given,
 -- so none are saved. Safe to run again (each name + size is added only once). Push first so the photos
 -- (public/products/) are live, then run this.
 
 insert into public.products (name, size, category_id, keywords, price, compare_price, photo_url, available, status)
-select v.name, v.size, 'dairy', v.keywords, v.price, null, v.photo, true, 'active'
+select v.name, v.size, 'beverages', v.keywords, v.price, null, v.photo, true, 'active'
 from (values
   ('Purabi Dahi, Sweetened Curd', '200 g',
    'purabi dahi doi curd sweet sweetened mishti doi yogurt dairy cup', 30, '/products/purabi-dahi-sweetened-curd-200g.jpg'),
