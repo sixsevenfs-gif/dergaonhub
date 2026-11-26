@@ -111,8 +111,9 @@ export default function FoodOrderDetail() {
           <Row label="Delivery" value={o.delivery_fee ? rupee(o.delivery_fee) : 'FREE'} />
           {o.platform_fee > 0 && <Row label="Platform fee" value={rupee(o.platform_fee)} />}
           {o.gst > 0 && <Row label="GST" value={rupee(o.gst)} />}
+          {o.discount > 0 && <Row label={`Coupon ${o.coupon_code}`} value={`−${rupee(o.discount)}`} />}
           <Row label={`Total · ${o.payment_method === 'upi' ? 'UPI' : 'Cash'} on delivery`} value={rupee(o.total)} bold />
-          {isOwner && <Row label="Your markup on dishes" value={rupee(o.items_total - Number(o.menu_total))} muted />}
+          {isOwner && <Row label="Your markup on dishes" value={rupee(o.items_total - Number(o.menu_total) - (o.discount ?? 0))} muted />}
         </div>
       </div>
 

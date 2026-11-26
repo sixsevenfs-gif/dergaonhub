@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, Headset, House, Inbox, ListChecks, LogIn, LogOut, MessageSquareText, MessageSquareWarning, Package, ScanBarcode,
-  Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
+  Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, TicketPercent, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
 } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
@@ -46,6 +46,7 @@ const NAV = {
     ['/admin/food/orders', 'Food orders', 'newFood', ClipboardList],
     ['/admin/food/restaurants', 'Restaurants', null, Store],
     ['/admin/food/payouts', 'Payouts', null, HandCoins],
+    ['/admin/food/coupons', 'Coupons', null, TicketPercent],
     ['/admin/food/settings', 'Food settings', null, SlidersHorizontal],
   ],
   support: [

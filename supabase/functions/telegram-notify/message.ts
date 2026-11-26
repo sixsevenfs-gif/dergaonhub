@@ -124,6 +124,7 @@ export function foodOrderMessage(o: Order, items: FoodItem[], pickup: { phone?: 
   fees.push(`Delivery ${o.delivery_fee ? rupee(o.delivery_fee) : 'FREE'}`)
   if (o.platform_fee) fees.push(`Platform ${rupee(o.platform_fee)}`)
   if (o.gst) fees.push(`GST ${rupee(o.gst)}`)
+  if (o.discount) fees.push(`🎟️ ${esc(o.coupon_code)} −${rupee(o.discount)}`)
   lines.push(fees.join(' · '), `💰 <b>TOTAL ${rupee(o.total)}</b> · ${o.payment_method === 'cash' ? 'CASH' : 'UPI'} on delivery`,
     `🏪 Pay the restaurant: <b>${rupee(o.menu_total)}</b>`)
   if (o.note) lines.push(`📝 Note: ${esc(o.note)}`)
