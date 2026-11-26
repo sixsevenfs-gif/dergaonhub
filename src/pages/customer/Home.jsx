@@ -7,6 +7,7 @@ import Footer from '../../components/Footer.jsx'
 import BottomNav from '../../components/BottomNav.jsx'
 import HeroSlider from '../../components/HeroSlider.jsx'
 import OutOfArea from '../../components/OutOfArea.jsx'
+import RainNotice from '../../components/RainNotice.jsx'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import { deliveryQuote, deliveryRules, expressStatus, expressTimeText } from '../../lib/delivery.js'
 import ProductCard, { ProductTile } from '../../components/ProductCard.jsx'
@@ -205,6 +206,7 @@ export default function Home() {
       {!browsing && (
         <>
           <HeroSlider onShop={browseAll} />
+          <RainNotice store={store} className="mt-3" />
 
           {store.paused ? (
             <p className="mt-3 rounded-2xl bg-orange-50 p-4 text-center text-sm font-medium text-orange-700">The store is closed right now. Please order a little later.</p>

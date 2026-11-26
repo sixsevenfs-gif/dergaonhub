@@ -9,7 +9,8 @@ import LinkPicker from './LinkPicker.jsx'
 import AppHeader from './AppHeader.jsx'
 import { LockScreenPreview, PhoneFrame } from './AppPreview.jsx'
 
-const AUDIENCE_LABEL = Object.fromEntries(AUDIENCES)
+// "maintenance" is sent from App status (the people who opened the app during a maintenance, update 071).
+const AUDIENCE_LABEL = { ...Object.fromEntries(AUDIENCES), maintenance: 'Opened during maintenance' }
 const phonesIn = (text) => [...new Set((text.match(/[6-9][0-9]{9}/g) ?? []))]
 
 // Owner: send an offer or news to the apps (Android and iPhone). Order updates go out by themselves.

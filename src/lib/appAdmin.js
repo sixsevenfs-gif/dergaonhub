@@ -73,7 +73,12 @@ export async function sendPush({ title, body, image = '', link = '', audience = 
     return sent
   }
   const saved = check(await sb.from('push_campaigns').insert(row).select('id').single())
-  const { data, error } = await sb.functions.invoke('push-notify', { body: { campaign: saved.id } })
+  return invokeCampaign(saved.id)
+}
+
+/** Asks push-notify to send a saved notification now. */
+async function invokeCampaign(id) {
+  const { data, error } = await sb.functions.invoke('push-notify', { body: { campaign: id } })
   if (error) {
     // The function's own message, when it gave one.
     let msg = error.message
@@ -197,7 +202,8 @@ export const bannersOn = (banners, place) => (banners ?? []).filter((b) => (b.pl
 
 // What the apps show when the owner writes nothing (the same words are in the apps).
 export const DEFAULT_UPDATE = 'A new version of Jholzo is here with new features and fixes. Please update to keep using the app.'
-export const DEFAULT_PAUSE = 'Jholzo is getting a quick upgrade. Please check back in a little while.'
+export const DEFAULT_PAUSE_TITLE = 'Currently under maintenance'
+export const DEFAULT_PAUSE = "We're making Jholzo better. We will inform you as soon as it's back."
 
 const CONTROL_FIELDS = Object.keys(demo.control)
 
@@ -272,4 +278,77 @@ export async function appOverview() {
     throw new Error(error.message)
   }
   return data
+}
+
+/* ---------- heavy rain notice and maintenance visitors (update 071) ---------- */
+
+// What the apps show when the owner writes nothing (the same words are in the apps).
+export const DEFAULT_RAIN = "It's raining heavily in Dergaon, so orders may take a little longer today. Thank you for your patience."
+// Where the rain notice shows.
+export const RAIN_PLACES = [
+  ['both', 'Food and Grocery'],
+  ['food', 'Food only'],
+  ['grocery', 'Grocery only'],
+]
+
+demo.rain = { rain_on: false, rain_message: '', rain_place: 'both' }
+demo.visits = [
+  { install_id: 'i1', platform: 'android', env: 'prod', phone: '9000000011', name: 'Asha Devi', device_model: 'Xiaomi Redmi Note 10', app_version: '1.1.0',
+    first_at: new Date(Date.now() - 50 * 60000).toISOString(), last_at: new Date(Date.now() - 20 * 60000).toISOString(), opens: 2, is_test: false, reachable: true },
+  { install_id: 'i2', platform: 'ios', env: 'prod', phone: '', name: '', device_model: 'iPhone 13', app_version: '1.1',
+    first_at: new Date(Date.now() - 35 * 60000).toISOString(), last_at: new Date(Date.now() - 35 * 60000).toISOString(), opens: 1, is_test: false, reachable: true },
+  { install_id: 'i3', platform: 'android', env: 'prod', phone: '9000000022', name: 'Bikash', device_model: 'Samsung Galaxy M31', app_version: '1.1.0',
+    first_at: new Date(Date.now() - 10 * 60000).toISOString(), last_at: new Date(Date.now() - 10 * 60000).toISOString(), opens: 1, is_test: false, reachable: false },
+]
+demo.windows = [{ id: 1, started_at: new Date(Date.now() - 60 * 60000).toISOString(), ended_at: null, notified_at: null, visitors: 3 }]
+
+/** The heavy rain notice. Null before update 071. */
+export async function rainNotice() {
+  if (!sb) return { ...demo.rain }
+  const { data, error } = await sb.from('store_settings').select('rain_on,rain_message,rain_place').eq('id', 1).maybeSingle()
+  if (error) {
+    if (missing(error)) return null
+    throw new Error(error.message)
+  }
+  return data
+}
+
+export async function saveRain({ rain_on, rain_message, rain_place }) {
+  const row = {
+    rain_on: !!rain_on,
+    rain_message: String(rain_message ?? '').trim().slice(0, 200),
+    rain_place: RAIN_PLACES.some(([k]) => k === rain_place) ? rain_place : 'both',
+  }
+  if (!sb) {
+    Object.assign(demo.rain, row)
+    return
+  }
+  check(await sb.from('store_settings').update(row).eq('id', 1))
+}
+
+/** The maintenances so far and who opened the app during one (the newest, unless `window` is given).
+ *  Null before update 071. */
+export async function maintenanceVisits(window = null) {
+  if (!sb) return { status: demo.control.app_status, window: 1, windows: demo.windows, visitors: demo.visits }
+  const { data, error } = await sb.rpc('admin_maintenance_visits', { p_window: window })
+  if (error) {
+    if (missing(error)) return null
+    throw new Error(error.message)
+  }
+  return data
+}
+
+/** A notification to just the people who opened the app during that maintenance. Returns { targeted, sent, failed }. */
+export async function notifyMaintenanceVisitors(window, { title, body, link = '', image = '' }) {
+  if (!title.trim() || !body.trim()) throw new Error('Write a title and a message.')
+  if (!sb) {
+    const w = demo.windows.find((x) => x.id === window)
+    if (w) w.notified_at = new Date().toISOString()
+    demo.campaigns.push({ id: `c${demo.campaigns.length + 1}`, created_at: new Date().toISOString(), title, body, image, link,
+      audience: 'maintenance', phones: [], status: 'sent', targeted: 2, sent: 2, failed: 0 })
+    return { targeted: 2, sent: 2, failed: 0 }
+  }
+  const { data: id, error } = await sb.rpc('admin_maintenance_notify', { p_window: window, p_title: title.trim(), p_body: body.trim(), p_link: link, p_image: image })
+  if (error) throw new Error(error.message)
+  return invokeCampaign(id)
 }

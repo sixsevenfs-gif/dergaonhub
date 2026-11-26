@@ -5,12 +5,14 @@ import { lbtn, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
 import { adminStats } from '../../../lib/store.js'
 import { foodSettings } from '../../../lib/foodAdmin.js'
-import { DEFAULT_PAUSE, appControl, saveAppControl } from '../../../lib/appAdmin.js'
+import { DEFAULT_PAUSE, DEFAULT_PAUSE_TITLE, appControl, saveAppControl } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import AppHeader from './AppHeader.jsx'
+import { MaintenanceVisitors, RainCard } from './AppStatusExtras.jsx'
 import { AppHomePreview, MaintenancePreview, PhoneFrame } from './AppPreview.jsx'
 
-// Owner: the whole app Live, or in Maintenance (both apps show "We'll be back soon" and nothing can be ordered).
+// Owner: the whole app Live, or in Maintenance (both apps show "Currently under maintenance" and nothing can be
+// ordered; the phones that open it meanwhile are listed, to tell them when it's back). The heavy rain notice too.
 // Pausing only grocery or only food orders stays in their own settings; this page shows where they stand.
 export default function AdminAppStatus() {
   const { data, reload } = useData(appControl)
@@ -40,7 +42,7 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
     setMsg(null)
     try {
       await saveAppControl({ app_status: v.app_status, app_status_title: v.app_status_title, app_status_message: v.app_status_message })
-      setMsg({ ok: v.app_status === 'maintenance' ? 'Maintenance is on. Both apps show it within a minute.' : 'The app is Live. Phones open normally again.' })
+      setMsg({ ok: v.app_status === 'maintenance' ? 'Maintenance is on. Both apps show it within a minute, and the phones that open it are listed below.' : 'The app is Live. Phones open normally again. You can tell the people who opened it meanwhile, below.' })
       onSaved()
     } catch (err) {
       setMsg({ error: err.message })
@@ -51,14 +53,14 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
 
   return (
     <div className="space-y-4">
-      <AppHeader title="App status" text="Keep the app open, or close it for a while with a friendly full screen message. Both apps follow this at once." />
+      <AppHeader title="App status" text="Keep the app open, or close it for a while with a friendly full screen message. Both apps follow this at once. The heavy rain notice is here too." />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ['live', 'Live', 'Everything works: customers shop, order and track as usual.', CheckCircle2, 'border-emerald-500 bg-emerald-50', 'bg-emerald-600'],
-              ['maintenance', 'Maintenance', 'Both apps show a full screen "We\'ll be back soon". Nobody can order until you switch back to Live.', Wrench, 'border-amber-500 bg-amber-50', 'bg-amber-600'],
+              ['maintenance', 'Maintenance', 'Both apps show a full screen "Currently under maintenance, we will inform you". Nobody can order until you switch back to Live.', Wrench, 'border-amber-500 bg-amber-50', 'bg-amber-600'],
             ].map(([k, title, text, Icon, onCls, iconCls]) => {
               const on = v.app_status === k
               return (
@@ -79,7 +81,7 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
             <div className={`${lcard} space-y-3 p-4`}>
               <label className="block">
                 <span className="text-sm font-semibold">Title (optional)</span>
-                <input className={`${lfield} mt-1`} maxLength={60} value={v.app_status_title} onChange={(e) => set({ app_status_title: e.target.value })} placeholder="We'll be back soon" />
+                <input className={`${lfield} mt-1`} maxLength={60} value={v.app_status_title} onChange={(e) => set({ app_status_title: e.target.value })} placeholder={DEFAULT_PAUSE_TITLE} />
               </label>
               <label className="block">
                 <span className="text-sm font-semibold">Message (optional)</span>
@@ -108,7 +110,7 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
           {confirm ? (
             <div className={`${lcard} space-y-3 border-amber-400 p-4`}>
               <p className="font-bold">Close both apps for maintenance?</p>
-              <p className="text-sm text-neutral-600">Every phone shows &quot;{v.app_status_title || 'We\'ll be back soon'}&quot; and nobody can shop or order until you switch back to Live here.</p>
+              <p className="text-sm text-neutral-600">Every phone shows &quot;{v.app_status_title || DEFAULT_PAUSE_TITLE}&quot; and nobody can shop or order until you switch back to Live here.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={save} className={`${lbtn} bg-amber-600 text-white`}><Wrench size={16} /> Yes, start maintenance</button>
                 <button type="button" onClick={() => setConfirm(false)} className={lbtnOutline}>Not now</button>
@@ -119,6 +121,9 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
               className={`${lbtn} w-full bg-violet-700 text-white`}>{busy ? 'Saving…' : 'Save'}</button>
           )}
           <p className="text-xs text-neutral-500">Works from iPhone version 1.1 and Android 1.1.0. The website is not closed by this.</p>
+
+          <MaintenanceVisitors />
+          <RainCard />
         </div>
 
         <aside className="lg:sticky lg:top-36 lg:self-start">

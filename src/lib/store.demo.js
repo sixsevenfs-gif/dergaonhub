@@ -160,6 +160,7 @@ export async function updateProduct(id, patch) {
   if ('featured' in patch) p.featured = !!patch.featured
   if ('status' in patch) p.status = patch.status
   if ('description' in patch) p.description = String(patch.description ?? '').trim()
+  if ('food_addon' in patch) p.food_addon = !!patch.food_addon
   p.updated_at = now()
   commit()
 }

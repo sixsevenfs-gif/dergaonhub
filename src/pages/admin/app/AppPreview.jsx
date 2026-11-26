@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Download, Heart, Search, ShoppingBasket, Truck, UtensilsCrossed, Wallet, Wrench } from 'lucide-react'
-import { DEFAULT_PAUSE, DEFAULT_UPDATE } from '../../../lib/appAdmin.js'
+import { BellRing, Download, Heart, Search, ShoppingBasket, Truck, UtensilsCrossed, Wallet, Wrench } from 'lucide-react'
+import { DEFAULT_PAUSE, DEFAULT_PAUSE_TITLE, DEFAULT_UPDATE } from '../../../lib/appAdmin.js'
 
 // How the Jholzo app looks, drawn small in a phone, for the App Control Center: the home with its banners, the
 // update screen and question, and the maintenance screen. Close to the real Android and iPhone screens.
@@ -149,9 +149,10 @@ export function MaintenancePreview({ title, message }) {
       <p className="text-[15px] font-black text-[#1F6B3A]">JHOLZO</p>
       <div className="flex flex-1 flex-col items-center justify-center">
         <span className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100"><Wrench size={32} className="text-amber-700" /></span>
-        <p className="mt-4 text-[17px] font-black text-neutral-900">{title || 'We\'ll be back soon'}</p>
+        <p className="mt-4 text-[17px] font-black text-neutral-900">{title || DEFAULT_PAUSE_TITLE}</p>
         <p className="mt-1.5 text-[10px] leading-snug text-neutral-500">{message || DEFAULT_PAUSE}</p>
       </div>
+      <span className="mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber-600 text-[11px] font-bold text-white"><BellRing size={12} /> Notify me when it&apos;s back</span>
       <span className="flex h-9 w-full items-center justify-center rounded-xl border border-neutral-300 text-[11px] font-bold text-neutral-700">Try again</span>
     </div>
   )

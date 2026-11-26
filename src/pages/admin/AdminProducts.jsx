@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BadgePercent, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
+import { BadgePercent, CupSoda, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import PhotoPicker from '../../components/PhotoPicker.jsx'
 import Toggle from '../../components/Toggle.jsx'
@@ -414,6 +414,18 @@ function ProductEditor() {
             >
               <Star size={18} fill={p.featured ? 'currentColor' : 'none'} />
             </button>
+            {/* Update 071: also sold in every restaurant's menu in Jholzo Food (cold drinks), at this price. */}
+            {(p.food_addon !== undefined || DEMO_MODE) && (
+              <button
+                type="button"
+                onClick={() => updateProduct(p.id, { food_addon: !p.food_addon })}
+                aria-label={p.food_addon ? 'Remove from Food restaurants' : 'Show in every Food restaurant'}
+                title="Show in every restaurant's menu in Jholzo Food (same price)"
+                className={`flex h-10 w-10 items-center justify-center rounded-lg border ${p.food_addon ? 'border-red-300 bg-red-50 text-red-600' : 'border-neutral-200 text-neutral-300'}`}
+              >
+                <CupSoda size={18} />
+              </button>
+            )}
             <DiscountEdit key={`${p.price}-${p.compare_price}`} product={p} />
             <CostEdit key={`cost-${costs[p.id]}`} product={p} cost={costs[p.id]} />
             <div className="flex items-center gap-2">

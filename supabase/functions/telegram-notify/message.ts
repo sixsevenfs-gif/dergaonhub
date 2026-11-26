@@ -106,7 +106,7 @@ export function cancelMessage(o: Order, items: Item[]) {
 }
 
 // Jholzo Food (update 064): a new restaurant order, and a cancelled one.
-type FoodItem = { name: string; variant?: string; qty: number; line_total: number }
+type FoodItem = { name: string; variant?: string; qty: number; line_total: number; from_store?: boolean }
 const dish = (i: FoodItem) => `${esc(i.name)}${i.variant ? ` (${esc(i.variant)})` : ''}`
 
 export function foodOrderMessage(o: Order, items: FoodItem[], pickup: { phone?: string; address?: string } = {}) {
@@ -118,8 +118,16 @@ export function foodOrderMessage(o: Order, items: FoodItem[], pickup: { phone?: 
   ]
   if (pickup.address || o.restaurant_address) lines.push(`   Pickup: ${esc(pickup.address || o.restaurant_address)}`)
   lines.push('', `👤 <b>${esc(o.customer_name)}</b> · 📞 ${esc(o.customer_phone)}`, `📍 ${esc(o.address)}, ${esc(o.area)}${map}`, '', '🍽️ <b>Dishes:</b>')
-  for (const i of items) lines.push(`• ${dish(i)} × ${i.qty} = ${rupee(i.line_total)}`)
-  const fees = [`Dishes ${rupee(o.items_total)}`]
+  for (const i of items.filter((x) => !x.from_store)) lines.push(`• ${dish(i)} × ${i.qty} = ${rupee(i.line_total)}`)
+  // Cold drinks (update 071) come from Jholzo's store, not the restaurant.
+  const drinks = items.filter((x) => x.from_store)
+  if (drinks.length) {
+    lines.push('🥤 <b>From Jholzo store</b> (rider picks up at the shop):')
+    for (const i of drinks) lines.push(`• ${dish(i)} × ${i.qty} = ${rupee(i.line_total)}`)
+  }
+  const store = Number(o.store_items_total ?? 0)
+  const fees = [`Dishes ${rupee(Number(o.items_total) - store)}`]
+  if (store) fees.push(`Drinks ${rupee(store)}`)
   if (o.packing_fee) fees.push(`Packing ${rupee(o.packing_fee)}`)
   fees.push(`Delivery ${o.delivery_fee ? rupee(o.delivery_fee) : 'FREE'}`)
   if (o.platform_fee) fees.push(`Platform ${rupee(o.platform_fee)}`)

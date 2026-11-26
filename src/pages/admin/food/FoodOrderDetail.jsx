@@ -52,7 +52,11 @@ export default function FoodOrderDetail() {
     }
   }
 
-  const restaurantText = `Jholzo order ${o.order_number}:\n${(o.food_order_items ?? []).map((i) => `• ${i.name}${i.variant ? ` (${i.variant})` : ''} × ${i.qty}`).join('\n')}${o.note ? `\nNote: ${o.note}` : ''}\nOur rider will pick it up.`
+  // Cold drinks (update 071) come from Jholzo's store: the restaurant's message lists only its dishes.
+  const dishes = (o.food_order_items ?? []).filter((i) => !i.from_store)
+  const drinks = (o.food_order_items ?? []).filter((i) => i.from_store)
+  const storeTotal = o.store_items_total ?? 0
+  const restaurantText = `Jholzo order ${o.order_number}:\n${dishes.map((i) => `• ${i.name}${i.variant ? ` (${i.variant})` : ''} × ${i.qty}`).join('\n')}${o.note ? `\nNote: ${o.note}` : ''}\nOur rider will pick it up.`
 
   return (
     <div className="space-y-4">
@@ -98,22 +102,36 @@ export default function FoodOrderDetail() {
       <div className={`${lcard} p-4`}>
         <p className="text-xs font-semibold uppercase text-neutral-500">Dishes</p>
         <div className="mt-2 divide-y divide-neutral-100 text-sm">
-          {(o.food_order_items ?? []).map((i) => (
+          {dishes.map((i) => (
             <div key={i.id} className="flex justify-between gap-2 py-1.5">
               <span>{i.name}{i.variant ? ` (${i.variant})` : ''} × {i.qty}</span>
               <span>{rupee(i.line_total)} {isOwner && <span className="text-xs text-neutral-400">menu {rupee(Number(i.menu_price) * i.qty)}</span>}</span>
             </div>
           ))}
         </div>
+        {drinks.length > 0 && (
+          <div className="mt-3 rounded-xl bg-sky-50 p-3">
+            <p className="text-xs font-bold uppercase text-sky-800">From Jholzo store · the rider picks these up at the shop</p>
+            <div className="mt-1 divide-y divide-sky-100 text-sm">
+              {drinks.map((i) => (
+                <div key={i.id} className="flex justify-between gap-2 py-1.5">
+                  <span>{i.name}{i.variant ? ` (${i.variant})` : ''} × {i.qty}</span>
+                  <span>{rupee(i.line_total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-3 space-y-1 border-t border-neutral-100 pt-3 text-sm">
-          <Row label="Dishes" value={rupee(o.items_total)} />
+          <Row label="Dishes" value={rupee(o.items_total - storeTotal)} />
+          {storeTotal > 0 && <Row label="Cold drinks (Jholzo store)" value={rupee(storeTotal)} />}
           {o.packing_fee > 0 && <Row label="Packing" value={rupee(o.packing_fee)} />}
           <Row label="Delivery" value={o.delivery_fee ? rupee(o.delivery_fee) : 'FREE'} />
           {o.platform_fee > 0 && <Row label="Platform fee" value={rupee(o.platform_fee)} />}
           {o.gst > 0 && <Row label="GST" value={rupee(o.gst)} />}
           {o.discount > 0 && <Row label={`Coupon ${o.coupon_code}`} value={`−${rupee(o.discount)}`} />}
           <Row label={`Total · ${o.payment_method === 'upi' ? 'UPI' : 'Cash'} on delivery`} value={rupee(o.total)} bold />
-          {isOwner && <Row label="Your markup on dishes" value={rupee(o.items_total - Number(o.menu_total) - (o.discount ?? 0))} muted />}
+          {isOwner && <Row label="Your markup on dishes" value={rupee(o.items_total - storeTotal - Number(o.menu_total) - (o.discount ?? 0))} muted />}
         </div>
       </div>
 

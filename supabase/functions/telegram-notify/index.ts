@@ -63,7 +63,7 @@ async function food(foodOrderId: string, kind: string) {
   if (kind === 'food_cancelled' && o.status !== 'cancelled') return json({ sent: false, reason: 'not cancelled' })
   const flag = kind === 'food_placed' ? 'tg_placed_sent' : 'tg_cancel_sent'
   if (!(await claim(`id=eq.${o.id}&${flag}=eq.false`, { [flag]: true }, 'food_orders'))) return json({ sent: false, reason: 'already sent' })
-  const items = await rows(`food_order_items?order_id=eq.${o.id}&select=name,variant,qty,line_total`)
+  const items = await rows(`food_order_items?order_id=eq.${o.id}&select=*`)
   let text: string
   if (kind === 'food_placed') {
     const [r] = o.restaurant_id ? await rows(`food_restaurants?id=eq.${o.restaurant_id}&select=phone,whatsapp,address`) : []

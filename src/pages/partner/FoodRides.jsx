@@ -213,6 +213,11 @@ function Trip({ o, store, busy, onStep }) {
             <span>Check the bag · {itemCount(o)} {itemCount(o) === 1 ? 'item' : 'items'}</span>
             {allTicked && <span className="text-emerald-700">All there ✓</span>}
           </p>
+          {o.items.some((i) => i.from_store) && (
+            <p className="mt-2 rounded-xl bg-sky-50 p-2 text-xs font-semibold text-sky-900">
+              🥤 Cold drinks come from the Jholzo store, not the restaurant: pick them up at the shop first.
+            </p>
+          )}
           <ul className="mt-2 space-y-1.5">
             {o.items.map((i, k) => (
               <li key={k}>
@@ -221,7 +226,10 @@ function Trip({ o, store, busy, onStep }) {
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${ticked[k] ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-neutral-300 bg-white'}`}>
                     {ticked[k] && <Check size={14} strokeWidth={3} />}
                   </span>
-                  <span className={`flex-1 ${ticked[k] ? 'line-through decoration-emerald-600/60' : ''}`}>{dishText(i)}</span>
+                  <span className={`flex-1 ${ticked[k] ? 'line-through decoration-emerald-600/60' : ''}`}>
+                    {dishText(i)}
+                    {i.from_store && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">Jholzo store</span>}
+                  </span>
                   <b className="text-base">×{i.qty}</b>
                 </button>
               </li>

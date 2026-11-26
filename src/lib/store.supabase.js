@@ -230,6 +230,7 @@ export async function updateProduct(id, patch) {
   if ('featured' in patch) change.featured = !!patch.featured
   if ('status' in patch) change.status = patch.status
   if ('description' in patch) change.description = String(patch.description ?? '').trim() // update 055
+  if ('food_addon' in patch) change.food_addon = !!patch.food_addon // update 071: a cold drink in every restaurant's menu
   check(await sb.from('products').update(change).eq('id', id))
   notify()
 }

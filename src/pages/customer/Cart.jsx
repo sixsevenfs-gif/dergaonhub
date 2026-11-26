@@ -8,6 +8,7 @@ import { useCartDetails } from '../../lib/useCartDetails.js'
 import { deliveryQuote, deliveryRules, eveningFee, packagingFee } from '../../lib/delivery.js'
 import { useSavedDelivery } from '../../lib/customerLocation.js'
 import OutOfArea from '../../components/OutOfArea.jsx'
+import RainNotice from '../../components/RainNotice.jsx'
 import { useCart } from '../../lib/cart-context.js'
 import { itemsText, rupee, slotDate, slotText, slotWords } from '../../lib/format.js'
 import { useData } from '../../lib/useData.js'
@@ -195,6 +196,7 @@ export default function Cart() {
         </p>
       )}
       {dRules.expressOn && <p className="mt-1 text-right text-xs text-muted">⚡ Need it sooner? Choose Express ({rupee(dRules.expressFee)}) at checkout</p>}
+      <RainNotice store={store} className="mt-3" />
 
       <button type="button" disabled={problems.length > 0 || shortBy > 0 || store.paused || quote?.tooFar} onClick={() => navigate('/checkout')} className={`${btnAccent} mt-4 h-14 text-[17px]`}>
         Proceed to Checkout <ArrowRight size={20} />
