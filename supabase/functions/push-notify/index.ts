@@ -5,6 +5,7 @@
 //  1. Order updates, from the database triggers: { table: 'orders' | 'food_orders', id, kind }.
 //     It reads the order itself and sends each update once (push_sent), so calling it again does nothing.
 //  2. Offers and news, from Admin → App → Notifications: { campaign: <id> } with the owner's login.
+//  3. Answers in Help & support (update 069), from a database trigger: { support_message: <id> }.
 //
 // Deploy:  npx supabase functions deploy push-notify --no-verify-jwt --project-ref <ref> --use-api
 // Secrets: FCM_SERVICE_ACCOUNT = the whole JSON key of a Firebase service account (Android)
@@ -236,12 +237,38 @@ async function campaign(req: Request, id: string) {
   }
 }
 
+/* ---------- 3. answers in Help & support ---------- */
+
+async function supportAnswer(id: string) {
+  if (!UUID.test(id)) return json({ error: 'bad request' }, 400)
+  const claim = await db('push_sent', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+    body: JSON.stringify({ key: `support_messages:${id}` }),
+  })
+  if (!claim.ok || (await claim.json()).length === 0) return json({ skipped: 'already sent' })
+  const [m] = await (await db(`support_messages?id=eq.${id}&select=*`)).json()
+  if (!m || m.internal || m.sender === 'customer') return json({ error: 'not found' }, 404)
+  if (Date.now() - new Date(m.created_at).getTime() > 86_400_000) return json({ skipped: 'old' })
+  const [t] = await (await db(`support_tickets?id=eq.${m.ticket_id}&select=id,ticket_number,customer_phone`)).json()
+  if (!t || !/^[0-9]{10}$/.test(t.customer_phone ?? '')) return json({ sent: 0 })
+  const body = String(m.body || 'Open the app to see the answer.')
+  const note: Note = {
+    title: m.sender === 'system' ? `Request ${t.ticket_number} resolved` : 'Jholzo Support replied',
+    body: body.length > 180 ? body.slice(0, 179) + '…' : body,
+    link: `${SITE}/help/${t.id}`, kind: 'support', channel: 'orders', tag: `support-${t.ticket_number}`,
+  }
+  const targets: Target[] = await (await db(`device_tokens?phone=eq.${t.customer_phone}&select=token,platform,env`)).json()
+  return json(await sendAll(targets, note))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return json({})
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
   try {
     const body = await req.json()
     if (body.campaign) return await campaign(req, String(body.campaign))
+    if (body.support_message) return await supportAnswer(String(body.support_message))
     return await orderUpdate(String(body.table ?? ''), String(body.id ?? ''), String(body.kind ?? ''))
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500)

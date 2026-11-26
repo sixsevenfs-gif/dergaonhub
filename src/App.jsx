@@ -46,6 +46,11 @@ import AdminBanners from './pages/admin/app/AdminBanners.jsx'
 import AdminAppUpdates from './pages/admin/app/AdminAppUpdates.jsx'
 import AdminAppHome from './pages/admin/app/AdminAppHome.jsx'
 import AdminAppStatus from './pages/admin/app/AdminAppStatus.jsx'
+import AdminAppUsers from './pages/admin/app/AdminAppUsers.jsx'
+import SupportInbox from './pages/admin/support/SupportInbox.jsx'
+import SupportTicket from './pages/admin/support/SupportTicket.jsx'
+import SupportReplies from './pages/admin/support/SupportReplies.jsx'
+import SupportReport from './pages/admin/support/SupportReport.jsx'
 import Collect from './pages/collect/Collect.jsx'
 import Partner from './pages/partner/Partner.jsx'
 
@@ -115,6 +120,11 @@ export default function App() {
           <Route path="app/banners" element={<OwnerOnly><AdminBanners /></OwnerOnly>} />
           <Route path="app/updates" element={<OwnerOnly><AdminAppUpdates /></OwnerOnly>} />
           <Route path="app/status" element={<OwnerOnly><AdminAppStatus /></OwnerOnly>} />
+          <Route path="app/users" element={<OwnerOnly><AdminAppUsers /></OwnerOnly>} />
+          <Route path="support" element={<SupportInbox />} />
+          <Route path="support/:id" element={<SupportTicket />} />
+          <Route path="support-replies" element={<SupportReplies />} />
+          <Route path="support-report" element={<OwnerOnly><SupportReport /></OwnerOnly>} />
         </Route>
 
         {/* Old links from the multi-shop version go to the store home. */}

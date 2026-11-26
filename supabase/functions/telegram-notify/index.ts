@@ -1,11 +1,11 @@
 // Sends the admin a Telegram message when an order comes in, when a customer submits a UPI UTR, and when an
-// order is cancelled (update 042). Called by database triggers (migrations/019_telegram_notify.sql), not by the site, so no order is missed
+// order is cancelled (update 042), for food orders (064), help requests and new app customers (069). Called by database triggers (migrations/019_telegram_notify.sql), not by the site, so no order is missed
 // even if the customer closes the page. Express orders are marked URGENT and pinned in the chat.
 //
 // Deploy:  npx supabase functions deploy telegram-notify --no-verify-jwt --project-ref <your project ref>
 // Secrets: npx supabase secrets set TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... --project-ref <your project ref>
 //          (TELEGRAM_CHAT_ID can be several ids separated by commas, e.g. you and a rider.)
-import { cancelMessage, foodCancelMessage, foodOrderMessage, orderMessage, utrMessage } from './message.ts'
+import { appUserMessage, cancelMessage, foodCancelMessage, foodOrderMessage, orderMessage, supportNewMessage, supportReplyMessage, utrMessage } from './message.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -77,10 +77,55 @@ async function food(foodOrderId: string, kind: string) {
   return json({ sent, results })
 }
 
+// Help & support (update 069): a new request, or the customer writing again. Once each, only fresh ones.
+async function support(kind: string, id: string) {
+  if (!UUID.test(id)) return json({ error: 'Not found.' }, 404)
+  const fresh = (iso: string) => Date.now() - new Date(iso).getTime() < 15 * 60_000
+  if (kind === 'support_new') {
+    const [t] = await rows(`support_tickets?id=eq.${id}&select=*`)
+    if (!t) return json({ error: 'Not found.' }, 404)
+    if (!fresh(t.created_at)) return json({ sent: false, reason: 'old' })
+    if (!(await claim(`id=eq.${t.id}&tg_sent=eq.false`, { tg_sent: true }, 'support_tickets'))) return json({ sent: false, reason: 'already sent' })
+    const [first] = await rows(`support_messages?ticket_id=eq.${t.id}&sender=eq.customer&select=body,photos&order=created_at.asc&limit=1`)
+    const results = await sendAll(supportNewMessage(t, first))
+    const sent = results.some((r) => r.ok)
+    if (!sent) await claim(`id=eq.${t.id}`, { tg_sent: false }, 'support_tickets')
+    return json({ sent, results })
+  }
+  const [m] = await rows(`support_messages?id=eq.${id}&select=*`)
+  if (!m || m.sender !== 'customer') return json({ error: 'Not found.' }, 404)
+  if (!fresh(m.created_at)) return json({ sent: false, reason: 'old' })
+  if (!(await claim(`id=eq.${m.id}&tg_sent=eq.false`, { tg_sent: true }, 'support_messages'))) return json({ sent: false, reason: 'already sent' })
+  const [t] = await rows(`support_tickets?id=eq.${m.ticket_id}&select=*`)
+  const results = await sendAll(supportReplyMessage(t ?? {}, m))
+  const sent = results.some((r) => r.ok)
+  if (!sent) await claim(`id=eq.${m.id}`, { tg_sent: false }, 'support_messages')
+  return json({ sent, results })
+}
+
+// A number's first login in the app (update 069), when Admin → App users has the Telegram switch on.
+async function appUser(loginId: string) {
+  if (!/^[0-9]{1,18}$/.test(loginId)) return json({ error: 'Not found.' }, 404)
+  const [l] = await rows(`app_logins?id=eq.${loginId}&select=*`)
+  if (!l) return json({ error: 'Not found.' }, 404)
+  if (Date.now() - new Date(l.at).getTime() > 15 * 60_000) return json({ sent: false, reason: 'old' })
+  const [s] = await rows('store_settings?id=eq.1&select=tg_app_users')
+  if (!s?.tg_app_users) return json({ sent: false, reason: 'switched off' })
+  if (!(await claim(`id=eq.${l.id}&tg_sent=eq.false`, { tg_sent: true }, 'app_logins'))) return json({ sent: false, reason: 'already sent' })
+  const [i] = await rows(`app_installs?id=eq.${l.install_id}&select=platform,name,device_model,app_version`)
+  const results = await sendAll(appUserMessage(i ?? {}, l))
+  const sent = results.some((r) => r.ok)
+  if (!sent) await claim(`id=eq.${l.id}`, { tg_sent: false }, 'app_logins')
+  return json({ sent, results })
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
   try {
-    const { order_id, food_order_id, kind } = await req.json()
+    const { order_id, food_order_id, kind, ticket_id, message_id, login_id } = await req.json()
+    if (kind === 'support_new') return await support(kind, String(ticket_id ?? ''))
+    if (kind === 'support_reply') return await support(kind, String(message_id ?? ''))
+    if (kind === 'app_user') return await appUser(String(login_id ?? ''))
     if (kind === 'food_placed' || kind === 'food_cancelled') return await food(String(food_order_id ?? ''), kind)
     if (!['placed', 'utr', 'cancelled'].includes(kind)) return json({ error: 'Unknown message.' }, 400)
 

@@ -142,3 +142,48 @@ export function foodCancelMessage(o: Order, items: FoodItem[]) {
   if (o.confirmed_at) lines.push('⚠️ The restaurant was already told: call them to stop it.')
   return lines.join('\n')
 }
+
+/* ---------- Help & support and app customers (update 069) ---------- */
+
+export const TOPIC: Record<string, string> = {
+  missing_item: 'Item missing', wrong_item: 'Wrong item', quality: 'Taste or quality', spilled: 'Spilled or damaged',
+  damaged: 'Damaged or expired', late: 'Late delivery', rider: 'Rider', payment: 'Payment or bill', cancel: 'Cancel order',
+  login: 'Login or OTP', app: 'App problem', wallet: 'Jholzo Money', account: 'My account', suggestion: 'Idea or feedback',
+  partner: 'Partnership', other: 'Something else',
+}
+const KIND: Record<string, string> = { food: '🍲 Food', grocery: '🛒 Grocery', other: '💬 Other' }
+const APP: Record<string, string> = { ios: 'iPhone', android: 'Android', web: 'Website' }
+const clip = (s: string, n = 300) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+const photos = (list: string[] = []) => (list.length ? `📷 ${list.length} photo${list.length > 1 ? 's' : ''}` : '')
+// deno-lint-ignore no-explicit-any
+type Row = Record<string, any>
+
+export function supportNewMessage(t: Row, first?: Row) {
+  const urgent = t.priority === 'high'
+  return [
+    `${urgent ? '🆘' : '🙋'} <b>New help request ${esc(t.ticket_number)}</b>${urgent ? ' · URGENT' : ''}`,
+    `${KIND[t.kind] ?? esc(t.kind)} · ${esc(TOPIC[t.topic] ?? t.topic)}${t.order_number ? ` · ${esc(t.order_number)}` : ''}${t.restaurant_name ? ` (${esc(t.restaurant_name)})` : ''}`,
+    `👤 ${esc(t.customer_name || 'Customer')} · 📞 ${esc(t.customer_phone)}${APP[t.source] ? ` · ${APP[t.source]}` : ''}`,
+    first?.body ? `“${esc(clip(first.body))}”` : '',
+    photos(first?.photos),
+    `👉 https://jholzo.com/admin/support/${t.id}`,
+  ].filter(Boolean).join('\n')
+}
+
+export function supportReplyMessage(t: Row, m: Row) {
+  return [
+    `💬 <b>${esc(t.ticket_number)}</b> · ${esc(t.customer_name || t.customer_phone)} wrote again`,
+    m.body ? `“${esc(clip(m.body))}”` : '',
+    photos(m.photos),
+    `👉 https://jholzo.com/admin/support/${t.id}`,
+  ].filter(Boolean).join('\n')
+}
+
+export function appUserMessage(i: Row, login: Row) {
+  const app = APP[i.platform] ?? 'App'
+  return [
+    `📱 <b>New app customer</b> · ${app}`,
+    `👤 ${esc(i.name || 'No name yet')} · 📞 ${esc(login.phone)}`,
+    `${esc(i.device_model || app)}${i.app_version ? ` · app ${esc(i.app_version)}` : ''} · ${stamp(login.at)}`,
+  ].join('\n')
+}

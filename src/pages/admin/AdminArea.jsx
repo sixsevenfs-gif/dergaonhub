@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, House, ListChecks, LogIn, LogOut, MessageSquareWarning, Package, ScanBarcode,
+  ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, Headset, House, Inbox, ListChecks, LogIn, LogOut, MessageSquareText, MessageSquareWarning, Package, ScanBarcode,
   Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
 } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
 import AdminLogin from './AdminLogin.jsx'
 import { adminSession, adminSignOut, adminStats, ordersCheck } from '../../lib/store.js'
 import { foodNewCount } from '../../lib/foodAdmin.js'
+import { supportCounts } from '../../lib/support.js'
 import { useData } from '../../lib/useData.js'
 import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { RoleContext, useRole } from '../../lib/role.js'
 import { DEMO_MODE } from '../../config.js'
 import { APP_NAV } from './appNav.js'
 
-// The dashboard has three parts, switched at the top: Grocery (the shop), Food (restaurants) and App
-// (notifications, banners, app updates, settings). Each part has its own pages in the menu.
+// The dashboard has four parts, switched at the top: Grocery (the shop), Food (restaurants), Support (every
+// customer problem: help requests from the apps and the website's complaints) and App (app users,
+// notifications, banners, app updates, settings). Each part has its own pages in the menu.
 const SECTIONS = [
   ['grocery', 'Grocery', ShoppingBasket, '/admin'],
   ['food', 'Food', UtensilsCrossed, '/admin/food'],
+  ['support', 'Support', Headset, '/admin/support'],
   ['app', 'App', Smartphone, '/admin/app'],
 ]
 
@@ -30,7 +33,6 @@ const NAV = {
     ['/admin/summary', 'Daily summary', null, BarChart3],
     ['/admin/products', 'Products', 'outOfStock', Package],
     ['/admin/top-items', 'Top items', null, TrendingUp],
-    ['/admin/complaints', 'Complaints', 'openComplaints', MessageSquareWarning],
     ['/admin/customers', 'Customers', null, Users],
     ['/admin/carts', 'Carts', null, ShoppingCart],
     ['/admin/money', 'Jholzo Money', null, WalletMinimal],
@@ -46,6 +48,12 @@ const NAV = {
     ['/admin/food/payouts', 'Payouts', null, HandCoins],
     ['/admin/food/settings', 'Food settings', null, SlidersHorizontal],
   ],
+  support: [
+    ['/admin/support', 'Inbox', 'supportOpen', Inbox],
+    ['/admin/complaints', 'Website complaints', 'openComplaints', MessageSquareWarning],
+    ['/admin/support-replies', 'Quick replies', null, MessageSquareText],
+    ['/admin/support-report', 'Report', null, BarChart3],
+  ],
   app: [
     ...APP_NAV,
     ['/admin/settings', 'Settings', null, Settings],
@@ -55,14 +63,16 @@ const NAV = {
 const BOTTOM = {
   grocery: ['/admin', '/admin/orders', '/admin/delivery', '/admin/products'],
   food: ['/admin/food', '/admin/food/orders', '/admin/food/restaurants', '/admin/food/payouts'],
+  support: ['/admin/support', '/admin/complaints', '/admin/support-replies', '/admin/support-report'],
   app: NAV.app.slice(0, 4).map(([to]) => to),
 }
 // Settings hold the UPI and bank details, fees and the team; delete wipes orders; payouts and food fees are
 // money; the App part sends to every customer. The owner only.
-const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', ...APP_NAV.map(([to]) => to)]
+const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', '/admin/support-report', ...APP_NAV.map(([to]) => to)]
 
 function sectionOf(pathname) {
   if (pathname.startsWith('/admin/food')) return 'food'
+  if (pathname.startsWith('/admin/support') || pathname === '/admin/complaints') return 'support'
   if (pathname.startsWith('/admin/app') || pathname.startsWith('/admin/settings')) return 'app'
   return 'grocery'
 }
@@ -93,18 +103,24 @@ function AdminShell({ email, role }) {
   const { data: stats, refresh: refreshStats } = useData(adminStats)
   // The badges (new orders, open complaints) follow new orders without a page reload.
   useLiveCheck(ordersCheck, refreshStats, { fullEvery: 60_000 })
-  const { data: newFood, reload: reloadFood } = useData(foodNewCount)
-  // New food orders show on the Food switch from any page; checked every 20 seconds while the tab is open.
+  const { data: newFood, refresh: refreshFood } = useData(foodNewCount)
+  const { data: support, refresh: refreshSupport } = useData(supportCounts)
+  // New food orders and help requests show on the switch from any page; checked every 20 seconds while the
+  // tab is open.
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === 'visible') reloadFood() }, 20_000)
+    const t = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      refreshFood()
+      refreshSupport()
+    }, 20_000)
     return () => clearInterval(t)
-  }, [reloadFood])
-  const counts = { ...stats, newFood: newFood ?? 0 }
+  }, [refreshFood, refreshSupport])
+  const counts = { ...stats, newFood: newFood ?? 0, supportOpen: support?.open ?? 0 }
   const allowed = ([to]) => role === 'owner' || !OWNER_ONLY.includes(to)
   const sections = SECTIONS.filter(([key]) => NAV[key].some(allowed))
   const section = sectionOf(pathname)
   const nav = NAV[section].filter(allowed)
-  const sectionCount = { grocery: (counts.newOrders ?? 0) + (counts.openComplaints ?? 0), food: counts.newFood, app: 0 }
+  const sectionCount = { grocery: counts.newOrders ?? 0, food: counts.newFood, support: counts.supportOpen + (counts.openComplaints ?? 0), app: 0 }
 
   return (
     <div className="min-h-screen bg-neutral-100 font-ui text-neutral-900">
@@ -133,7 +149,7 @@ function AdminShell({ email, role }) {
                 return (
                   <button key={key} type="button" role="tab" aria-selected={active} onClick={() => navigate(home === '/admin/app' ? NAV.app.filter(allowed)[0][0] : home)}
                     className={`relative flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-bold transition ${active ? (key === 'food' ? 'bg-red-600 text-white shadow' : 'bg-neutral-900 text-white shadow') : 'text-neutral-600'}`}>
-                    <Icon size={16} /> {label}
+                    <Icon size={16} className={sections.length > 3 ? 'hidden min-[400px]:block' : ''} /> {label}
                     {!active && n > 0 && <span className={`rounded-full px-1.5 text-xs font-bold ${key === 'food' ? 'bg-red-600 text-white' : 'bg-accent text-ink'}`}>{n}</span>}
                   </button>
                 )
@@ -190,7 +206,7 @@ function BackButton({ home }) {
 
 const Badge = ({ n, red }) => (n > 0 ? <span className={`absolute -right-2 -top-1 min-w-4 rounded-full px-1 text-[10px] font-bold leading-4 ${red ? 'bg-red-600 text-white' : 'bg-accent text-ink'}`}>{n}</span> : null)
 
-const SHORT = { 'Delivery sheet': 'Delivery', 'Food home': 'Home', 'Food orders': 'Orders', 'Food settings': 'Settings' }
+const SHORT = { 'Delivery sheet': 'Delivery', 'Food home': 'Home', 'Food orders': 'Orders', 'Food settings': 'Settings', 'Website complaints': 'Website', 'Quick replies': 'Replies' }
 
 // Phone menu: a bottom bar like an app, with the other pages of this part in a "More" sheet.
 function PhoneNav({ nav, bottomPaths, stats, email }) {
