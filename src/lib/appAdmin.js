@@ -66,7 +66,7 @@ export async function pushAudience(audience, phones = []) {
 
 export async function pushCampaigns() {
   if (!sb) return demo.campaigns.slice().reverse()
-  const { data, error } = await sb.from('push_campaigns').select('*').order('created_at', { ascending: false }).limit(30)
+  const { data, error } = await sb.from('push_campaigns').select('*').order('created_at', { ascending: false }).limit(40)
   if (error) {
     if (missing(error)) return null
     throw new Error(error.message)
@@ -86,6 +86,48 @@ export async function sendPush({ title, body, image = '', link = '', audience = 
   }
   const saved = check(await sb.from('push_campaigns').insert(row).select('id').single())
   return invokeCampaign(saved.id)
+}
+
+/** Most notifications that can wait to be sent at once (the database checks it too, update 078). */
+export const MAX_SCHEDULED = 5
+
+/**
+ * Saves a notification to be sent at `sendAt` (update 078). The database's own timer sends it then, whether or not
+ * this page, the laptop or the phone is on.
+ */
+export async function schedulePush({ title, body, image = '', link = '', audience = 'all', phones = [], sendAt }) {
+  const row = { title: title.trim(), body: body.trim(), image: image.trim(), link: link.trim(), audience, phones, status: 'scheduled', send_at: new Date(sendAt).toISOString() }
+  if (!row.title || !row.body) throw new Error('Write a title and a message.')
+  if (audience === 'phones' && !phones.length) throw new Error('Add at least one 10-digit number.')
+  if (!(new Date(sendAt) > new Date(Date.now() + 60_000))) throw new Error('Choose a time at least 2 minutes from now.')
+  if (!sb) {
+    if (demo.campaigns.filter((c) => c.status === 'scheduled').length >= MAX_SCHEDULED) throw new Error('You can schedule at most 5 notifications. Cancel one, or wait until one is sent.')
+    demo.campaigns.push({ ...row, id: `c${demo.campaigns.length + 1}`, created_at: new Date().toISOString(), targeted: 0, sent: 0, failed: 0 })
+    return
+  }
+  const { error } = await sb.from('push_campaigns').insert(row)
+  if (error) {
+    if (/status_check|send_at/i.test(error.message)) throw new Error('Run database update 078 first (Supabase → SQL Editor).')
+    throw new Error(error.message)
+  }
+}
+
+/** Cancels a scheduled notification that has not gone out yet. */
+export async function cancelScheduled(id) {
+  if (!sb) {
+    const c = demo.campaigns.find((x) => x.id === id)
+    if (c?.status === 'scheduled') c.status = 'cancelled'
+    return
+  }
+  check(await sb.from('push_campaigns').update({ status: 'cancelled' }).eq('id', id).eq('status', 'scheduled'))
+}
+
+/** The database timer that sends scheduled notifications: 'on', 'off', 'missing', or null before update 078. */
+export async function pushTimer() {
+  if (!sb) return 'on'
+  const { data, error } = await sb.rpc('push_timer_status')
+  if (error) return null
+  return data
 }
 
 /** Asks push-notify to send a saved notification now. */

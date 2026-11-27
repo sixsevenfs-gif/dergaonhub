@@ -4,7 +4,8 @@
 // Two kinds of calls:
 //  1. Order updates, from the database triggers: { table: 'orders' | 'food_orders', id, kind }.
 //     It reads the order itself and sends each update once (push_sent), so calling it again does nothing.
-//  2. Offers and news, from Admin → App → Notifications: { campaign: <id> } with the owner's login.
+//  2. Offers and news, from Admin → App → Notifications: { campaign: <id> } with the owner's login; scheduled
+//     ones (update 078) from the database's timer: { scheduled: <id> }.
 //  3. Answers in Help & support (update 069), from a database trigger: { support_message: <id> }.
 //
 // Deploy:  npx supabase functions deploy push-notify --no-verify-jwt --project-ref <ref> --use-api
@@ -224,10 +225,27 @@ async function campaign(req: Request, id: string) {
     body: '{}',
   })
   if (!check.ok || (await check.json()) !== true) return json({ error: 'Only the owner can send notifications.' }, 403)
-  const [c] = await (await db(`push_campaigns?id=eq.${id}&select=*`)).json()
-  if (!c) return json({ error: 'Not found.' }, 404)
-  if (c.status !== 'queued') return json({ error: 'This one was already sent.' }, 409)
-  await db(`push_campaigns?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'sending' }) })
+  return await sendCampaign(id)
+}
+
+/* ---------- 2b. scheduled ones (update 078), from the database's timer ---------- */
+
+// No login: the timer calls it. It only sends a notification the owner saved for a time that has now come (the
+// database moved it to "queued"), so calling it does nothing else.
+async function scheduled(id: string) {
+  if (!UUID.test(id)) return json({ error: 'bad request' }, 400)
+  const [c] = await (await db(`push_campaigns?id=eq.${id}&select=status,send_at`)).json()
+  if (!c || c.status !== 'queued' || !c.send_at || new Date(c.send_at).getTime() > Date.now() + 60_000) return json({ skipped: 'not due' })
+  return await sendCampaign(id)
+}
+
+// Sends one saved notification. Taking it ("queued" → "sending") happens once, so two calls never send it twice.
+async function sendCampaign(id: string) {
+  const claim = await db(`push_campaigns?id=eq.${id}&status=eq.queued`, {
+    method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ status: 'sending' }),
+  })
+  const [c] = claim.ok ? await claim.json() : []
+  if (!c) return json({ error: 'This one was already sent.' }, 409)
   try {
     const targets: Target[] = await (await db('rpc/push_campaign_targets', {
       method: 'POST', body: JSON.stringify({ p_audience: c.audience, p_phones: c.phones ?? [] }),
@@ -278,6 +296,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json()
     if (body.campaign) return await campaign(req, String(body.campaign))
+    if (body.scheduled) return await scheduled(String(body.scheduled))
     if (body.support_message) return await supportAnswer(String(body.support_message))
     return await orderUpdate(String(body.table ?? ''), String(body.id ?? ''), String(body.kind ?? ''))
   } catch (err) {

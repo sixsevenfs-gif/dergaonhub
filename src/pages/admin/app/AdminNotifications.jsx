@@ -1,9 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { Bell, ImagePlus, Send, Smartphone, X } from 'lucide-react'
+import { AlarmClock, Bell, ImagePlus, Send, Smartphone, X } from 'lucide-react'
 import { lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
 import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
-import { AUDIENCES, pushAudience, pushCampaigns, sendPush, shrunkNote, uploadAppMedia } from '../../../lib/appAdmin.js'
+import { AUDIENCES, MAX_SCHEDULED, pushAudience, pushCampaigns, pushTimer, schedulePush, sendPush, shrunkNote, uploadAppMedia } from '../../../lib/appAdmin.js'
+import ScheduledPushes from './ScheduledPushes.jsx'
+import { QUICK_TIMES, nextAt, whenText } from '../../../lib/schedule.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import LinkPicker from './LinkPicker.jsx'
 import AppHeader from './AppHeader.jsx'
@@ -25,18 +27,25 @@ export default function AdminNotifications() {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState(null)
   const [confirm, setConfirm] = useState(false)
+  const [later, setLater] = useState(false) // schedule instead of now (update 078)
+  const [sendAt, setSendAt] = useState(() => nextAt(12, 30))
   const file = useRef(null)
   const phones = useMemo(() => phonesIn(numbers), [numbers])
   const { data: reach } = useData(() => pushAudience(audience, phones), [audience, phones.join()])
   const { data: history, reload, refresh } = useData(pushCampaigns)
+  const { data: timer } = useData(pushTimer)
   // Live: a notification being sent moves to "sent to N" by itself.
   useAutoRefresh(refresh, 15_000)
 
   if (reach === null || history === null) return <NeedsUpdate n="065" what="notifications to the apps" />
 
+  const waiting = (history ?? []).filter((c) => c.status === 'scheduled').sort((a, b) => a.send_at.localeCompare(b.send_at))
+  const full = waiting.length >= MAX_SCHEDULED
   const problem = !title.trim() ? 'Write a title.' : !body.trim() ? 'Write the message.'
     : !link ? 'Choose what it opens (a website link must start with https://).'
-    : audience === 'phones' && !phones.length ? 'Add at least one 10-digit number.' : ''
+    : audience === 'phones' && !phones.length ? 'Add at least one 10-digit number.'
+    : later && full ? `${MAX_SCHEDULED} are already scheduled. Cancel one, or wait until one is sent.`
+    : later && !(new Date(sendAt) > new Date(Date.now() + 2 * 60_000)) ? 'Choose a time at least 2 minutes from now.' : ''
 
   async function pick(e) {
     const f = e.target.files?.[0]
@@ -58,8 +67,13 @@ export default function AdminNotifications() {
     setBusy('send')
     setMsg(null)
     try {
-      const r = await sendPush({ title, body, image, link, audience, phones })
-      setMsg({ ok: `Sent to ${r.sent ?? 0} phone${r.sent === 1 ? '' : 's'}${r.failed ? ` (${r.failed} could not be reached)` : ''}.` })
+      if (later) {
+        await schedulePush({ title, body, image, link, audience, phones, sendAt: new Date(sendAt) })
+        setMsg({ ok: `Scheduled for ${whenText(new Date(sendAt).toISOString())}. It goes out by itself, even if this page is closed.` })
+      } else {
+        const r = await sendPush({ title, body, image, link, audience, phones })
+        setMsg({ ok: `Sent to ${r.sent ?? 0} phone${r.sent === 1 ? '' : 's'}${r.failed ? ` (${r.failed} could not be reached)` : ''}.` })
+      }
       setTitle('')
       setBody('')
       setImage('')
@@ -75,7 +89,7 @@ export default function AdminNotifications() {
 
   return (
     <div className="space-y-4">
-      <AppHeader title="Notifications" text="Send an offer or news to every phone with the app, Android and iPhone together. Order updates (confirmed, on the way, delivered) go out by themselves." />
+      <AppHeader title="Notifications" text="Send an offer or news to every phone with the app, Android and iPhone together, now or at a time you pick. Order updates (received, on the way, delivered) go out by themselves." />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-4">
       {reach && (
@@ -134,34 +148,60 @@ export default function AdminNotifications() {
         </div>
       </div>
 
+      <div className={`${lcard} space-y-3 p-4`}>
+        <span className="text-sm font-semibold">When</span>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setLater(false)} className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm ${!later ? 'border-neutral-900 bg-neutral-50 font-semibold' : 'border-neutral-200'}`}><Send size={15} /> Send now</button>
+          <button type="button" onClick={() => setLater(true)} className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm ${later ? 'border-neutral-900 bg-neutral-50 font-semibold' : 'border-neutral-200'}`}><AlarmClock size={15} /> Schedule</button>
+        </div>
+        {later && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_TIMES.map(([label, h, m]) => (
+                <button key={label} type="button" onClick={() => setSendAt(nextAt(h, m))}
+                  className={`h-8 rounded-full border px-3 text-xs font-semibold ${sendAt === nextAt(h, m) ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'}`}>
+                  {label} {new Date(2000, 0, 1, h, m).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                </button>
+              ))}
+            </div>
+            <input type="datetime-local" value={sendAt} onChange={(e) => setSendAt(e.target.value)} className={lfield} />
+            <p className="text-xs text-neutral-500">
+              {sendAt ? `Goes out ${whenText(new Date(sendAt).toISOString())}. ` : ''}Up to {MAX_SCHEDULED} can wait at once ({waiting.length} now), up to 60 days ahead. It is sent by the server: this page and your phone can be off.
+            </p>
+          </div>
+        )}
+      </div>
+
       {msg?.error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{msg.error}</p>}
       {msg?.ok && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{msg.ok}</p>}
       {problem && (title || body) && <p className="text-sm text-amber-700">{problem}</p>}
 
       {confirm ? (
         <div className={`${lcard} space-y-3 border-neutral-900 p-4`}>
-          <p className="font-bold">Send "{title.trim()}" to {reach?.audience ?? '?'} phones now?</p>
-          <p className="text-sm text-neutral-500">It can't be taken back once it is sent.</p>
+          <p className="font-bold">{later ? `Send "${title.trim()}" on ${whenText(new Date(sendAt).toISOString())}?` : `Send "${title.trim()}" to ${reach?.audience ?? '?'} phones now?`}</p>
+          <p className="text-sm text-neutral-500">{later ? 'It goes to everyone in this group who has the app at that time. You can cancel it until then.' : "It can't be taken back once it is sent."}</p>
           <div className="flex gap-2">
-            <button type="button" onClick={send} className={lbtnDark}><Send size={16} /> Yes, send</button>
+            <button type="button" onClick={send} className={lbtnDark}>{later ? <AlarmClock size={16} /> : <Send size={16} />} {later ? 'Yes, schedule' : 'Yes, send'}</button>
             <button type="button" onClick={() => setConfirm(false)} className={lbtnOutline}>Not now</button>
           </div>
         </div>
       ) : (
-        <button type="button" disabled={!!problem || busy === 'send' || reach?.audience === 0} onClick={() => setConfirm(true)} className={`${lbtnDark} w-full`}>
-          <Send size={16} /> {busy === 'send' ? 'Sending…' : 'Send notification'}
+        <button type="button" disabled={!!problem || busy === 'send' || (!later && reach?.audience === 0)} onClick={() => setConfirm(true)} className={`${lbtnDark} w-full`}>
+          {later ? <AlarmClock size={16} /> : <Send size={16} />} {busy === 'send' ? 'Saving…' : later ? 'Schedule notification' : 'Send notification'}
         </button>
       )}
 
+      <ScheduledPushes list={waiting} timer={timer} labels={AUDIENCE_LABEL} onChanged={reload} />
+
       <div className={`${lcard} p-4`}>
         <h3 className="flex items-center gap-2 font-bold"><Bell size={16} /> Sent before</h3>
-        {(history ?? []).length === 0 ? (
+        {(history ?? []).filter((c) => c.status !== 'scheduled').length === 0 ? (
           <p className="mt-2 text-sm text-neutral-500">Nothing sent yet.</p>
         ) : (
           <div className="mt-2 divide-y divide-neutral-100">
-            {history.map((c) => (
+            {history.filter((c) => c.status !== 'scheduled').map((c) => (
               <div key={c.id} className="py-2 text-sm">
-                <div className="flex justify-between gap-2"><b className="truncate">{c.title}</b><span className="shrink-0 text-xs text-neutral-500">{new Date(c.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span></div>
+                <div className="flex justify-between gap-2"><b className="truncate">{c.title}</b><span className="shrink-0 text-xs text-neutral-500">{c.send_at ? '⏰ ' : ''}{new Date(c.send_at || c.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span></div>
                 <p className="line-clamp-2 text-neutral-600">{c.body}</p>
                 <p className="text-xs text-neutral-500">
                   {AUDIENCE_LABEL[c.audience] ?? c.audience} · {c.status === 'sent' ? `sent to ${c.sent}${c.failed ? `, ${c.failed} failed` : ''}` : c.status}{c.error ? ` · ${c.error}` : ''}
