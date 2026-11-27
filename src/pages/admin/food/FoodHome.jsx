@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ChevronRight, ClipboardList, Store } from 'lucide-react'
+import { AlertTriangle, ChevronRight, ClipboardList, Download, Store } from 'lucide-react'
 import { lcard } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
 import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
 import { useRole } from '../../../lib/role.js'
 import { addDays, dateStr, rupee } from '../../../lib/format.js'
-import { foodRestaurants, foodSales, fssaiDaysLeft } from '../../../lib/foodAdmin.js'
+import { foodOrdersBetween, foodReportCSV, foodRestaurants, foodSales, fssaiDaysLeft } from '../../../lib/foodAdmin.js'
+import { downloadCSV } from '../../../lib/report.js'
 import { SalesBars } from '../DayReport.jsx'
 import { NeedsUpdate } from './FoodBits.jsx'
 
@@ -90,13 +91,16 @@ export default function FoodHome() {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
-        {RANGES.map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setRange(k)}
-            className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold ${range === k ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 ring-1 ring-neutral-200'}`}>
-            {label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
+          {RANGES.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setRange(k)}
+              className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold ${range === k ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 ring-1 ring-neutral-200'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <SheetButton from={from} to={to} withMoney={isOwner} />
       </div>
 
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
@@ -164,5 +168,27 @@ export default function FoodHome() {
         <ChevronRight size={18} className="text-neutral-400" />
       </Link>
     </div>
+  )
+}
+
+// Every food order of the range with its bill (GST, fees, markup), day by day and the dishes sold, as a sheet.
+function SheetButton({ from, to, withMoney }) {
+  const [busy, setBusy] = useState(false)
+  async function download() {
+    setBusy(true)
+    try {
+      const orders = await foodOrdersBetween(from, to)
+      downloadCSV(`jholzo-food-${from === to ? from : `${from}-to-${to}`}.csv`, foodReportCSV({ from, to, orders: orders ?? [], withMoney }))
+    } catch (err) {
+      window.alert(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button type="button" onClick={download} disabled={busy} title="Download these orders (Excel / Google Sheets)"
+      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-neutral-700 ring-1 ring-neutral-200 disabled:opacity-50">
+      <Download size={15} /> {busy ? '…' : 'CSV'}
+    </button>
   )
 }

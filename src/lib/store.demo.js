@@ -1,5 +1,6 @@
 // Demo data layer: everything lives in this browser's localStorage.
 // Used when no Supabase keys are set. store.supabase.js has the same functions for the real database.
+import { refundDue } from './refunds.js'
 import { CONFIG } from '../config.js'
 import { walletReport } from './walletReport.js'
 import { makeSeed } from './seed.js'
@@ -1029,6 +1030,96 @@ export async function resetNoShows(id) {
   commit()
 }
 
+/* ---------- customer profiles, money to give back (same as supabase/migrations/072) ---------- */
+
+// Demo orders paid before paid_amount existed: what they cost now (like the update does).
+const withPaid = (o) => (o.payment_status === 'paid' && o.paid_amount == null ? { ...o, paid_amount: o.total } : o)
+
+export async function adminCustomers() {
+  const list = await adminListCustomers()
+  return list.map((c) => {
+    const mine = db.orders.filter((o) => o.customer_id === c.id)
+    const last = mine.map((o) => o.created_at).sort().at(-1) ?? null
+    return {
+      ...c, spent: sum(mine.filter((o) => o.status === 'completed'), (o) => Number(o.total) || 0),
+      food_orders: 0, food_delivered: 0, food_spent: 0, last_order_at: last, app: null,
+    }
+  })
+}
+
+export async function adminCustomer(id) {
+  const c = db.customers.find((x) => x.id === id)
+  if (!c) return { notFound: true }
+  const mine = db.orders.filter((o) => o.customer_id === c.id || o.orderer_id === c.id).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const own = db.orders.filter((o) => o.customer_id === c.id)
+  const addresses = new Map()
+  for (const o of own) {
+    if (!o.address) continue
+    const key = `${o.address}|${o.area ?? ''}`
+    const row = addresses.get(key) ?? { address: o.address, area: o.area ?? '', times: 0, last_at: o.created_at }
+    row.times += 1
+    if (o.created_at > row.last_at) row.last_at = o.created_at
+    addresses.set(key, row)
+  }
+  return clone({
+    customer: {
+      ...c, referred_by_name: db.customers.find((x) => x.id === c.referred_by)?.name ?? null,
+      invited: db.customers.filter((x) => x.referred_by === c.id).length,
+    },
+    wallet: {
+      general: balanceOf(c.id), gifts: giftBalance(c.id),
+      entries: entries().filter((e) => e.customer_id === c.id).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 30)
+        .map((e) => ({ ...e, order_number: db.orders.find((o) => o.id === e.order_id)?.order_number ?? null })),
+    },
+    grocery: {
+      orders: own.length, completed: own.filter((o) => o.status === 'completed').length, cancelled: own.filter((o) => o.status === 'cancelled').length,
+      spent: sum(own.filter((o) => o.status === 'completed'), (o) => Number(o.total) || 0),
+      first_at: own.map((o) => o.created_at).sort()[0] ?? null, last_at: own.map((o) => o.created_at).sort().at(-1) ?? null,
+    },
+    orders: mine.slice(0, 50).map((o) => ({
+      id: o.id, order_number: o.order_number, created_at: o.created_at, delivery_date: o.delivery_date, status: o.status, dispatch: o.dispatch,
+      total: o.total, payment_method: o.payment_method, payment_status: o.payment_status, items: sum(itemsOf(o.id), (i) => i.quantity),
+      refund_due: refundDue(withPaid(o)), for_someone: o.customer_id !== c.id,
+    })),
+    food: { orders: 0, delivered: 0, cancelled: 0, spent: 0 },
+    food_orders: [],
+    tickets: [],
+    complaints: (db.complaints ?? []).filter((k) => k.customer_phone === c.phone)
+      .map((k) => ({ id: k.id, order_number: k.order_number, type: k.type, status: k.status, created_at: k.created_at, message: String(k.message ?? '').slice(0, 200) })),
+    phones: [],
+    addresses: [...addresses.values()].sort((a, b) => b.last_at.localeCompare(a.last_at)).slice(0, 5),
+    signup: null,
+  })
+}
+
+export async function adminRefunds() {
+  const due = db.orders.map(withPaid).filter((o) => refundDue(o) > 0).sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((o) => ({
+      id: o.id, order_number: o.order_number, created_at: o.created_at, status: o.status, customer_name: o.customer_name,
+      customer_phone: o.customer_phone, paid_amount: o.paid_amount, total: o.total, refunded_amount: o.refunded_amount ?? 0, due: refundDue(o),
+      upi_ref: o.upi_ref ?? '', paid_at: o.paid_at ?? null, cancel_reason: o.cancel_reason ?? '', has_account: !!(o.orderer_id ?? o.customer_id),
+    }))
+  const done = db.orders.filter((o) => o.refunded_at).sort((a, b) => b.refunded_at.localeCompare(a.refunded_at)).slice(0, 30)
+    .map((o) => ({ id: o.id, order_number: o.order_number, customer_name: o.customer_name, customer_phone: o.customer_phone, amount: o.refunded_amount, how: o.refund_how, note: o.refund_note ?? '', at: o.refunded_at }))
+  return clone({ due, done })
+}
+
+export async function recordRefund(orderId, how, note = '') {
+  if (!['upi', 'cash', 'wallet'].includes(how)) fail('Choose how the money went back.')
+  const o = orderOrFail(orderId)
+  if (o.payment_status === 'paid' && o.paid_amount == null) o.paid_amount = o.total
+  const due = refundDue(o)
+  if (due <= 0) fail('Nothing is left to give back on this order.')
+  if (how === 'wallet') {
+    const customer = o.orderer_id ?? o.customer_id
+    if (!customer) fail('This order has no customer account for Jholzo Money. Give it back by UPI or cash.')
+    addEntry(customer, due, 'admin', o.id, `Money back for order ${o.order_number}`)
+  }
+  Object.assign(o, { refunded_amount: r2((Number(o.refunded_amount) || 0) + due), refund_how: how, refund_note: String(note ?? '').trim().slice(0, 300), refunded_at: now() })
+  commit()
+  return { amount: due, how }
+}
+
 /* ---------- admin login (demo: the owner, or try the team with ?as=executive / ?as=rider) ---------- */
 
 // Demo only: open any page with ?as=executive, ?as=rider (first rider) or ?as=rider2; ?as=owner goes back.
@@ -1559,7 +1650,7 @@ export async function setPaymentStatus(orderId, status) {
   const o = orderOrFail(orderId)
   if (o.payment_method !== 'upi_now') fail('This order is not paid online.')
   if (status === 'paid') {
-    Object.assign(o, { payment_status: 'paid', paid_at: now() })
+    Object.assign(o, { payment_status: 'paid', paid_at: now(), paid_amount: o.total })
     if (o.status === 'placed') Object.assign(o, { status: 'confirmed', confirmed_at: now() })
   }
   else if (o.total <= (db.store.cod_limit ?? 350)) Object.assign(o, { payment_status: 'none', payment_method: 'cash', upi_ref: '' })

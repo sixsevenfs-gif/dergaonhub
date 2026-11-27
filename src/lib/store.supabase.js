@@ -871,6 +871,48 @@ export async function resetNoShows(id) {
   notify()
 }
 
+/* ---------- customer profiles, money to give back (update 072) ---------- */
+
+// "function not found" / "column does not exist": update 072 is not run yet.
+const before072 = (e) => /does not exist|Could not find|schema cache|PGRST20[0-9]/i.test(String(e?.message ?? e))
+
+/** Everyone with their numbers counted in the database; before update 072 the old list (added up here). */
+export async function adminCustomers() {
+  const { data, error } = await sb.rpc('admin_customers')
+  if (error) {
+    if (before072(error)) return adminListCustomers()
+    throw new Error(error.message)
+  }
+  return data ?? []
+}
+
+/** One customer's whole picture: null before update 072, { notFound: true } for a wrong link. */
+export async function adminCustomer(id) {
+  const { data, error } = await sb.rpc('admin_customer', { p_id: id })
+  if (error) {
+    if (before072(error)) return null
+    throw new Error(error.message)
+  }
+  return data ?? { notFound: true }
+}
+
+/** Owner: orders paid online with money still to give back, and the last refunds. Null before update 072. */
+export async function adminRefunds() {
+  const { data, error } = await sb.rpc('admin_refunds')
+  if (error) {
+    if (before072(error)) return null
+    throw new Error(error.message)
+  }
+  return data
+}
+
+/** Owner: the money went back (upi / cash / wallet = added to the customer's Jholzo Money now). */
+export async function recordRefund(orderId, how, note = '') {
+  const data = check(await sb.rpc('admin_order_refund', { p_order_id: orderId, p_how: how, p_note: note }))
+  notify()
+  return data
+}
+
 /* ---------- order desk: stock and carts (update 032) ---------- */
 
 // Out of stock on/off. The executive can only do this; prices and photos stay with the owner.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, Headset, House, Inbox, ListChecks, LogIn, LogOut, MessageSquareText, MessageSquareWarning, Package, ScanBarcode,
+  ArrowLeft, BarChart3, Bike, ClipboardList, Ellipsis, HandCoins, Headset, History, House, Inbox, ListChecks, LogIn, LogOut, MessageSquareText, MessageSquareWarning, Package, ScanBarcode,
   Settings, ShoppingBasket, ShoppingCart, SlidersHorizontal, Smartphone, TicketPercent, Store, Trash2, TrendingUp, Truck, Users, UtensilsCrossed, WalletMinimal, X,
 } from 'lucide-react'
 import Wordmark from '../../components/Wordmark.jsx'
@@ -17,7 +17,7 @@ import { APP_NAV } from './appNav.js'
 
 // The dashboard has four parts, switched at the top: Grocery (the shop), Food (restaurants), Support (every
 // customer problem: help requests from the apps and the website's complaints) and App (app users,
-// notifications, banners, app updates, settings). Each part has its own pages in the menu.
+// notifications, banners, app updates, the activity log, settings). Each part has its own pages in the menu.
 const SECTIONS = [
   ['grocery', 'Grocery', ShoppingBasket, '/admin'],
   ['food', 'Food', UtensilsCrossed, '/admin/food'],
@@ -57,6 +57,7 @@ const NAV = {
   ],
   app: [
     ...APP_NAV,
+    ['/admin/activity', 'Activity log', null, History],
     ['/admin/settings', 'Settings', null, Settings],
   ],
 }
@@ -69,12 +70,12 @@ const BOTTOM = {
 }
 // Settings hold the UPI and bank details, fees and the team; delete wipes orders; payouts and food fees are
 // money; the App part sends to every customer. The owner only.
-const OWNER_ONLY = ['/admin/settings', '/admin/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', '/admin/support-report', ...APP_NAV.map(([to]) => to)]
+const OWNER_ONLY = ['/admin/settings', '/admin/activity', '/admin/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', '/admin/support-report', ...APP_NAV.map(([to]) => to)]
 
 function sectionOf(pathname) {
   if (pathname.startsWith('/admin/food')) return 'food'
   if (pathname.startsWith('/admin/support') || pathname === '/admin/complaints') return 'support'
-  if (pathname.startsWith('/admin/app') || pathname.startsWith('/admin/settings')) return 'app'
+  if (pathname.startsWith('/admin/app') || pathname.startsWith('/admin/settings') || pathname.startsWith('/admin/activity')) return 'app'
   return 'grocery'
 }
 
@@ -179,8 +180,8 @@ function AdminShell({ email, role }) {
           Demo mode: admin opens without a login for now. Once the database is connected, only your admin login will work.
         </p>
       )}
-      {/* The App Control Center is wider: its pages show a phone next to the settings. */}
-      <main className={`mx-auto ${section === 'app' && pathname !== '/admin/settings' ? 'max-w-6xl' : 'max-w-3xl'} px-4 pb-28 pt-4 sm:pb-16`}>
+      {/* The App Control Center is wider: its pages show a phone next to the settings (not Settings, the log). */}
+      <main className={`mx-auto ${section === 'app' && !['/admin/settings', '/admin/activity'].includes(pathname) ? 'max-w-6xl' : 'max-w-3xl'} px-4 pb-28 pt-4 sm:pb-16`}>
         <BackButton home={SECTIONS.find(([key]) => key === section)[3]} />
         <Outlet />
       </main>

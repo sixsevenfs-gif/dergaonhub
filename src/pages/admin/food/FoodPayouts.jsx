@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Download } from 'lucide-react'
 import { lbtnDark, lbtnOutline, lcard, lfieldBase } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
-import { rupee } from '../../../lib/format.js'
-import { foodPayoutHistory, foodPayouts, recordFoodPayout, whenText } from '../../../lib/foodAdmin.js'
+import { dateStr, rupee } from '../../../lib/format.js'
+import { downloadCSV } from '../../../lib/report.js'
+import { foodPayoutHistory, foodPayouts, payoutsCSV, recordFoodPayout, whenText } from '../../../lib/foodAdmin.js'
 import { NeedsUpdate } from './FoodBits.jsx'
 
 const WHEN = { pickup: 'pays at pickup', daily: 'paid daily', weekly: 'paid weekly' }
@@ -17,9 +19,15 @@ export default function FoodPayouts() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Payouts</h1>
-        <p className="text-sm text-neutral-500">Restaurants earn their menu price for every delivered dish. Your markup and fees stay with Jholzo.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Payouts</h1>
+          <p className="text-sm text-neutral-500">Restaurants earn their menu price for every delivered dish. Your markup and fees stay with Jholzo.</p>
+        </div>
+        <button type="button" disabled={!rows?.length} onClick={() => downloadCSV(`jholzo-payouts-${dateStr()}.csv`, payoutsCSV(rows))}
+          className={`${lbtnOutline} min-h-10 shrink-0 text-sm`} title="Download (Excel / Google Sheets)">
+          <Download size={15} /> CSV
+        </button>
       </div>
       {rows && (
         <div className={`${lcard} p-4`}>

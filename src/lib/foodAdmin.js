@@ -108,6 +108,99 @@ export async function foodSales(from, to) {
   return data
 }
 
+/** Food orders placed between two India dates (inclusive), oldest first, with their dishes: for the sheet. */
+export async function foodOrdersBetween(from, to) {
+  if (!sb) return structuredClone(demo.orders.filter((o) => istDay(o.created_at) >= from && istDay(o.created_at) <= to).reverse())
+  const start = `${from}T00:00:00+05:30`
+  const end = `${addDays(to, 1)}T00:00:00+05:30`
+  const rows = []
+  // The database sends at most 1000 rows at a time: ask page by page.
+  for (let at = 0; ; at += 1000) {
+    const page = check(await sb.from('food_orders').select('*, food_order_items(*)').gte('created_at', start).lt('created_at', end)
+      .order('created_at', { ascending: true }).range(at, at + 999))
+    rows.push(...page)
+    if (page.length < 1000) break
+  }
+  return rows
+}
+
+const csvCell = (v) => {
+  const s = String(v ?? '')
+  return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
+}
+const csvLine = (cells) => cells.map(csvCell).join(',')
+
+/**
+ * The food sheet for a range (Excel / Google Sheets): day by day, every order with its bill (GST, fees, markup),
+ * and the dishes sold. Sales and money count delivered orders only. withMoney: the owner's columns (markup,
+ * restaurant bill).
+ */
+export function foodReportCSV({ from, to, orders, withMoney = true }) {
+  const n = (v) => Number(v) || 0
+  const dishes = (o) => n(o.items_total) - n(o.store_items_total)
+  const markup = (o) => dishes(o) - n(o.menu_total)
+  const delivered = orders.filter((o) => o.status === 'delivered')
+  const total = (list, f) => Math.round(list.reduce((s, o) => s + n(f(o)), 0) * 100) / 100
+  const out = []
+  out.push(csvLine([`Jholzo Food report: ${from === to ? from : `${from} to ${to}`}`]))
+  out.push(csvLine(['Sales and money count delivered orders only. Amounts in rupees.']))
+  out.push('')
+
+  out.push(csvLine(['DAY BY DAY']))
+  const dayHead = ['Date', 'Orders', 'Delivered', 'Cancelled', 'Sales', 'Dishes', 'Cold drinks (Jholzo store)', 'Packing', 'Delivery fee', 'Platform fee', 'GST',
+    'Coupon discount', 'Cash', 'UPI', ...(withMoney ? ['Restaurant bill', 'Your markup'] : [])]
+  out.push(csvLine(dayHead))
+  const dayRow = (label, list) => {
+    const d = list.filter((o) => o.status === 'delivered')
+    return [label, list.length, d.length, list.filter((o) => o.status === 'cancelled').length, total(d, (o) => o.total), total(d, dishes),
+      total(d, (o) => o.store_items_total), total(d, (o) => o.packing_fee), total(d, (o) => o.delivery_fee), total(d, (o) => o.platform_fee), total(d, (o) => o.gst),
+      total(d, (o) => o.discount), total(d.filter((o) => o.payment_method === 'cash'), (o) => o.total), total(d.filter((o) => o.payment_method !== 'cash'), (o) => o.total),
+      ...(withMoney ? [total(d, (o) => o.menu_total), total(d, markup)] : [])]
+  }
+  for (let day = from; day <= to; day = addDays(day, 1)) out.push(csvLine(dayRow(day, orders.filter((o) => istDay(o.created_at) === day))))
+  out.push(csvLine(dayRow('TOTAL', orders)))
+  out.push('')
+
+  out.push(csvLine(['ORDERS']))
+  out.push(csvLine(['Date', 'Time', 'Order no', 'Restaurant', 'Customer', 'Phone', 'Area', 'Status', 'Payment', 'Items', 'Dishes', 'Cold drinks', 'Packing',
+    'Delivery fee', 'Platform fee', 'GST', 'Coupon', 'Discount', 'Total', ...(withMoney ? ['Restaurant bill', 'Markup'] : []), 'Rider', 'Cancel reason']))
+  for (const o of orders) {
+    const at = new Date(o.created_at)
+    out.push(csvLine([
+      istDay(o.created_at), at.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }), o.order_number, o.restaurant_name,
+      o.customer_name, o.customer_phone, o.area, o.status, o.payment_method === 'cash' ? 'Cash' : 'UPI',
+      (o.food_order_items ?? []).map((i) => `${i.name}${i.variant ? ` (${i.variant})` : ''} x${i.qty}`).join('; '),
+      dishes(o), n(o.store_items_total), n(o.packing_fee), n(o.delivery_fee), n(o.platform_fee), n(o.gst), o.coupon_code ?? '', n(o.discount), n(o.total),
+      ...(withMoney ? [n(o.menu_total), markup(o)] : []), o.rider_name ?? '', o.cancel_reason ?? '',
+    ]))
+  }
+  out.push('')
+
+  out.push(csvLine(['DISHES SOLD (delivered)']))
+  out.push(csvLine(['Dish', 'Restaurant', 'Quantity', 'Amount']))
+  const sold = new Map()
+  for (const o of delivered) for (const i of o.food_order_items ?? []) {
+    const name = `${i.name}${i.variant ? ` (${i.variant})` : ''}`
+    const key = `${name}|${i.from_store ? 'Jholzo store' : o.restaurant_name}`
+    const row = sold.get(key) ?? { name, place: i.from_store ? 'Jholzo store' : o.restaurant_name, qty: 0, amount: 0 }
+    row.qty += n(i.qty)
+    row.amount += n(i.line_total)
+    sold.set(key, row)
+  }
+  for (const r of [...sold.values()].sort((a, b) => b.qty - a.qty)) out.push(csvLine([r.name, r.place, r.qty, r.amount]))
+  return out.join('\r\n')
+}
+
+/** The owner's payout sheet: what each restaurant earned, was paid and is owed now. */
+export function payoutsCSV(rows) {
+  const out = [csvLine(['Restaurant', 'Pay schedule', 'Delivered orders', 'Earned (menu price)', 'Paid so far', 'Owed now', 'Last paid', 'UPI ID', 'Phone'])]
+  for (const r of rows) {
+    out.push(csvLine([r.name?.trim(), r.pay_when ?? '', r.delivered_orders ?? '', Number(r.earned) || 0, Number(r.paid) || 0, Number(r.owed) || 0,
+      r.last_paid ? istDay(r.last_paid) : '', r.upi_id ?? '', r.phone ?? '']))
+  }
+  return out.join('\r\n')
+}
+
 /** Food orders placed in the last `days` days, newest first, with their dishes. */
 export async function foodOrders(days = 7) {
   if (!sb) return structuredClone(demo.orders)

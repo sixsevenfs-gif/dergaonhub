@@ -28,6 +28,8 @@ import AdminProducts from './pages/admin/AdminProducts.jsx'
 import TopItems from './pages/admin/TopItems.jsx'
 import AdminComplaints from './pages/admin/AdminComplaints.jsx'
 import AdminCustomers from './pages/admin/AdminCustomers.jsx'
+import AdminCustomer from './pages/admin/AdminCustomer.jsx'
+import AdminActivity from './pages/admin/AdminActivity.jsx'
 import AdminSettings from './pages/admin/AdminSettings.jsx'
 import AdminWaitlist from './pages/admin/AdminWaitlist.jsx'
 import AdminLogins from './pages/admin/AdminLogins.jsx'
@@ -103,11 +105,13 @@ export default function App() {
           <Route path="top-items" element={<TopItems />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="customers/:customerId" element={<AdminCustomer />} />
           <Route path="carts" element={<AdminCarts />} />
           <Route path="money" element={<AdminWallet />} />
           <Route path="logins" element={<AdminLogins />} />
           <Route path="waitlist" element={<AdminWaitlist />} />
           <Route path="settings" element={<OwnerOnly><AdminSettings /></OwnerOnly>} />
+          <Route path="activity" element={<OwnerOnly><AdminActivity /></OwnerOnly>} />
           <Route path="delete-orders" element={<OwnerOnly><AdminDeleteOrders /></OwnerOnly>} />
           <Route path="survey" element={<OwnerOnly><AdminSurvey /></OwnerOnly>} />
           <Route path="food" element={<FoodHome />} />

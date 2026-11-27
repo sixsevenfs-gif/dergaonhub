@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Home, LocateFixed, UserPlus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { History, Home, LocateFixed, UserPlus } from 'lucide-react'
 import Field from '../../components/Field.jsx'
 import Toggle from '../../components/Toggle.jsx'
 import LocationPicker from '../../components/LocationPicker.jsx'
@@ -123,6 +124,9 @@ function Riders() {
           (Wholesale prices in the menu). <b>Deactivate</b> locks someone out at once; <b>Activate</b> gives the access back.
           {!DEMO_MODE && ' First create their login in Supabase → Authentication → Users → Add user (tick Auto confirm), then add the same email here.'}
         </p>
+        <Link to="/admin/activity" className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-900 underline">
+          <History size={15} /> See what each person changed (Activity log)
+        </Link>
       </div>
       {loadError && <p className="rounded-xl bg-orange-50 p-3 text-xs text-orange-800">Run supabase/migrations/003_partners.sql in the Supabase SQL Editor first.</p>}
       {riders?.length > 0 && (

@@ -7,6 +7,7 @@ import { lcard } from '../../components/ui.js'
 import { adminListComplaints, adminListOrders, adminStats, getStore, ordersCheck, setPaused } from '../../lib/store.js'
 import PaymentCheck from './PaymentCheck.jsx'
 import DayReport from './DayReport.jsx'
+import { RefundsCard } from './Refunds.jsx'
 import { useData } from '../../lib/useData.js'
 import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { useRole } from '../../lib/role.js'
@@ -95,6 +96,9 @@ export default function AdminHome() {
           </div>
         </section>
       )}
+
+      {/* Paid by UPI, then cancelled or made cheaper (update 072). The owner only. */}
+      {isOwner && <RefundsCard />}
 
       <section>
         <h2 className="text-lg font-bold">New orders: call once before packing, then On the way</h2>

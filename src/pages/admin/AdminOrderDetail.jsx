@@ -16,6 +16,7 @@ import { billMessage, customerMessage, messagePhone, toWa, waLink } from '../../
 import { mapsLink } from '../../lib/delivery.js'
 import { CONFIG } from '../../config.js'
 import PaymentCheck from './PaymentCheck.jsx'
+import { RefundBox } from './Refunds.jsx'
 import DeleteOrdersDialog from '../../components/DeleteOrdersDialog.jsx'
 import { useRole } from '../../lib/role.js'
 import { orderProfit } from '../../lib/profit.js'
@@ -289,7 +290,8 @@ export default function AdminOrderDetail() {
           {Number(order.express_waived) > 0 && (
             <div className="flex justify-between font-semibold text-red-700"><span>⚡ Express: left late{order.left_at && ` (${fmtClock(order.left_at)})`}, charge not taken</span><span><s>{rupee(order.express_waived)}</s> FREE</span></div>
           )}
-          {Number(order.express_waived) > 0 && order.payment_method === 'upi_now' && order.payment_status === 'paid' && (
+          {/* Before update 072 (no paid_amount): the note. After it the "Give back" box below counts it. */}
+          {Number(order.express_waived) > 0 && order.payment_method === 'upi_now' && order.payment_status === 'paid' && order.paid_amount === undefined && (
             <p className="rounded-lg bg-red-50 p-2 text-xs text-red-800">Paid online before: give the customer back {rupee(order.express_waived)} (UPI or Jholzo Money).</p>
           )}
           {Number(order.invite_discount) > 0 && (
@@ -307,6 +309,9 @@ export default function AdminOrderDetail() {
         {order.note && <p className="mt-3 rounded-xl bg-neutral-100 p-3 text-sm">Note: {order.note}</p>}
         {order.status === 'cancelled' && <p className="mt-3 text-sm text-neutral-600">Cancelled: {order.cancel_reason}</p>}
       </section>
+
+      {/* Paid by UPI, then cancelled or made cheaper: money to give back (update 072). */}
+      <RefundBox order={order} isOwner={isOwner} onDone={reload} />
 
       {/* The owner's profit on this order from buy prices (update 034). */}
       {isOwner && shopBill && <ShopBillCard bill={shopBill} />}
@@ -362,6 +367,11 @@ export default function AdminOrderDetail() {
             ))}
           </div>
           {reason === 'No-show' && <p className="text-xs text-neutral-500">This adds 1 no-show to this number. After {CONFIG.NO_SHOW_LIMIT} no-shows it can't order online.</p>}
+          {order.payment_status === 'paid' && (
+            <p className="rounded-lg bg-red-50 p-2 text-sm text-red-800">
+              Paid {rupee(order.paid_amount ?? order.total)} by UPI. After cancelling, send the money back{isOwner ? ' and mark it on this page' : ' (the owner does this)'}.
+            </p>
+          )}
           <div className="flex gap-2">
             <button type="button" onClick={() => setCancelling(false)} className={lbtnOutline}>Back</button>
             <button type="button" disabled={!reason} onClick={() => run(() => cancelOrder(order.id, reason)).then(() => setCancelling(false))} className={`${lbtnDanger} flex-1`}>
