@@ -44,6 +44,7 @@ import FoodRestaurants from './pages/admin/food/FoodRestaurants.jsx'
 import FoodPayouts from './pages/admin/food/FoodPayouts.jsx'
 import FoodSettings from './pages/admin/food/FoodSettings.jsx'
 import FoodCoupons from './pages/admin/food/FoodCoupons.jsx'
+import FoodDeleteOrders from './pages/admin/food/FoodDeleteOrders.jsx'
 import AdminNotifications from './pages/admin/app/AdminNotifications.jsx'
 import AdminBanners from './pages/admin/app/AdminBanners.jsx'
 import AdminAppUpdates from './pages/admin/app/AdminAppUpdates.jsx'
@@ -117,6 +118,7 @@ export default function App() {
           <Route path="food" element={<FoodHome />} />
           <Route path="food/orders" element={<FoodOrders />} />
           <Route path="food/orders/:id" element={<FoodOrderDetail />} />
+          <Route path="food/delete-orders" element={<OwnerOnly><FoodDeleteOrders /></OwnerOnly>} />
           <Route path="food/restaurants" element={<FoodRestaurants />} />
           <Route path="food/payouts" element={<OwnerOnly><FoodPayouts /></OwnerOnly>} />
           <Route path="food/settings" element={<OwnerOnly><FoodSettings /></OwnerOnly>} />

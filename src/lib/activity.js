@@ -171,6 +171,11 @@ export function describeActivity(a, names = {}) {
       break
     case 'food_orders': {
       link = a.entity_id ? `/admin/food/orders/${a.entity_id}` : null
+      if (a.action === 'bulk_delete') {
+        text = `Deleted ${ch.count} food ${ch.count === 1 ? 'order' : 'orders'}${ch.first ? ` (${ch.first}${ch.last && ch.last !== ch.first ? ` to ${ch.last}` : ''})` : ''}, worth ${rupee(Number(ch.total) || 0)}`
+        link = null
+        break
+      }
       if (a.action === 'insert') { text = `Placed food order ${L} at ${ch.restaurant_name || 'a restaurant'} · ${rupee(Number(ch.total) || 0)}`; break }
       const s = has('status') ? now('status') : ''
       let used = ['status']

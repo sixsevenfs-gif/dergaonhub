@@ -48,6 +48,7 @@ const NAV = {
     ['/admin/food/payouts', 'Payouts', null, HandCoins],
     ['/admin/food/coupons', 'Coupons', null, TicketPercent],
     ['/admin/food/settings', 'Food settings', null, SlidersHorizontal],
+    ['/admin/food/delete-orders', 'Delete orders', null, Trash2],
   ],
   support: [
     ['/admin/support', 'Inbox', 'supportOpen', Inbox],
@@ -70,7 +71,7 @@ const BOTTOM = {
 }
 // Settings hold the UPI and bank details, fees and the team; delete wipes orders; payouts and food fees are
 // money; the App part sends to every customer. The owner only.
-const OWNER_ONLY = ['/admin/settings', '/admin/activity', '/admin/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', '/admin/support-report', ...APP_NAV.map(([to]) => to)]
+const OWNER_ONLY = ['/admin/settings', '/admin/activity', '/admin/delete-orders', '/admin/food/delete-orders', '/admin/survey', '/admin/food/payouts', '/admin/food/settings', '/admin/support-report', ...APP_NAV.map(([to]) => to)]
 
 function sectionOf(pathname) {
   if (pathname.startsWith('/admin/food')) return 'food'

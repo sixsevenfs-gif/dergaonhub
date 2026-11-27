@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { MapPin, Phone, Store } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { MapPin, Phone, Store, Trash2 } from 'lucide-react'
 import { lbtnDanger, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { WhatsAppIcon } from '../../../components/icons.jsx'
 import { useData } from '../../../lib/useData.js'
@@ -11,6 +11,7 @@ import { rupee } from '../../../lib/format.js'
 import { toWa, waLink } from '../../../lib/whatsapp.js'
 import { assignFoodRider, foodOrder, foodRestaurants, foodStageText, setFoodStatus, whenText } from '../../../lib/foodAdmin.js'
 import { FoodStatus } from './FoodBits.jsx'
+import FoodDeleteDialog from './FoodDeleteDialog.jsx'
 
 const REASONS = ['Restaurant is closed', 'Dish not available', 'Customer asked to cancel', 'No-show', 'Fake or test order']
 
@@ -28,6 +29,8 @@ export default function FoodOrderDetail() {
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState(REASONS[0])
   const [other, setOther] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const navigate = useNavigate()
 
   if (error) return <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error.message}</p>
   if (o === undefined) return <p className="text-sm text-neutral-500">Loading…</p>
@@ -172,6 +175,16 @@ export default function FoodOrderDetail() {
             <button type="button" onClick={() => setCancelling(false)} className={lbtnOutline}>Keep it</button>
           </div>
         </div>
+      )}
+
+      {/* Test or demo food orders only: gone from the database, counts nowhere (update 075). The owner only. */}
+      {isOwner && (
+        <button type="button" onClick={() => setDeleting(true)} className="flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold text-red-600">
+          <Trash2 size={16} /> Delete this order permanently (test / demo)
+        </button>
+      )}
+      {deleting && (
+        <FoodDeleteDialog orders={[o]} onClose={() => setDeleting(false)} onDone={() => navigate('/admin/food/orders', { replace: true })} />
       )}
     </div>
   )
