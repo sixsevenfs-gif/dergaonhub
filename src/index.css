@@ -11,6 +11,15 @@
   --color-leaf: #5FA63F;
   --color-mint: #EAF4E4;
   --color-mint-soft: #F4F9F0;
+  /* Admin → Food → Restaurants: the Food Desk's colours (src/pages/admin/food/desk) */
+  --color-fd-page: #FFFBFA;
+  --color-fd-soft: #FFF0EE;
+  --color-fd-red: #E2231A;
+  --color-fd-red-dark: #B3140E;
+  --color-fd-yellow: #FFC93C;
+  --color-fd-veg: #1E8E3E;
+  --color-fd-nonveg: #B71C1C;
+  --color-fd-egg: #C77700;
   /* Admin keeps its yellow buttons */
   --color-accent: #E8FF3A;
 
@@ -68,3 +77,32 @@ body {
 @keyframes pp-in { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
 .pp-in { animation: pp-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) { .pp-in { animation: none; } }
+
+/* Admin → Food → Restaurants (the Food Desk inside the admin, src/pages/admin/food/desk): its fields, cards and sheets. */
+@layer components {
+  .fdesk .field {
+    width: 100%;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    border-radius: 14px;
+    padding: 11px 13px;
+    font-size: 16px;
+    line-height: 1.35;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .fdesk .field:focus { border-color: var(--color-fd-red); box-shadow: 0 0 0 3px rgb(226 35 26 / 0.12); }
+  .fdesk .field::placeholder { color: #B5AAA7; }
+  .fdesk textarea.field { resize: vertical; }
+  .fdesk .card { background: #fff; border: 1px solid var(--color-line); border-radius: 20px; }
+  .fdesk .press { transition: transform 0.12s; }
+  .fdesk .press:active { transform: scale(0.97); }
+}
+@keyframes fd-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+.fdesk .sheet-up { animation: fd-sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes fd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fdesk .fade-in { animation: fd-fade-in 0.2s ease-out; }
+@keyframes fd-toast-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.fdesk .toast-in { animation: fd-toast-in 0.22s ease-out; }
+.fdesk .no-scrollbar { scrollbar-width: none; }
+.fdesk .no-scrollbar::-webkit-scrollbar { display: none; }

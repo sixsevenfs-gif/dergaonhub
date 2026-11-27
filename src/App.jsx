@@ -41,6 +41,7 @@ import FoodHome from './pages/admin/food/FoodHome.jsx'
 import FoodOrders from './pages/admin/food/FoodOrders.jsx'
 import FoodOrderDetail from './pages/admin/food/FoodOrderDetail.jsx'
 import FoodRestaurants from './pages/admin/food/FoodRestaurants.jsx'
+import FoodRestaurant from './pages/admin/food/FoodRestaurant.jsx'
 import FoodPayouts from './pages/admin/food/FoodPayouts.jsx'
 import FoodSettings from './pages/admin/food/FoodSettings.jsx'
 import FoodCoupons from './pages/admin/food/FoodCoupons.jsx'
@@ -120,6 +121,8 @@ export default function App() {
           <Route path="food/orders/:id" element={<FoodOrderDetail />} />
           <Route path="food/delete-orders" element={<OwnerOnly><FoodDeleteOrders /></OwnerOnly>} />
           <Route path="food/restaurants" element={<FoodRestaurants />} />
+          <Route path="food/restaurants/:id" element={<FoodRestaurant />} />
+          <Route path="food/restaurants/:id/:tab" element={<FoodRestaurant />} />
           <Route path="food/payouts" element={<OwnerOnly><FoodPayouts /></OwnerOnly>} />
           <Route path="food/settings" element={<OwnerOnly><FoodSettings /></OwnerOnly>} />
           <Route path="food/coupons" element={<FoodCoupons />} />
