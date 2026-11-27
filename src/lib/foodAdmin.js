@@ -108,16 +108,28 @@ export async function foodSales(from, to) {
   return data
 }
 
+/**
+ * Food orders with every column and their dishes, for the owner and executive. From update 074 customers can't
+ * read the restaurant's prices or the deal, so the desk asks desk_food_orders(); before 074, the table (`before074`).
+ */
+async function deskOrders(args, before074) {
+  const { data, error } = await sb.rpc('desk_food_orders', args)
+  if (!error) return data ?? []
+  if (!missing(error)) throw new Error(error.message)
+  return check(await before074())
+}
+
 /** Food orders placed between two India dates (inclusive), oldest first, with their dishes: for the sheet. */
 export async function foodOrdersBetween(from, to) {
   if (!sb) return structuredClone(demo.orders.filter((o) => istDay(o.created_at) >= from && istDay(o.created_at) <= to).reverse())
   const start = `${from}T00:00:00+05:30`
   const end = `${addDays(to, 1)}T00:00:00+05:30`
   const rows = []
-  // The database sends at most 1000 rows at a time: ask page by page.
+  // The database sends at most 1000 orders at a time: ask page by page.
   for (let at = 0; ; at += 1000) {
-    const page = check(await sb.from('food_orders').select('*, food_order_items(*)').gte('created_at', start).lt('created_at', end)
-      .order('created_at', { ascending: true }).range(at, at + 999))
+    const page = await deskOrders({ p_from: start, p_to: end, p_oldest_first: true, p_limit: 1000, p_offset: at },
+      () => sb.from('food_orders').select('*, food_order_items(*)').gte('created_at', start).lt('created_at', end)
+        .order('created_at', { ascending: true }).range(at, at + 999))
     rows.push(...page)
     if (page.length < 1000) break
   }
@@ -205,18 +217,20 @@ export function payoutsCSV(rows) {
 export async function foodOrders(days = 7) {
   if (!sb) return structuredClone(demo.orders)
   const since = new Date(Date.now() - days * 86_400_000).toISOString()
-  const { data, error } = await sb.from('food_orders').select('*, food_order_items(*)').gte('created_at', since)
-    .order('created_at', { ascending: false }).limit(500)
-  if (error) {
-    if (missing(error)) return null
-    throw new Error(error.message)
+  try {
+    return await deskOrders({ p_from: since, p_limit: 500 },
+      () => sb.from('food_orders').select('*, food_order_items(*)').gte('created_at', since)
+        .order('created_at', { ascending: false }).limit(500))
+  } catch (e) {
+    if (missing(e)) return null
+    throw e
   }
-  return data
 }
 
 export async function foodOrder(id) {
   if (!sb) return structuredClone(demo.orders.find((o) => o.id === id) ?? null)
-  return check(await sb.from('food_orders').select('*, food_order_items(*)').eq('id', id).maybeSingle())
+  const rows = await deskOrders({ p_id: id }, () => sb.from('food_orders').select('*, food_order_items(*)').eq('id', id).limit(1))
+  return rows[0] ?? null
 }
 
 /** New food orders waiting for the desk (the nav badge). 0 before update 064. */
