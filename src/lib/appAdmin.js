@@ -45,6 +45,7 @@ export async function uploadAppMedia(file, folder, maxSize = 1200, maxKB = 220, 
 
 export const AUDIENCES = [
   ['all', 'Everyone with the app'],
+  ['customers', 'All customers (logged in)'],
   ['grocery', 'Grocery customers'],
   ['food', 'Food customers'],
   ['android', 'Android phones only'],

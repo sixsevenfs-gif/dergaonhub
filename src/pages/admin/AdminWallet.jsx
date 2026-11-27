@@ -5,7 +5,10 @@ import { lbtnDark, lcard, lfield } from '../../components/ui.js'
 import { adminGiftAdd, adminGiftCancel, adminWalletAdjust, adminWallets } from '../../lib/store.js'
 import { useData } from '../../lib/useData.js'
 import { cleanPhone, fmtDateTime, rupee, statusLabel } from '../../lib/format.js'
-import { giftMessage, validTill } from '../../lib/wallet.js'
+import { giftMessage, moneyPush, validTill } from '../../lib/wallet.js'
+import { MIN_PRESETS, NOTE_PRESETS, VALID_FOR, chip, daysFromNow } from './wallet/form.js'
+import GiveAll from './wallet/GiveAll.jsx'
+import NotifyMoney from './wallet/NotifyMoney.jsx'
 import { toWa, waLink } from '../../lib/whatsapp.js'
 import { useRole } from '../../lib/role.js'
 
@@ -30,21 +33,6 @@ const ORDER_STATUS = {
 }
 
 const signed = (n) => `${n >= 0 ? '+' : '−'}${rupee(Math.abs(n))}`
-const pad = (n) => String(n).padStart(2, '0')
-// <input type="datetime-local"> value for a moment, in this phone's time.
-const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-// End of the day, n days from today.
-const daysFromNow = (n) => {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  d.setHours(23, 59, 0, 0)
-  return localInput(d)
-}
-const VALID_FOR = [[0, 'Today'], [3, '3 days'], [7, '7 days'], [15, '15 days'], [30, '30 days']]
-const MIN_PRESETS = [0, 199, 299, 499]
-// Ready notes for the gift (the customer sees it in their wallet); "other" opens a box for any occasion.
-const NOTE_PRESETS = [['', 'No note'], ["Children's Day special 🎈", "Children's Day special 🎈"], ['other', 'Others']]
-
 // WhatsApp on a Mac turns emoji in a link's text into "�", so there the message is copied and the chat opens empty:
 // the owner pastes it (Cmd+V) and the emoji stay right. Phones get the message filled in.
 const isMacDesktop = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform ?? '') && !(navigator.maxTouchPoints > 1)
@@ -106,7 +94,7 @@ function GiveMoney({ customer }) {
     setBusy(true)
     try {
       await adminGiftAdd(customer.id, { amount: value, minOrder: min, expiresAt: new Date(until), note: noteChoice === 'other' ? note.trim() : noteChoice })
-      setGiven({ amount: value, expiresAt: new Date(until).toISOString() })
+      setGiven({ amount: value, minOrder: min, expiresAt: new Date(until).toISOString() })
       setAmount('')
       setNote('')
     } catch (err) {
@@ -114,8 +102,6 @@ function GiveMoney({ customer }) {
     }
     setBusy(false)
   }
-  const chip = (on) => `h-8 rounded-full border px-3 text-xs font-semibold ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700'}`
-
   if (given) {
     return (
       <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
@@ -125,6 +111,9 @@ function GiveMoney({ customer }) {
           <div className="flex-1"><WhatsAppButton customer={customer} amount={given.amount} expiresAt={given.expiresAt} /></div>
           <button type="button" onClick={() => setGiven(null)} className="min-h-11 rounded-xl border border-green-300 bg-white px-4 text-sm font-semibold text-green-800">Give more</button>
         </div>
+        {cleanPhone(customer.phone).length === 10 && (
+          <div className="mt-3"><NotifyMoney note={moneyPush(given.amount, given)} phones={[cleanPhone(customer.phone)]} /></div>
+        )}
       </div>
     )
   }
@@ -271,12 +260,15 @@ function Adjust({ customer }) {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [added, setAdded] = useState(null) // money added (not taken back): offer the app notification
   const save = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError('')
+    setAdded(null)
     try {
       await adminWalletAdjust(customer.id, Number(amount), note)
+      if (Number(amount) > 0) setAdded({ amount: Number(amount), reason: note.trim() })
       setAmount('')
       setNote('')
     } catch (err) {
@@ -295,6 +287,9 @@ function Adjust({ customer }) {
       <button type="submit" disabled={busy || !Number(amount) || !note.trim()} className={`${lbtnDark} mt-2 min-h-9 w-full text-sm`}>
         {busy ? 'Saving…' : 'Save'}
       </button>
+      {added && cleanPhone(customer.phone).length === 10 && (
+        <div className="mt-2"><NotifyMoney key={`${added.amount}-${added.reason}`} note={moneyPush(added.amount, { reason: added.reason })} phones={[cleanPhone(customer.phone)]} /></div>
+      )}
     </form>
   )
 }
@@ -342,6 +337,8 @@ export default function AdminWallet() {
         <p className="text-sm text-neutral-600">Give Jholzo Money to customers who got a delivery, see everything they bought, and where every rupee came from.</p>
       </div>
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
+
+      {isOwner && <GiveAll />}
 
       <div className="grid grid-cols-3 gap-2">
         {[

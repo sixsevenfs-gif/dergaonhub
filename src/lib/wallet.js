@@ -114,3 +114,17 @@ export const ENTRY_LABEL = {
   admin: 'From Jholzo',
   gift: 'Gift from Jholzo',
 }
+
+/**
+ * The app notification for Jholzo Money the owner added (update 077): the same words for one customer or for
+ * everyone. Gifts have an end date and maybe an order amount; money added by hand has a reason instead.
+ */
+export function moneyPush(amount, { expiresAt = null, minOrder = 0, reason = '' } = {}) {
+  const value = `₹${Number(amount).toLocaleString('en-IN')}`
+  const till = expiresAt ? validTill(expiresAt).replace(/\b(am|pm)\b/, (m) => m.toUpperCase()) : ''
+  const use = minOrder > 0 ? `Use it on an order of ₹${minOrder} or more` : 'Use it on your next order'
+  const body = expiresAt
+    ? `${use} before ${till}. It comes off your bill by itself. Happy shopping!`
+    : `${reason ? `${reason.trim().replace(/[.!]$/, '')}. ` : ''}${use}. It comes off your bill by itself.`
+  return { title: `${value} added to your Jholzo Money 🎁`, body: body.slice(0, 300) }
+}

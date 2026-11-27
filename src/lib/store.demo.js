@@ -374,6 +374,23 @@ export async function myWallet(phone) {
   })
 }
 
+export async function adminGiftAddAll({ amount, minOrder, expiresAt, note }) {
+  const value = r2(Number(amount))
+  if (!(value > 0)) fail('Enter how much Jholzo Money to give.')
+  if (value > 1000) fail('That is too much to give everyone (₹1,000 each at most).')
+  const min = Math.round(Number(minOrder) || 0)
+  const at = new Date(expiresAt)
+  if (!(at > new Date())) fail('Choose a date and time in the future.')
+  const list = db.customers.filter((c) => !c.blocked)
+  for (const c of list) gifts().push({ id: newId(), customer_id: c.id, amount: value, min_order: min, expires_at: at.toISOString(), note: note?.trim() ?? '', created_at: now(), cancelled_at: null })
+  commit()
+  return { customers: list.length, total: r2(value * list.length) }
+}
+
+export async function adminCustomerCount() {
+  return db.customers.filter((c) => !c.blocked).length
+}
+
 export async function adminGiftAdd(customerId, { amount, minOrder, expiresAt, note }) {
   const value = r2(Number(amount))
   if (!(value > 0)) fail('Enter how much Jholzo Money to give.')

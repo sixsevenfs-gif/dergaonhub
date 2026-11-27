@@ -36,24 +36,32 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour:
 
 type Note = { title: string; body: string; link: string; kind: string; channel: 'orders' | 'offers'; image?: string; tag?: string }
 
-// Grocery: the same words as the website's WhatsApp messages (src/lib/whatsapp.js).
+// Grocery: every step of the order (update 077 adds "received"). The list of all messages is in
+// docs/app-notifications.md.
 function groceryNote(kind: string, o: Record<string, any>): Note | null {
   const n = `#${o.order_number}`
-  const paid = o.payment_method === 'upi_now' && o.payment_status === 'paid'
-  const keepReady = paid ? 'Already paid online ✓' : `Please keep ${rupee(o.total)} ready (cash or UPI).`
+  const paid = o.payment_status === 'paid'
+  const keepReady = paid ? 'Already paid ✓' : `Please keep ${rupee(o.total)} ready (cash or UPI).`
   const when = o.delivery_type === 'express' && o.express_by ? `by ${clock(o.express_by)}` : 'this evening'
   const base = { link: `${SITE}/track/${o.order_number}`, kind, channel: 'orders' as const, tag: String(o.order_number) }
   switch (kind) {
-    case 'confirmed': return { ...base, title: 'Order confirmed ✅', body: `Your Jholzo order ${n} is confirmed. We will deliver it ${when}.` }
-    case 'on_the_way': return { ...base, title: 'On the way 🛵', body: `Our rider has left with your order ${n}. You will get it in 10–15 minutes. ${keepReady}` }
-    case 'arriving': return { ...base, title: 'Arriving soon 📍', body: `Our rider is almost at your door with order ${n}. ${keepReady}` }
-    case 'delivered': return { ...base, title: 'Delivered 🎉', body: `Order ${n} is delivered. Thank you for shopping with Jholzo!` }
-    case 'cancelled': return { ...base, title: 'Order cancelled', body: `Order ${n} was cancelled${o.cancel_reason ? `: ${o.cancel_reason}` : '.'}` }
+    case 'placed': return {
+      ...base, title: 'Order received 🧾',
+      body: o.payment_method === 'upi_now' && !paid
+        ? `We got your order ${n}. Finish the UPI payment and we will confirm it right away.`
+        : `We got your order ${n}. We will confirm it in a few minutes.`,
+    }
+    case 'confirmed': return { ...base, title: 'Order confirmed ✅', body: `Your order ${n} is confirmed. We will deliver it ${when}.` }
+    case 'on_the_way': return { ...base, title: 'Your order is on the way 🛵', body: `Our rider has left with your order ${n}. It will reach you in 10–15 minutes. ${keepReady}` }
+    case 'arriving': return { ...base, title: 'Rider at your door 📍', body: `Our rider has reached your location with order ${n}. ${keepReady}` }
+    case 'delivered': return { ...base, title: 'Your order has been delivered 🎉', body: `Order ${n} is delivered. Thank you for shopping with Jholzo. Keep shopping!` }
+    case 'cancelled': return { ...base, title: 'Order cancelled', body: `Your order ${n} was cancelled${o.cancel_reason ? `: ${o.cancel_reason}` : '.'} Need help? Open Jholzo → Help.` }
   }
   return null
 }
 
-// Food: one note for each step of the order (update 067), with the rider's first name once one has it.
+// Food: every step of the order, with the rider's first name once one has it. A rider taking the order sends
+// nothing; "confirmed" is the rider's call to the restaurant (update 073).
 function foodNote(kind: string, o: Record<string, any>): Note | null {
   const n = `#${o.order_number}`
   const place = String(o.restaurant_name || 'the restaurant').trim()
@@ -61,13 +69,14 @@ function foodNote(kind: string, o: Record<string, any>): Note | null {
   const pay = o.payment_method === 'upi' ? `Please keep ${rupee(o.total)} ready to pay by UPI.` : `Please keep ${rupee(o.total)} ready (cash or UPI).`
   const base = { link: `${SITE}/food-order/${o.order_number}`, kind: `food_${kind}`, channel: 'orders' as const, tag: String(o.order_number) }
   switch (kind) {
-    case 'confirmed': return { ...base, title: 'Your food is being prepared 🍳', body: `${place} accepted your order ${n} and is cooking it now.` }
+    case 'placed': return { ...base, title: 'Order received 🧾', body: `We got your order ${n} from ${place}. We are confirming it with the restaurant now.` }
+    case 'confirmed': return { ...base, title: 'Your food is being prepared 🍳', body: `${place} has your order ${n} and is cooking it now.` }
     case 'to_restaurant': return { ...base, title: 'Rider on the way to the restaurant 🛵', body: `${rider} is going to ${place} to pick up your order ${n}.` }
     case 'at_restaurant': return { ...base, title: 'Rider at the restaurant 🥡', body: `${rider} has reached ${place}. Your food is being packed.` }
-    case 'picked': return { ...base, title: 'Your food is on the way 🛵', body: `${rider} has picked up your food and left ${place}. ${pay}` }
+    case 'picked': return { ...base, title: 'Your food is on the way 🛵', body: `${rider} has picked up your food from ${place} and is coming to you. ${pay}` }
     case 'arriving': return { ...base, title: 'Rider at your door 📍', body: `${rider} has reached your location with order ${n}. ${pay}` }
-    case 'delivered': return { ...base, title: 'Delivered. Enjoy your meal 😋', body: `Order ${n} is delivered. Thanks for ordering from Jholzo Food!` }
-    case 'cancelled': return { ...base, title: 'Food order cancelled', body: `Order ${n} was cancelled${o.cancel_reason ? `: ${o.cancel_reason}` : '.'}` }
+    case 'delivered': return { ...base, title: 'Your order has been delivered 😋', body: `Enjoy your meal! Order ${n} is delivered. Thanks for ordering from Jholzo Food. Order again anytime!` }
+    case 'cancelled': return { ...base, title: 'Food order cancelled', body: `Your order ${n} was cancelled${o.cancel_reason ? `: ${o.cancel_reason}` : '.'} Need help? Open Jholzo → Help.` }
   }
   return null
 }

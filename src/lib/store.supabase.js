@@ -663,6 +663,25 @@ export async function adminGiftAdd(customerId, { amount, minOrder, expiresAt, no
   return id
 }
 
+// Owner: the same gift to every customer (update 077). Returns { customers, total }.
+export async function adminGiftAddAll({ amount, minOrder, expiresAt, note }) {
+  const res = await sb.rpc('admin_gift_add_all', {
+    p_amount: Number(amount), p_min_order: Math.max(0, Math.round(Number(minOrder) || 0)),
+    p_expires_at: new Date(expiresAt).toISOString(), p_note: note ?? '',
+  })
+  if (missingFunction(res.error)) fail('Run database update 077 first (Supabase → SQL Editor).')
+  const out = check(res)
+  notify()
+  return { customers: Number(out?.customers ?? 0), total: Number(out?.total ?? 0) }
+}
+
+// Owner: how many customers "Give to all customers" reaches (not blocked). Null before update 077.
+export async function adminCustomerCount() {
+  const res = await sb.rpc('admin_customer_count')
+  if (missingFunction(res.error)) return null
+  return Number(check(res) ?? 0)
+}
+
 // Owner: take a gift back; what is left of it disappears.
 export async function adminGiftCancel(giftId) {
   check(await sb.rpc('admin_gift_cancel', { p_gift_id: giftId }))
