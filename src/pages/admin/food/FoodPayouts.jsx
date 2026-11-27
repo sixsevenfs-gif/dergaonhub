@@ -9,7 +9,8 @@ import { NeedsUpdate } from './FoodBits.jsx'
 
 const WHEN = { pickup: 'pays at pickup', daily: 'paid daily', weekly: 'paid weekly' }
 
-// Owner: what each restaurant is owed (their menu price of delivered dishes) and what was paid.
+// Owner: what each restaurant is owed (their menu price of delivered dishes) and what was paid: by you here, or by
+// the rider at pickup (update 073).
 export default function FoodPayouts() {
   const { data: rows, error, reload } = useData(foodPayouts)
   const [open, setOpen] = useState('')
@@ -75,7 +76,8 @@ function Payout({ r, open, onToggle, onPaid }) {
         <span className="min-w-0">
           <b className="block truncate">{r.name}</b>
           <span className="text-xs text-neutral-500">
-            {r.delivered_orders} delivered orders · earned {rupee(r.earned)} · paid {rupee(r.paid)}{r.pay_when ? ` · ${WHEN[r.pay_when] ?? r.pay_when}` : ''}
+            {r.delivered_orders} delivered orders · earned {rupee(r.earned)}
+            {Number(r.paid_at_pickup) > 0 && ` · riders paid ${rupee(r.paid_at_pickup)} at pickup`} · paid {rupee(r.paid)}{r.pay_when ? ` · ${WHEN[r.pay_when] ?? r.pay_when}` : ''}
           </span>
         </span>
         <span className={`shrink-0 text-lg font-bold ${owed > 0 ? 'text-red-600' : 'text-neutral-400'}`}>{owed > 0 ? rupee(owed) : 'Paid up'}</span>

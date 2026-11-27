@@ -58,3 +58,10 @@ export async function partnerAppShare(blob, name) {
     return false
   }
 }
+
+// The rider took a food order on the page: the app stops its call ring for it at once (Partner app 1.1).
+export function partnerAppTook(orderId) {
+  try {
+    app()?.took?.(orderId)
+  } catch { /* an older app */ }
+}

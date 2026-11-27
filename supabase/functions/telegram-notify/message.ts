@@ -136,7 +136,7 @@ export function foodOrderMessage(o: Order, items: FoodItem[], pickup: { phone?: 
   lines.push(fees.join(' · '), `💰 <b>TOTAL ${rupee(o.total)}</b> · ${o.payment_method === 'cash' ? 'CASH' : 'UPI'} on delivery`,
     `🏪 Pay the restaurant: <b>${rupee(o.menu_total)}</b>`)
   if (o.note) lines.push(`📝 Note: ${esc(o.note)}`)
-  lines.push('👉 Call the restaurant, then Confirm in Admin → Food.')
+  lines.push('🛵 The riders\' phones are ringing: the rider who takes it calls the restaurant. (Admin → Food shows who took it.)')
   return lines.join('\n')
 }
 

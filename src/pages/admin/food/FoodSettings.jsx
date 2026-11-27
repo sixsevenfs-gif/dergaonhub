@@ -63,6 +63,19 @@ export default function FoodSettings() {
           </label>
         ))}
       </div>
+      {form.food_leave_minutes !== undefined && (
+        <div className={`${lcard} space-y-1 p-4`}>
+          <label className="block">
+            <span className="text-sm font-semibold">Rider leaves for the restaurant after (minutes)</span>
+            <input className={`${lfield} mt-1`} inputMode="numeric" value={form.food_leave_minutes ?? ''}
+              onChange={(e) => setForm({ ...form, food_leave_minutes: e.target.value.replace(/[^0-9]/g, '') })} />
+            <span className="mt-1 block text-xs text-neutral-500">
+              The rider who takes a new order calls the restaurant, taps "Restaurant has the order", and leaves this many minutes later
+              (the Partner app shows the time and rings once). 0 to leave at once.
+            </span>
+          </label>
+        </div>
+      )}
       <div className={`${lcard} p-4 text-sm`}>
         <p className="font-bold">Example: dishes of {rupee(items)}</p>
         <p className="mt-1 text-neutral-600">

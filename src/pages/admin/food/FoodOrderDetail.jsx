@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { MapPin, Phone, Store } from 'lucide-react'
-import { lbtnDanger, lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
+import { lbtnDanger, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { WhatsAppIcon } from '../../../components/icons.jsx'
 import { useData } from '../../../lib/useData.js'
 import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
@@ -142,14 +142,15 @@ export default function FoodOrderDetail() {
             <option value="">No rider yet</option>
             {riders.map((r) => <option key={r.user_id} value={r.user_id}>{r.name || r.phone}</option>)}
           </select>
-          <p className="text-xs text-neutral-500">The rider app rings for confirmed orders: the chosen rider, or every rider when nobody is chosen.</p>
+          <p className="text-xs text-neutral-500">Riders take new orders themselves. Choose one here only to give it to someone (their phone rings); "No rider yet" rings everyone again.</p>
         </div>
       )}
 
+      {open && <p className="text-xs text-neutral-500">The rider does these steps on the rider page. Use them here only when a rider can't (no internet, phone off).</p>}
       <div className="flex flex-wrap gap-2">
-        {o.status === 'placed' && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'confirmed'))} className={lbtnDark}>Confirm: restaurant said yes</button>}
-        {o.status === 'confirmed' && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'picked'))} className={lbtnDark}>Picked up from restaurant</button>}
-        {(o.status === 'confirmed' || o.status === 'picked') && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'delivered'))} className={o.status === 'picked' ? lbtnDark : lbtnOutline}>Delivered</button>}
+        {o.status === 'placed' && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'confirmed'))} className={lbtnOutline}>I called: restaurant has it</button>}
+        {o.status === 'confirmed' && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'picked'))} className={lbtnOutline}>Picked up from restaurant</button>}
+        {(o.status === 'confirmed' || o.status === 'picked') && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'delivered'))} className={lbtnOutline}>Delivered</button>}
         {open && !cancelling && <button type="button" disabled={busy} onClick={() => setCancelling(true)} className={lbtnDanger}>Cancel order</button>}
         {isOwner && !open && <button type="button" disabled={busy} onClick={() => run(() => setFoodStatus(o.id, 'confirmed'))} className={lbtnOutline}>Undo: back to Preparing</button>}
       </div>
@@ -176,16 +177,20 @@ export default function FoodOrderDetail() {
   )
 }
 
-// The order's way, with the time of each step the rider pressed (update 067). The customer's app shows the same.
+// The order's way, with the time of each step the rider pressed (update 073). The customer's app shows the same
+// four: placed, being prepared, on the way, delivered.
 const TRIP = [
-  ['created_at', 'Placed'], ['confirmed_at', 'Restaurant confirmed'], ['to_restaurant_at', 'Rider going to the restaurant'],
-  ['at_restaurant_at', 'Rider at the restaurant'], ['picked_at', 'Picked up'], ['arriving_at', 'Rider at the door'], ['delivered_at', 'Delivered'],
+  ['created_at', 'Placed'], ['assigned_at', 'A rider took it'], ['confirmed_at', 'Restaurant has the order'], ['picked_at', 'Picked up (restaurant paid when at pickup)'],
+  ['delivered_at', 'Delivered'],
 ]
 function Trip({ o }) {
   const time = (iso) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
   return (
     <div className={`${lcard} p-4`}>
       <p className="text-xs font-semibold uppercase text-neutral-500">Trip{o.rider_name ? ` · ${o.rider_name}` : ''}</p>
+      {o.leave_at && !o.picked_at && (
+        <p className="mt-1 text-sm text-neutral-700">Rider leaves for the restaurant at <b>{time(o.leave_at)}</b></p>
+      )}
       <ol className="mt-2 space-y-1.5">
         {TRIP.map(([key, label]) => (
           <li key={key} className={`flex items-center gap-2 text-sm ${o[key] ? '' : 'text-neutral-400'}`}>

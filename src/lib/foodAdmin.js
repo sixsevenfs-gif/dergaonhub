@@ -27,7 +27,7 @@ const demo = (() => {
   const now = Date.now()
   const ago = (min) => new Date(now - min * 60_000).toISOString()
   const restaurants = [
-    { id: 'r1', name: 'Food delight', status: 'live', fssai_number: '20324120000166', fssai_expiry: '2030-05-19', cover_photo: '', area: 'DKD Road', address: 'Near DKD road', phone: '9876543210', whatsapp: '', pay_when: 'daily', upi_id: '', deal_type: 'markup', deal_value: 20, menu: 20, photos: 0 },
+    { id: 'r1', name: 'Food delight', status: 'live', fssai_number: '20324120000166', fssai_expiry: '2030-05-19', cover_photo: '', area: 'DKD Road', address: 'Near DKD road', phone: '9876543210', whatsapp: '', pay_when: 'pickup', upi_id: '', deal_type: 'markup', deal_value: 20, menu: 20, photos: 0 },
     { id: 'r2', name: 'S Mandal fast food', status: 'talking', fssai_number: '', fssai_expiry: null, cover_photo: '', area: 'Bazaar', address: '', phone: '9876500000', whatsapp: '', pay_when: 'weekly', upi_id: '', deal_type: 'markup', deal_value: 20, menu: 5, photos: 0 },
     { id: 'r3', name: 'Tusa', status: 'talking', fssai_number: '', fssai_expiry: null, cover_photo: '', area: '', address: '', phone: '', whatsapp: '', pay_when: '', upi_id: '', deal_type: '', deal_value: null, menu: 62, photos: 0 },
   ]
@@ -54,9 +54,9 @@ const demo = (() => {
   const chilli = { name: 'Chilli Chicken', qty: 1, price: 170, menu_price: 140 }
   const orders = [
     order(1, 4, 'placed', [rice, roll]),
-    order(2, 25, 'confirmed', [chowmein, chilli]),
-    order(3, 60, 'picked', [roll]),
-    order(4, 180, 'delivered', [rice, chilli]),
+    order(2, 25, 'confirmed', [chowmein, chilli], { rider_id: 'me', assigned_at: ago(24), leave_at: ago(-6) }),
+    order(3, 60, 'picked', [roll], { rider_id: 'me' }),
+    order(4, 180, 'delivered', [rice, chilli], { rider_id: 'me' }),
     order(5, 60 * 26, 'delivered', [chowmein]),
     order(6, 60 * 50, 'delivered', [rice, rice].map((x) => ({ ...x, qty: 1 }))),
     order(7, 60 * 75, 'cancelled', [roll], { cancel_reason: 'Cancelled by customer' }),
@@ -193,9 +193,9 @@ export function foodReportCSV({ from, to, orders, withMoney = true }) {
 
 /** The owner's payout sheet: what each restaurant earned, was paid and is owed now. */
 export function payoutsCSV(rows) {
-  const out = [csvLine(['Restaurant', 'Pay schedule', 'Delivered orders', 'Earned (menu price)', 'Paid so far', 'Owed now', 'Last paid', 'UPI ID', 'Phone'])]
+  const out = [csvLine(['Restaurant', 'Pay schedule', 'Delivered orders', 'Earned (menu price)', 'Paid by riders at pickup', 'Paid by you', 'Owed now', 'Last paid', 'UPI ID', 'Phone'])]
   for (const r of rows) {
-    out.push(csvLine([r.name?.trim(), r.pay_when ?? '', r.delivered_orders ?? '', Number(r.earned) || 0, Number(r.paid) || 0, Number(r.owed) || 0,
+    out.push(csvLine([r.name?.trim(), r.pay_when ?? '', r.delivered_orders ?? '', Number(r.earned) || 0, Number(r.paid_at_pickup) || 0, Number(r.paid) || 0, Number(r.owed) || 0,
       r.last_paid ? istDay(r.last_paid) : '', r.upi_id ?? '', r.phone ?? '']))
   }
   return out.join('\r\n')
@@ -243,7 +243,8 @@ export async function foodPayouts() {
     return demo.restaurants.filter((r) => r.status !== 'dropped').map((r) => {
       const earned = demo.orders.filter((o) => o.restaurant_id === r.id && o.status === 'delivered').reduce((s, o) => s + o.menu_total, 0)
       const paid = demo.payouts.filter((p) => p.restaurant_id === r.id).reduce((s, p) => s + p.amount, 0)
-      return { id: r.id, name: r.name, pay_when: r.pay_when, upi_id: r.upi_id, phone: r.phone, delivered_orders: demo.orders.filter((o) => o.restaurant_id === r.id && o.status === 'delivered').length, earned, paid, owed: earned - paid, last_paid: demo.payouts.filter((p) => p.restaurant_id === r.id).at(-1)?.created_at ?? null }
+      const atPickup = demo.orders.filter((o) => o.restaurant_id === r.id && o.status === 'delivered').reduce((s, o) => s + Number(o.restaurant_paid ?? 0), 0)
+      return { id: r.id, name: r.name, pay_when: r.pay_when, upi_id: r.upi_id, phone: r.phone, delivered_orders: demo.orders.filter((o) => o.restaurant_id === r.id && o.status === 'delivered').length, earned, paid, paid_at_pickup: atPickup, owed: earned - atPickup - paid, last_paid: demo.payouts.filter((p) => p.restaurant_id === r.id).at(-1)?.created_at ?? null }
     })
   }
   const { data, error } = await sb.rpc('admin_food_payouts')
@@ -261,8 +262,11 @@ export async function foodPayoutHistory(restaurantId) {
 
 /** The food bill settings (store_settings). Null before update 064. */
 export async function foodSettings() {
-  if (!sb) return { ...demo.settings }
-  const { data, error } = await sb.from('store_settings').select(Object.keys(FOOD_SETTING_DEFAULTS).join(',')).eq('id', 1).maybeSingle()
+  if (!sb) return { food_leave_minutes: 10, ...demo.settings }
+  const ask = (cols) => sb.from('store_settings').select(cols.join(',')).eq('id', 1).maybeSingle()
+  let { data, error } = await ask([...Object.keys(FOOD_SETTING_DEFAULTS), 'food_leave_minutes'])
+  // Before update 073 there is no food_leave_minutes: the rest still works (the page hides that field).
+  if (error && /food_leave_minutes/.test(error.message)) ({ data, error } = await ask(Object.keys(FOOD_SETTING_DEFAULTS)))
   if (error) {
     if (missing(error)) return null
     throw new Error(error.message)
@@ -314,6 +318,8 @@ export async function saveFoodSettings(values) {
     food_free_delivery_above: Math.max(0, Math.round(Number(values.food_free_delivery_above) || 0)),
     food_platform_fee: Math.max(0, Math.round(Number(values.food_platform_fee) || 0)),
     food_gst_percent: Math.min(28, Math.max(0, Math.round((Number(values.food_gst_percent) || 0) * 100) / 100)),
+    // Update 073: minutes between "restaurant has the order" and the rider leaving for it.
+    ...(values.food_leave_minutes !== undefined ? { food_leave_minutes: Math.min(60, Math.max(0, Math.round(Number(values.food_leave_minutes) || 0))) } : {}),
   }
   if (!sb) {
     Object.assign(demo.settings, row)
@@ -356,19 +362,21 @@ export function agoText(iso) {
 
 /* ---------- rider page (/partner) ---------- */
 
-/** Food trips for this rider: their own and confirmed ones nobody took, with the step they are at (update 067),
- *  plus what they delivered today. */
+/** Food trips for this rider (update 073): new orders nobody has taken (to take), their own trips, and what
+ *  they delivered today. Before 073 only orders the desk confirmed. */
 export async function partnerFoodOrders() {
   if (!sb) {
-    return demo.orders.filter((o) => ['confirmed', 'picked'].includes(o.status) || (o.status === 'delivered' && o.rider_id === 'me'))
+    return demo.orders.filter((o) => (['placed', 'confirmed', 'picked'].includes(o.status) && (!o.rider_id || o.rider_id === 'me'))
+      || (o.status === 'delivered' && o.rider_id === 'me'))
       .map((o) => ({
         id: o.id, no: o.order_number, status: o.status, stage: o.rider_stage ?? '', created_at: o.created_at,
-        confirmed_at: o.confirmed_at, to_restaurant_at: o.to_restaurant_at ?? null, at_restaurant_at: o.at_restaurant_at ?? null,
-        picked_at: o.picked_at, arriving_at: o.arriving_at ?? null, delivered_at: o.delivered_at,
+        assigned_at: o.assigned_at ?? null, confirmed_at: o.confirmed_at, leave_at: o.leave_at ?? null,
+        picked_at: o.picked_at, delivered_at: o.delivered_at,
         restaurant: o.restaurant_name, pickup_address: o.restaurant_address, pickup_area: 'DKD Road', pickup_phone: '9876543210',
         pickup_map: '', pickup_lat: 26.705, pickup_lng: 93.968, prep_minutes: 20, pay_when: 'pickup', restaurant_upi: 'fooddelight@upi',
         name: o.customer_name, phone: o.customer_phone, address: o.address, area: o.area, lat: o.lat, lng: o.lng, distance_km: 1.8,
         note: o.note, payment: o.payment_method, total: o.total, menu_total: o.menu_total, packing_fee: o.packing_fee,
+        restaurant_paid: o.restaurant_paid ?? (o.status === 'delivered' && o.rider_id === 'me' ? o.menu_total : 0),
         mine: o.rider_id === 'me', rider_id: o.rider_id, rider_name: o.rider_id ? 'You' : '',
         items: o.food_order_items.map((i) => ({ name: i.name, variant: i.variant, qty: i.qty, diet: i.diet })),
       }))
@@ -381,16 +389,24 @@ export async function partnerFoodOrders() {
   return (data ?? []).map((o) => ({ stage: '', ...o }))
 }
 
-/** One step of a food trip (update 067): to_restaurant, at_restaurant, picked, arriving, delivered.
- *  An order nobody took becomes the rider's. Before 067 only picked / delivered exist. */
+const LEAVE_DEMO_MIN = 10
+
+/**
+ * One step of a food trip (update 073): take, confirmed (the restaurant has the order), picked, delivered; and,
+ * before the restaurant has it, release (give it back) or restaurant_no (the restaurant can't make it).
+ */
 export async function partnerFoodStep(id, step) {
   if (!sb) {
     const o = demo.orders.find((x) => x.id === id)
     if (!o) return
     const now = new Date().toISOString()
-    o.rider_id ??= 'me'
-    if (step === 'to_restaurant' || step === 'at_restaurant' || step === 'arriving') Object.assign(o, { rider_stage: step, [`${step}_at`]: now })
-    if (step === 'picked') Object.assign(o, { status: 'picked', rider_stage: '', picked_at: now })
+    if (step === 'release') return void Object.assign(o, { rider_id: null, assigned_at: null })
+    if (step === 'restaurant_no') return void Object.assign(o, { status: 'cancelled', cancel_reason: 'The restaurant could not take this order' })
+    if (!o.rider_id) Object.assign(o, { rider_id: 'me', assigned_at: now })
+    if (step === 'confirmed' && o.status === 'placed') {
+      Object.assign(o, { status: 'confirmed', confirmed_at: now, leave_at: new Date(Date.now() + LEAVE_DEMO_MIN * 60_000).toISOString() })
+    }
+    if (step === 'picked') Object.assign(o, { status: 'picked', rider_stage: '', picked_at: now, restaurant_paid: o.menu_total })
     if (step === 'delivered') Object.assign(o, { status: 'delivered', delivered_at: now })
     return
   }
@@ -400,20 +416,25 @@ export async function partnerFoodStep(id, step) {
     check(await sb.rpc('partner_food_status', { p_order_id: id, p_status: step }))
     return
   }
-  if (missing(error)) throw new Error('Run database update 067 for the trip steps. Picked up and Delivered work already.')
+  if (missing(error)) throw new Error('Run database update 073 first (Supabase → SQL Editor).')
   throw new Error(error.message)
 }
 
 /** Kept for older callers: picked / delivered. */
 export const partnerFoodStatus = (id, status) => partnerFoodStep(id, status)
 
-/** The step a food order is at, for the customer, the desk and the rider (update 067). */
+/** Where a food order is, for the desk (update 073: the riders take new orders themselves). */
 export function foodStageText(o) {
-  if (o.status === 'confirmed') {
-    if (o.rider_stage === 'at_restaurant') return 'Rider at the restaurant'
-    if (o.rider_stage === 'to_restaurant') return 'Rider going to the restaurant'
-    return 'Being prepared'
+  const rider = o.rider_name?.trim() || 'A rider'
+  if (o.status === 'placed') {
+    if (!o.rider_id) return `Riders' phones are ringing · nobody has taken it yet (${agoText(o.created_at).replace(' ago', '')})`
+    return `${rider} took it · calling the restaurant`
   }
-  if (o.status === 'picked') return o.rider_stage === 'arriving' ? 'Rider at the door' : 'On the way to the customer'
+  if (o.status === 'confirmed') {
+    if (!o.rider_id) return 'Restaurant has it · no rider yet'
+    const leave = o.leave_at ? new Date(o.leave_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : ''
+    return `Restaurant has it · ${rider} ${leave && new Date(o.leave_at) > new Date() ? `leaves at ${leave}` : 'is on the way to the restaurant'}`
+  }
+  if (o.status === 'picked') return `${rider} picked it up · on the way to the customer`
   return FOOD_STATUS[o.status]?.[0] ?? o.status
 }

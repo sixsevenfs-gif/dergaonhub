@@ -174,10 +174,13 @@ export function describeActivity(a, names = {}) {
       if (a.action === 'insert') { text = `Placed food order ${L} at ${ch.restaurant_name || 'a restaurant'} · ${rupee(Number(ch.total) || 0)}`; break }
       const s = has('status') ? now('status') : ''
       let used = ['status']
-      if (s === 'confirmed') text = `Confirmed food order ${L}`
+      if (s === 'confirmed') text = `Restaurant has food order ${L} (confirmed)`
       else if (s === 'picked') text = `Picked up food order ${L}`
       else if (s === 'delivered') text = `Delivered food order ${L}`
       else if (s === 'cancelled') { text = `Cancelled food order ${L}${now('cancel_reason') ? `: ${now('cancel_reason')}` : ''}`; used = ['status', 'cancel_reason'] }
+      // Update 073: riders take new food orders themselves, and can give one back before the restaurant has it.
+      else if (has('rider_id') && now('rider_id') && now('rider_id') === a.actor_id) { text = `Took food order ${L}`; used = ['rider_id'] }
+      else if (has('rider_id') && !now('rider_id') && was('rider_id') === a.actor_id) { text = `Gave back food order ${L} (it rang the others again)`; used = ['rider_id'] }
       else if (has('rider_id') && now('rider_id')) { text = `Gave food order ${L} to ${fmt('rider_id', now('rider_id'), names)}`; used = ['rider_id'] }
       else if (has('rider_id')) { text = `Took food order ${L} back from ${fmt('rider_id', was('rider_id'), names)}`; used = ['rider_id'] }
       else { text = `Changed food order ${L}`; used = [] }
