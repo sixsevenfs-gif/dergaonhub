@@ -313,6 +313,51 @@ export async function rainNotice() {
   return data
 }
 
+/* ---------- Coming soon page (update 076) ---------- */
+
+export const LAUNCH_DEFAULTS = {
+  launch_on: false, launch_at: null, launch_label: 'Launching on 01 Dec', launch_message: "We're getting the app ready for you.",
+  launch_note: 'Need groceries right now? Shop from our website.', launch_site: 'https://jholzo.com',
+}
+demo.launch = { ...LAUNCH_DEFAULTS, launch_at: new Date(Date.now() + 100 * 3600_000).toISOString() }
+const LAUNCH_COLS = Object.keys(LAUNCH_DEFAULTS).join(',')
+
+/** The Coming soon settings. Null before update 076. */
+export async function comingSoon() {
+  if (!sb) return { ...demo.launch }
+  const { data, error } = await sb.from('store_settings').select(LAUNCH_COLS).eq('id', 1).maybeSingle()
+  if (error) {
+    if (missing(error)) return null
+    throw new Error(error.message)
+  }
+  return data
+}
+
+export async function saveComingSoon(v) {
+  const site = String(v.launch_site ?? '').trim() || LAUNCH_DEFAULTS.launch_site
+  if (!/^https:\/\//.test(site)) throw new Error('The website link must start with https://')
+  const row = {
+    launch_on: !!v.launch_on,
+    launch_at: v.launch_at || null,
+    launch_label: String(v.launch_label ?? '').trim().slice(0, 60),
+    launch_message: String(v.launch_message ?? '').trim().slice(0, 160),
+    launch_note: String(v.launch_note ?? '').trim().slice(0, 160),
+    launch_site: site,
+  }
+  if (row.launch_on && !row.launch_at) throw new Error('Set the launch date and time first.')
+  if (!sb) {
+    Object.assign(demo.launch, row)
+    return
+  }
+  check(await sb.from('store_settings').update(row).eq('id', 1))
+}
+
+/** Hours, minutes and seconds left until `at` (all hours, no days), never below 0. */
+export function launchLeft(at, now = Date.now()) {
+  const s = Math.max(0, Math.floor((new Date(at).getTime() - now) / 1000))
+  return { h: Math.floor(s / 3600), m: Math.floor((s % 3600) / 60), s: s % 60, done: s === 0 }
+}
+
 export async function saveRain({ rain_on, rain_message, rain_place }) {
   const row = {
     rain_on: !!rain_on,

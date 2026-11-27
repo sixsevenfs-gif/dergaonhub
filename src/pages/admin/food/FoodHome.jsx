@@ -10,6 +10,7 @@ import { foodOrdersBetween, foodReportCSV, foodRestaurants, foodSales, fssaiDays
 import { downloadCSV } from '../../../lib/report.js'
 import { SalesBars } from '../DayReport.jsx'
 import { NeedsUpdate } from './FoodBits.jsx'
+import { RainSwitch } from '../app/AppStatusExtras.jsx'
 
 const RANGES = [
   ['today', 'Today', 0],
@@ -80,6 +81,8 @@ export default function FoodHome() {
             : <Tile label="Customers today" value={today.customers} />}
         </div>
       )}
+
+      {isOwner && <RainSwitch />}
 
       {ending.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BellRing, CheckCircle2, CloudRain, Phone, Smartphone, UserRound } from 'lucide-react'
 import Toggle from '../../../components/Toggle.jsx'
 import { lbtn, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
@@ -14,6 +15,43 @@ import LinkPicker from './LinkPicker.jsx'
 // maintenance, with a notification for just them once it is back.
 
 /* ---------- heavy rain ---------- */
+
+/** A small on/off for the rain notice where the owner looks first (Home, Food home); the message is on App status. */
+export function RainSwitch() {
+  const { data, reload } = useData(rainNotice)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  if (!data) return null
+  async function flip(on) {
+    setBusy(true)
+    setError('')
+    try {
+      await saveRain({ ...data, rain_on: on })
+      reload()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className={`${lcard} p-4 ${data.rain_on ? 'border-sky-300 bg-sky-50' : ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-start gap-3">
+          <CloudRain size={22} className={`mt-0.5 shrink-0 ${data.rain_on ? 'text-sky-700' : 'text-neutral-400'}`} />
+          <span>
+            <span className="block font-bold">{data.rain_on ? 'Heavy rain notice is ON' : 'Heavy rain notice'}</span>
+            <span className="text-sm text-neutral-500">
+              Tells customers orders may take longer. <Link to="/admin/app/status#rain" className="font-semibold text-sky-800 underline">Message and where it shows</Link>
+            </span>
+          </span>
+        </span>
+        <Toggle checked={!!data.rain_on} onChange={(on) => !busy && flip(on)} label="Heavy rain notice" />
+      </div>
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+    </section>
+  )
+}
 
 export function RainCard() {
   const { data, reload } = useData(rainNotice)

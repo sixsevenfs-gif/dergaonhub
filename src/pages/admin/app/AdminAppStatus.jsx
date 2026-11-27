@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, ShoppingBasket, UtensilsCrossed, Wrench } from 'lucide-react'
 import { lbtn, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
@@ -9,6 +9,7 @@ import { DEFAULT_PAUSE, DEFAULT_PAUSE_TITLE, appControl, saveAppControl } from '
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import AppHeader from './AppHeader.jsx'
 import { MaintenanceVisitors, RainCard } from './AppStatusExtras.jsx'
+import ComingSoonCard from './ComingSoon.jsx'
 import { AppHomePreview, MaintenancePreview, PhoneFrame } from './AppPreview.jsx'
 
 // Owner: the whole app Live, or in Maintenance (both apps show "Currently under maintenance" and nothing can be
@@ -28,6 +29,11 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const { data: stats } = useData(adminStats)
+  // Opened from "Message and where it shows" (#rain) or #coming-soon: go to that card.
+  useEffect(() => {
+    const id = window.location.hash.slice(1)
+    if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 300)
+  }, [])
   const { data: food } = useData(foodSettings)
   const set = (patch) => {
     setV({ ...v, ...patch })
@@ -53,10 +59,14 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
 
   return (
     <div className="space-y-4">
-      <AppHeader title="App status" text="Keep the app open, or close it for a while with a friendly full screen message. Both apps follow this at once. The heavy rain notice is here too." />
+      <AppHeader title="App status" text="The heavy rain notice, the Coming soon page before the launch, and maintenance. Both apps follow these within a minute." />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-4">
+          {/* The two used most, first (the rain notice used to sit at the very bottom). */}
+          <div id="rain"><RainCard /></div>
+          <div id="coming-soon"><ComingSoonCard /></div>
+          <h2 className="pt-2 text-lg font-bold">Maintenance</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ['live', 'Live', 'Everything works: customers shop, order and track as usual.', CheckCircle2, 'border-emerald-500 bg-emerald-50', 'bg-emerald-600'],
@@ -123,7 +133,6 @@ function StatusForm({ saved, msg, setMsg, onSaved }) {
           <p className="text-xs text-neutral-500">Works from iPhone version 1.1 and Android 1.1.0. The website is not closed by this.</p>
 
           <MaintenanceVisitors />
-          <RainCard />
         </div>
 
         <aside className="lg:sticky lg:top-36 lg:self-start">

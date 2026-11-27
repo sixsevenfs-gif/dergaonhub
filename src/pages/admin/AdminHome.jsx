@@ -8,6 +8,7 @@ import { adminListComplaints, adminListOrders, adminStats, getStore, ordersCheck
 import PaymentCheck from './PaymentCheck.jsx'
 import DayReport from './DayReport.jsx'
 import { RefundsCard } from './Refunds.jsx'
+import { RainSwitch } from './app/AppStatusExtras.jsx'
 import { useData } from '../../lib/useData.js'
 import { useLiveCheck } from '../../lib/useLiveCheck.js'
 import { useRole } from '../../lib/role.js'
@@ -56,6 +57,9 @@ export default function AdminHome() {
           <Toggle checked={!stats.paused} onChange={(open) => setPaused(!open)} label="Store open" />
         </section>
       )}
+
+      {/* The rain notice, one tap (update 071): it used to be only at the bottom of App → App status. */}
+      {isOwner && <RainSwitch />}
 
       {isOwner && (stats.otpOff || (stats.otpLeft != null && stats.otpLeft <= stats.otpAlertAt)) && (
         <Link to="/admin/settings" className={`${lcard} flex items-center justify-between gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-800`}>
