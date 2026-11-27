@@ -3,7 +3,7 @@ import { Bell, ImagePlus, Send, Smartphone, X } from 'lucide-react'
 import { lbtnDark, lbtnOutline, lcard, lfield } from '../../../components/ui.js'
 import { useData } from '../../../lib/useData.js'
 import { useAutoRefresh } from '../../../lib/useAutoRefresh.js'
-import { AUDIENCES, pushAudience, pushCampaigns, sendPush, uploadAppMedia } from '../../../lib/appAdmin.js'
+import { AUDIENCES, pushAudience, pushCampaigns, sendPush, shrunkNote, uploadAppMedia } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import LinkPicker from './LinkPicker.jsx'
 import AppHeader from './AppHeader.jsx'
@@ -18,6 +18,7 @@ export default function AdminNotifications() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [image, setImage] = useState('')
+  const [shrunk, setShrunk] = useState(null)
   const [link, setLink] = useState('')
   const [audience, setAudience] = useState('all')
   const [numbers, setNumbers] = useState('')
@@ -44,7 +45,7 @@ export default function AdminNotifications() {
     setBusy('photo')
     setMsg(null)
     try {
-      setImage(await uploadAppMedia(f, 'push', 1024, 200))
+      setImage(await uploadAppMedia(f, 'push', 1000, 100, setShrunk)) // a notification shows ~1000 px; 100 KB loads fast on slow data
     } catch (err) {
       setMsg({ error: err.message })
     } finally {
@@ -62,6 +63,7 @@ export default function AdminNotifications() {
       setTitle('')
       setBody('')
       setImage('')
+      setShrunk(null)
       reload()
     } catch (err) {
       setMsg({ error: err.message })
@@ -96,11 +98,12 @@ export default function AdminNotifications() {
 
         <div>
           <span className="text-sm font-semibold">Picture (optional)</span>
-          <p className="text-xs text-neutral-500">Shows big on Android. iPhones show the text.</p>
+          <p className="text-xs text-neutral-500">Shows big on Android and iPhone (iPhone from the next app version). Any photo is fine: it is made small (under 100 KB) before it is sent.</p>
           {image ? (
             <div className="relative mt-2 w-fit">
               <img src={image} alt="" className="h-28 rounded-xl object-cover" />
-              <button type="button" aria-label="Remove picture" onClick={() => setImage('')} className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900 text-white"><X size={14} /></button>
+              <button type="button" aria-label="Remove picture" onClick={() => { setImage(''); setShrunk(null) }} className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900 text-white"><X size={14} /></button>
+              {shrunk && <p className="mt-1 text-xs font-semibold text-emerald-700">{shrunkNote(shrunk)}</p>}
             </div>
           ) : (
             <button type="button" disabled={busy === 'photo'} onClick={() => file.current?.click()} className={`${lbtnOutline} mt-2 min-h-10 px-3 text-sm`}>

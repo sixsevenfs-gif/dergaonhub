@@ -4,7 +4,7 @@ import { lbtn, lbtnDanger, lbtnOutline, lcard, lfield } from '../../../component
 import { useData } from '../../../lib/useData.js'
 import { listProducts } from '../../../lib/store.js'
 import { foodRestaurants } from '../../../lib/foodAdmin.js'
-import { LINKS, PLACES, bannerLive, deleteBanner, linkKind, listBanners, reorderBanners, saveBanner, uploadAppMedia } from '../../../lib/appAdmin.js'
+import { LINKS, PLACES, bannerLive, deleteBanner, linkKind, listBanners, reorderBanners, saveBanner, shrunkNote, uploadAppMedia } from '../../../lib/appAdmin.js'
 import { NeedsUpdate } from '../food/FoodBits.jsx'
 import AppHeader from './AppHeader.jsx'
 import { AppHomePreview, PhoneFrame } from './AppPreview.jsx'
@@ -200,6 +200,7 @@ function BannerEditor({ banner, defaultPlace, nextSort, onDraft, onDone }) {
   const [linkDone, setLinkDone] = useState(true)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [shrunk, setShrunk] = useState(null)
   const file = useRef(null)
 
   // Every change shows in the phone at once.
@@ -220,7 +221,7 @@ function BannerEditor({ banner, defaultPlace, nextSort, onDraft, onDone }) {
     setBusy('photo')
     setError('')
     try {
-      set({ image: await uploadAppMedia(f, 'banners', 1320, 260) })
+      set({ image: await uploadAppMedia(f, 'banners', 1320, 180, setShrunk) }) // sharp across a phone, under 180 KB
     } catch (err) {
       setError(err.message)
     } finally {
@@ -249,10 +250,11 @@ function BannerEditor({ banner, defaultPlace, nextSort, onDraft, onDone }) {
 
       <div>
         <span className="text-sm font-semibold">Picture</span>
-        <p className="text-xs text-neutral-500">Wide, best 1320 × 600 (2.2 : 1). Keep words away from the edges.</p>
+        <p className="text-xs text-neutral-500">Wide, best 1320 × 600 (2.2 : 1). Keep words away from the edges. Any photo is fine: it is made small (under 180 KB).</p>
         {v.image ? (
           <div className="mt-2 space-y-2">
             <img src={v.image} alt="" className="aspect-[2.2/1] w-full rounded-2xl object-cover" />
+            {shrunk && <p className="text-xs font-semibold text-emerald-700">{shrunkNote(shrunk)}</p>}
             <button type="button" disabled={!!busy} onClick={() => file.current?.click()} className={`${lbtnOutline} min-h-10 px-3 text-sm`}>
               <ImagePlus size={16} /> {busy === 'photo' ? 'Uploading…' : 'Change picture'}
             </button>

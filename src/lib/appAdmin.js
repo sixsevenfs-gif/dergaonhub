@@ -21,12 +21,23 @@ function dataUrlBlob(dataUrl) {
   return new Blob([bytes], { type: head.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg' })
 }
 
-/** Shrinks a photo and puts it in the public app-media bucket; returns its web address. */
-export async function uploadAppMedia(file, folder, maxSize = 1200, maxKB = 220) {
+/** "2.4 MB" / "96 KB" */
+export const fileSize = (bytes) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
+
+/** How much a photo was shrunk, for the line under it: "Made small: 2.4 MB → 96 KB". */
+export const shrunkNote = (s) => (s ? `Made small: ${fileSize(s.from)} → ${fileSize(s.to)}` : '')
+
+/**
+ * Shrinks a photo (any size, a 5 MB camera photo is fine) and puts it in the public app-media bucket; returns its
+ * web address. onShrunk({ from, to }) gets the sizes in bytes before and after.
+ */
+export async function uploadAppMedia(file, folder, maxSize = 1200, maxKB = 220, onShrunk) {
   const dataUrl = await compressImage(file, maxSize, maxKB)
+  const blob = dataUrlBlob(dataUrl)
+  onShrunk?.({ from: file.size, to: blob.size })
   if (!sb) return dataUrl
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
-  check(await sb.storage.from('app-media').upload(path, dataUrlBlob(dataUrl), { contentType: 'image/jpeg', cacheControl: '31536000' }))
+  check(await sb.storage.from('app-media').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' }))
   return sb.storage.from('app-media').getPublicUrl(path).data.publicUrl
 }
 
