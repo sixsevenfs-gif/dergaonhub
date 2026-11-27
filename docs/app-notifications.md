@@ -9,9 +9,9 @@ Every notification the apps get by themselves, with its exact words. The words l
 
 | When | Title | Message |
 |---|---|---|
-| Order placed with UPI (not paid yet) | Order received 🧾 | We got your order #DG-1001. Finish the UPI payment and we will confirm it right away. |
-| Order placed, waiting for confirmation | Order received 🧾 | We got your order #DG-1001. We will confirm it in a few minutes. |
-| Order confirmed (cash orders: straight away) | Order confirmed ✅ | Your order #DG-1001 is confirmed. We will deliver it this evening. *(express: "by 6:30 PM")* |
+| Order placed | Order received 🧾 | We got your order #DG-1001. We will deliver it within 30–45 minutes. |
+| Order placed with UPI (not paid yet) | Order received 🧾 | We got your order #DG-1001. Finish the UPI payment and we will deliver it within 30–45 minutes. |
+| Order confirmed | *(nothing; "Order received" already said it)* | |
 | Rider leaves with it | Your order is on the way 🛵 | Our rider has left with your order #DG-1001. It will reach you in 10–15 minutes. Please keep ₹245 ready (cash or UPI). *(paid: "Already paid ✓")* |
 | Rider reaches the door | Rider at your door 📍 | Our rider has reached your location with order #DG-1001. Please keep ₹245 ready (cash or UPI). |
 | Delivered | Your order has been delivered 🎉 | Order #DG-1001 is delivered. Thank you for shopping with Jholzo. Keep shopping! |

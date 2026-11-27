@@ -36,7 +36,8 @@ const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour:
 
 type Note = { title: string; body: string; link: string; kind: string; channel: 'orders' | 'offers'; image?: string; tag?: string }
 
-// Grocery: every step of the order (update 077 adds "received"). The list of all messages is in
+// Grocery: every step of the order. Since update 077 a new order gets "received" (30–45 minutes) and there is no
+// separate "confirmed" (the case stays for calls already queued). The list of all messages is in
 // docs/app-notifications.md.
 function groceryNote(kind: string, o: Record<string, any>): Note | null {
   const n = `#${o.order_number}`
@@ -48,8 +49,8 @@ function groceryNote(kind: string, o: Record<string, any>): Note | null {
     case 'placed': return {
       ...base, title: 'Order received 🧾',
       body: o.payment_method === 'upi_now' && !paid
-        ? `We got your order ${n}. Finish the UPI payment and we will confirm it right away.`
-        : `We got your order ${n}. We will confirm it in a few minutes.`,
+        ? `We got your order ${n}. Finish the UPI payment and we will deliver it within 30–45 minutes.`
+        : `We got your order ${n}. We will deliver it within 30–45 minutes.`,
     }
     case 'confirmed': return { ...base, title: 'Order confirmed ✅', body: `Your order ${n} is confirmed. We will deliver it ${when}.` }
     case 'on_the_way': return { ...base, title: 'Your order is on the way 🛵', body: `Our rider has left with your order ${n}. It will reach you in 10–15 minutes. ${keepReady}` }

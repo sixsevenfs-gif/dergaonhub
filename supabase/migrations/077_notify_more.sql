@@ -1,8 +1,9 @@
 -- 077: more app notifications.
---  1. "Order received" as soon as an order is placed (grocery orders that wait for a payment check, and every food
---     order). The other steps were already sent: grocery confirmed / on the way / arriving / delivered / cancelled,
---     food confirmed (the rider called the restaurant) / picked up / delivered / cancelled. A rider taking an order
---     sends nothing. The words are in supabase/functions/push-notify/index.ts.
+--  1. "Order received" as soon as an order is placed. Grocery: it says "we will deliver within 30–45 minutes" and
+--     replaces the old "Order confirmed" notification; then on the way / arriving / delivered / cancelled.
+--     Food: received, confirmed (the rider called the restaurant) / picked up / delivered / cancelled. A rider
+--     taking an order sends nothing. The words are in supabase/functions/push-notify/index.ts and
+--     docs/app-notifications.md.
 --  2. Notifications can go to "All customers": everyone logged in to the app with a customer account.
 --  3. Jholzo Money to every customer at once (Admin → Jholzo Money → Give to all customers), owner only, with one
 --     line in the activity log for the batch. The app notification for it is sent from the admin (a notification
@@ -18,10 +19,11 @@ declare
 begin
   if tg_table_name = 'orders' then
     if tg_op = 'INSERT' then
-      -- Cash orders start confirmed (update 037); the others are "received" until they are confirmed (update 077).
-      v_kind := case new.status when 'confirmed' then 'confirmed' when 'placed' then 'placed' end;
+      -- Update 077: one "Order received, we deliver within 30–45 minutes" for every new grocery order (cash orders
+      -- start confirmed, update 037); no separate "confirmed" notification any more.
+      v_kind := case when new.status in ('placed', 'confirmed') then 'placed' end;
     elsif new.status is distinct from old.status then
-      v_kind := case new.status when 'confirmed' then 'confirmed' when 'completed' then 'delivered' when 'cancelled' then 'cancelled' end;
+      v_kind := case new.status when 'completed' then 'delivered' when 'cancelled' then 'cancelled' end;
     elsif coalesce(new.dispatch, '') <> coalesce(old.dispatch, '') and coalesce(new.dispatch, '') in ('on_the_way', 'arriving') then
       v_kind := new.dispatch;
     end if;
