@@ -180,7 +180,7 @@ export default function DetailsTab({ r, patch, toast, autoFocus, onDeleted }) {
         </Field>
         {many ? (
           <Field label="Cover photos" hint="Up to 8: shop front and their best dishes. The app shows them one after another on the restaurant card and page. The first one (Main) shows first; move photos with the arrows.">
-            <CoverPhotos paths={covers} urlOf={(p) => store.photoUrl(p)} busy={coverBusy} onAdd={addCovers} onRemove={removeCover} onMove={moveCover} />
+            <CoverPhotos paths={covers} urlOf={(p) => store.photoUrl(p)} busy={coverBusy} onAdd={addCovers} onRemove={removeCover} onMove={moveCover} aspect={16 / 9} />
           </Field>
         ) : (
           <Field label="Cover photo" hint="Shop front or their best dish. Shown on the restaurant card in the app. (Several photos come with database update 075.)">
@@ -193,6 +193,8 @@ export default function DetailsTab({ r, patch, toast, autoFocus, onDeleted }) {
                 patch('cover_photo', '')
               }}
               label="Add cover photo"
+              aspect={16 / 9}
+              cropTitle="Crop the cover photo"
               tall
             />
           </Field>

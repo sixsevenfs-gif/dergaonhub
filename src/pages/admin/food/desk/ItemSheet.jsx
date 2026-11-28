@@ -182,7 +182,7 @@ export default function ItemSheet({ item, restaurantId, sections, nextSort, toas
           <Area rows={2} value={f.description} onChange={(v) => set('description', v)} placeholder="e.g. 8 pcs, served with red chutney" />
         </Field>
         <Field label="Photo (optional)" hint="Only a real photo of their dish. No photo is fine.">
-          <SinglePhoto url={store.photoUrl(f.photo)} busy={photoBusy} onPick={photo} onRemove={() => set('photo', '')} label="Add dish photo" />
+          <SinglePhoto url={store.photoUrl(f.photo)} busy={photoBusy} onPick={photo} onRemove={() => set('photo', '')} label="Add dish photo" aspect={1} cropTitle="Crop the dish photo" />
         </Field>
         <div className="card space-y-3 p-3.5">
           <Toggle checked={f.available} onChange={(v) => set('available', v)} label="Available now" hint="Switch off when it is finished for the day." />

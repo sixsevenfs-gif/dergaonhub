@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react'
 import { Camera, ChevronLeft, ChevronRight, FileText, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { Viewer } from './ui.jsx'
+import CropSheet from './Crop.jsx'
 
-// One photo (cover, dish). Phone shows "Take photo / Photo library" when tapped.
-export function SinglePhoto({ url, onPick, onRemove, busy, label = 'Add photo', tall = false }) {
+// One photo (cover, dish). Phone shows "Take photo / Photo library" when tapped. With `aspect` the photo is
+// cropped to that shape first (CropSheet), the shape the apps show.
+export function SinglePhoto({ url, onPick, onRemove, busy, label = 'Add photo', tall = false, aspect = null, cropTitle }) {
   const input = useRef(null)
   const [view, setView] = useState(false)
+  const [pending, setPending] = useState(null)
   return (
     <div className="flex items-center gap-3">
       <button
@@ -38,10 +41,12 @@ export function SinglePhoto({ url, onPick, onRemove, busy, label = 'Add photo', 
         onChange={(e) => {
           const f = e.target.files?.[0]
           e.target.value = ''
-          if (f) onPick(f)
+          if (f) (aspect ? setPending(f) : onPick(f))
         }}
       />
       {view && <Viewer src={url} onClose={() => setView(false)} />}
+      <CropSheet file={pending} aspect={aspect || 1} title={cropTitle} onCancel={() => setPending(null)}
+        onDone={(f) => { setPending(null); onPick(f) }} />
     </div>
   )
 }
@@ -104,9 +109,24 @@ export function FileTiles({ files, onAdd, onDelete, busy, pdf = true }) {
 
 // Several cover photos (update 075): the app shows them one after another on the restaurant card and page. The
 // first is the main one (also the photo apps from before the update show). Tap a photo to see it big.
-export function CoverPhotos({ paths, urlOf, onAdd, onRemove, onMove, busy, max = 8 }) {
+export function CoverPhotos({ paths, urlOf, onAdd, onRemove, onMove, busy, max = 8, aspect = null }) {
   const input = useRef(null)
   const [view, setView] = useState('')
+  // Photos waiting to be cropped one by one, and the ones done (added together at the end).
+  const [queue, setQueue] = useState([])
+  const [done, setDone] = useState([])
+  function next(cropped) {
+    const all = cropped ? [...done, cropped] : done
+    const rest = queue.slice(1)
+    if (rest.length) {
+      setDone(all)
+      setQueue(rest)
+    } else {
+      setQueue([])
+      setDone([])
+      if (all.length) onAdd(all)
+    }
+  }
   const room = max - paths.length
   return (
     <div>
@@ -155,10 +175,13 @@ export function CoverPhotos({ paths, urlOf, onAdd, onRemove, onMove, busy, max =
         onChange={(e) => {
           const files = [...(e.target.files ?? [])].slice(0, room)
           e.target.value = ''
-          if (files.length) onAdd(files)
+          if (files.length) (aspect ? setQueue(files) : onAdd(files))
         }}
       />
       {view && <Viewer src={view} onClose={() => setView('')} />}
+      <CropSheet file={queue[0] ?? null} aspect={aspect || 1}
+        title={queue.length > 1 ? `Crop the cover photo (${done.length + 1} of ${done.length + queue.length})` : 'Crop the cover photo'}
+        onCancel={() => next(null)} onDone={(f) => next(f)} />
     </div>
   )
 }
