@@ -5,14 +5,32 @@
 //   Veg Momos | Half 60 | Full 100   ← half / full (or any labels)
 //   Paneer Roll ₹90 (V)              ← ₹, "-", ":", dots between, (V) (NV) (E) marks
 //   Chicken Chowmein 80/120          ← two prices without labels = Half / Full
+//   Chicken Momo (HALF/FULL) 50/100  ← sizes named in the name (Half/Full, Small/Large) label the prices
 
-export const CHATGPT_PROMPT = `Read this restaurant menu photo. Write every item on its own line, in exactly this format, and nothing else:
+export const CHATGPT_PROMPT = `Read this restaurant menu photo carefully and turn it into a plain list I can paste into my app.
 
-SECTION NAME (on its own line, like BIRYANI or MOMOS)
-Item name | price
-Item name | Half 120 | Full 200   (when there are two prices)
+Rules:
+1. Write ONLY the list. No intro, no notes, no table, no bold, no bullets.
+2. Each section heading on its own line in CAPITALS, with no price. Example: MOMO
+3. Each item on its own line: Item name | price
+4. When an item has two or more prices (like 50/100, HALF/FULL or SMALL/LARGE), write every size with its label, using the labels the menu uses:
+   Chicken Momo | Half 50 | Full 100
+   Chicken Popcorn | Small 70 | Large 130
+   Never put the sizes or (HALF/FULL) in the item name.
+5. Prices are plain numbers: no ₹, no Rs, no /-.
+6. Keep piece counts in the name, written like (6 pcs). Correct spelling mistakes (Peice = pcs, Pokora = Pakora, Lolipop = Lollipop).
+7. Put (V) after veg items, (NV) after chicken, mutton, fish or other meat items, and (E) after egg items.
+8. Combo meals: one line each, with what it includes after a dash:
+   Combo 1 - Crispy Fried Chicken (Bucket), Chicken Popcorn (Small), Chicken Burger, French Fries, Cold Drink | 260 (NV)
+9. Write names in normal Title Case (Chicken Momo, not CHICKEN MOMO).
+10. Include every item exactly once. Do not add anything that is not on the menu.
 
-Put (V) after veg items, (NV) after non-veg items and (E) after egg items. Keep the names as on the menu. Do not add items that are not on the menu.`
+Example of the answer:
+MOMO
+Chicken Momo | Half 50 | Full 100 (NV)
+Chicken Pan Fried Momo (6 pcs) | 100 (NV)
+BURGER
+Veg Burger | 50 (V)`
 
 const NONVEG = /\b(chicken|mutton|fish|prawn|prawns|keema|kheema|beef|pork|duck|crab|lamb|meat|non[\s-]?veg|tandoori chicken|murg|murgh|machli|mach)\b/i
 const EGG = /\b(egg|eggs|anda|omelet|omelette|omlet)\b/i
@@ -80,7 +98,15 @@ export function parseMenu(text, defaultSection = '') {
       }
     }
     const diet = dietFrom(line, sectionDiet)
+    // Sizes written in the name, "(HALF/FULL)" or "(Small / Large)": they name the prices and leave the name.
+    const sizes = name.match(/\(\s*([a-z]+(?:\s*\/\s*[a-z]+)+)\s*\)/i)
+    if (sizes && !/^(v|nv|e|veg|egg)$/i.test(sizes[1])) {
+      const labels = sizes[1].split('/').map((x) => titleCase(x.trim().toUpperCase()))
+      name = name.replace(sizes[0], ' ')
+      if (labels.length === variants.length && variants.every((v) => !v.label)) variants.forEach((v, i) => { v.label = labels[i] })
+    }
     name = titleCase(tidy(name))
+    name = name.replace(/\(\s*(\d+)\s*(?:pcs?|pieces?|peices?|pc)\s*\)/i, '($1 pcs)')
     if (!name) continue
     // Two prices without labels are almost always half / full on Indian menus.
     if (variants.length === 2 && variants.every((v) => !v.label)) {
