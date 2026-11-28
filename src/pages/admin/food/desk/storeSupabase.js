@@ -83,6 +83,14 @@ export const supabaseStore = {
     if (!items.length) return []
     return check(await sb.from('food_menu_items').insert(items.map((it) => ({ ...pickItem(it), restaurant_id: restaurantId }))).select('*'))
   },
+  // Every dish of one restaurant, with their photos (to paste a new menu). Returns how many went.
+  async clearMenu(restaurantId) {
+    const items = await this.listItems(restaurantId)
+    const photos = [...new Set(items.map((i) => i.photo).filter(Boolean))]
+    if (photos.length) await sb.storage.from('food').remove(photos)
+    check(await sb.from('food_menu_items').delete().eq('restaurant_id', restaurantId))
+    return items.length
+  },
   async deleteItem(item) {
     if (item.photo) await sb.storage.from('food').remove([item.photo])
     check(await sb.from('food_menu_items').delete().eq('id', item.id))

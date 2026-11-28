@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ClipboardCopy, ClipboardPaste, Download, Plus, Search, Star, UtensilsCrossed } from 'lucide-react'
+import { ClipboardCopy, ClipboardPaste, Download, Plus, Search, Star, Trash2, UtensilsCrossed } from 'lucide-react'
 import { store } from './store.js'
 import { DIETS, priceText } from './meta.js'
 import { Button, Switch } from './ui.jsx'
@@ -52,6 +52,7 @@ export default function MenuTab({ r, items, setItems, toast }) {
   const [editing, setEditing] = useState(null) // item, or {} for a new one
   const [pasting, setPasting] = useState(false)
   const [q, setQ] = useState('')
+  const [clearing, setClearing] = useState(false)
   const sections = useMemo(() => [...new Set(items.map((i) => i.section?.trim()).filter(Boolean))], [items])
   const shown = q.trim() ? items.filter((i) => `${i.name} ${i.section}`.toLowerCase().includes(q.trim().toLowerCase())) : items
   const nextSort = () => items.reduce((m, i) => Math.max(m, i.sort || 0), 0) + 1
@@ -76,6 +77,22 @@ export default function MenuTab({ r, items, setItems, toast }) {
     }
   }
 
+  // Every dish of this restaurant goes (with its photos), to paste a fresh menu. Other restaurants are untouched.
+  async function clearAll() {
+    const ok = window.confirm(`Delete all ${items.length} dishes of ${r.name || 'this restaurant'}?\n\nTheir photos go too, and this can't be undone. Then you can paste the new menu.`)
+    if (!ok) return
+    setClearing(true)
+    try {
+      const n = await store.clearMenu(r.id)
+      setItems([])
+      setQ('')
+      toast(`Menu cleared: ${n} dish${n === 1 ? '' : 'es'} deleted. Now tap Paste menu.`)
+    } catch (e) {
+      toast(e)
+    }
+    setClearing(false)
+  }
+
   function download() {
     const blob = new Blob([csv(items)], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -95,6 +112,12 @@ export default function MenuTab({ r, items, setItems, toast }) {
           <ClipboardPaste size={17} /> Paste menu
         </Button>
       </div>
+
+      {items.length > 0 && (
+        <button onClick={clearAll} disabled={clearing} className="press flex w-full items-center justify-center gap-1.5 rounded-2xl border border-rose-200 bg-white py-2.5 text-[13.5px] font-semibold text-rose-700 disabled:opacity-50">
+          <Trash2 size={15} /> {clearing ? 'Clearing…' : `Clear all menu (${items.length} dishes)`}
+        </button>
+      )}
 
       {items.length === 0 ? (
         <div className="card px-6 py-10 text-center">

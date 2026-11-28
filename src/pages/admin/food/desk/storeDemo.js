@@ -160,6 +160,15 @@ export const demoStore = {
     for (const it of items) out.push(await this.saveItem({ ...it, restaurant_id: restaurantId }))
     return out
   },
+  async clearMenu(restaurantId) {
+    const d = load()
+    const gone = d.items.filter((x) => x.restaurant_id === restaurantId)
+    for (const it of gone) if (it.photo) delete d.photos[it.photo]
+    d.items = d.items.filter((x) => x.restaurant_id !== restaurantId)
+    save()
+    return gone.length
+  },
+
   async deleteItem(item) {
     const d = load()
     if (item.photo) delete d.photos[item.photo]
